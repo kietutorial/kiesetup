@@ -1,0 +1,63 @@
+Wrapping For Project: Organizational Unit
+---------------------------------------------------------
+Home
+Authoring->Administration->Authoring
+Organizational Unit->Manage Organizational Units->Add Button
+Organizational Unit:
+Name: Leisure
+Default grou: org.training.leisure
+Owner: admin
+
+
+Create a Repository (git)
+---------------------------------------------------------
+Home
+Authoring->Repositores->New Repository
+Basic Setting (checked)
+Repository Name: nautic
+Organization Unit: Leisure
+Manage Repositoy (checked)
+Next->Multi-project Repository (checked)
+Automatically Configure Branches (checked)
+[Finish]
+
+
+
+Create Project
+---------------------------------------------------------
+Authoring->New Item->Project
+New Project Wizard (checked)
+Project name: swimmingPool
+Group ID: org.training.leisure
+Artifact ID: swimmingPool
+Version: 1.0.0-SNAPSHOT
+
+Project general settings->dependencies
+Group ID: org.chtijbug.drools
+Artifact ID: drools-framework-swimming-pool-model
+Version: 2.0.0-SNAPSHOT
+
+
+The version you should use now is 2.0.10.
+Select dependencies: org.chtijbug.drools->Add all
+
+
+
+Repository View
+---------------------------------------------------------
+Authoring->Repository View
+Click on the pom.xml file
+
+Package-names-white-list:
+org.chtijbug.example.swimmingpool
+
+
+
+
+
+
+
+
+
+
+
