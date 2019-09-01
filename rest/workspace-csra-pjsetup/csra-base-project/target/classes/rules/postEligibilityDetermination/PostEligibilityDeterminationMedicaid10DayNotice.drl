@@ -1,0 +1,458 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.StartDateType;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.utils.ext.HxDateUtils;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.ext.PostEligibilityDates.DateCategoryEnum;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import java.util.Calendar;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+rule "MAIN_MEDICAID_POST_ELG_10_DAY"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_POST_ELG_10_DAY : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_POST_ELG_10_DAY");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY_ACK);
+		drools.setFocus("MEDICAID_POST_ELG_10_DAY_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_POST_ELG_10_DAY : End");
+end
+
+
+//CR1606
+rule "MEDICAID_POST_ELG_10_DAY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "MEDICAID_POST_ELG_10_DAY_STALE_1_AT"
+agenda-group "MEDICAID_POST_ELG_10_DAY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_POST_ELG_10_DAY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_POST_ELG_10_DAY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : MEDICAID_POST_ELG_10_DAY_STALE_ELG_SEC_01 : End");
+end
+
+rule "MEDICAID_POST_ELG_10_DAY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "MEDICAID_POST_ELG_10_DAY_STALE_1_AT"
+agenda-group "MEDICAID_POST_ELG_10_DAY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_POST_ELG_10_DAY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_POST_ELG_10_DAY_STALE_ELG_SEC_03");
+		drools.setFocus("Post_Elg_Medicaid_10_Day_1_AG");
+		logger.debug("Rule : MEDICAID_POST_ELG_10_DAY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+
+//Medicaid 10 day Rule (1)
+
+rule "Post_Elg_Medicaid_10_Day_1_NIE"
+salience 90000
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_NIE : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_NIE");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_NIE : End");
+end
+
+rule "Post_Elg_Medicaid_10_Day_1_PENM"
+salience 89995
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														!isLatestPreviousEligibilityIsMedicaid
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_PENM : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_PENM");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_PENM : End");
+end
+
+rule "Post_Elg_Medicaid_10_Day_1_N10NP"
+salience 89990
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														!isEval10DayNoticeRule(ProgramCode.MEDICAID)
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_N10NP : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_N10NP");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_N10NP : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_PD"
+salience 89985
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value())
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_PD : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_PD");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_PD : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_FC"
+salience 89980
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_FC : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_FC");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_FC : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_CSD"
+salience 89975
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value())),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getCsdRemoved())
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_CSD : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_CSD");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_CSD : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_TMA"
+salience 89970
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value())),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getCsdRemoved()),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getTmaRemoved())
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_TMA : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_TMA");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_TMA : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_PPSD"
+salience 89965
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value())),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getCsdRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getTmaRemoved()),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getPpsdRemoved())
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_PPSD : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_PPSD");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_PPSD : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_MNB"
+salience 89955
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value())),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getCsdRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getTmaRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getPpsdRemoved()),
+														isMADeemedNewbornAndUnder13Months
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MNB : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_MNB");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MNB : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_NoIncome"
+salience 89950
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														isNoIncomeDataSource
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_NoIncome : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_NoIncome");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setTenDayNoticeRule(Boolean.TRUE);
+		$eDeterminationfacts.setApply10DayNoticeRule(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_NoIncome : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_MLscPastCSD"
+salience 89945
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value())),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getCsdRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getTmaRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getPpsdRemoved()),
+														isUserSatisfyingRenewalLSC,
+														!(isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.MED_CON_DATE))
+															|| isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.POST_PARTUM_DATE))
+															|| isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.TMA_DATE))
+														)
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MLscPastCSD : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_MLscPastCSD");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setTenDayNoticeRule(Boolean.TRUE);
+		$eDeterminationfacts.setApply10DayNoticeRule(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MLscPastCSD : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_MLscCurMonthCSD"
+salience 89940
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value())),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getCsdRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getTmaRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getPpsdRemoved()),
+														isUserSatisfyingRenewalLSC,
+														(isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.MED_CON_DATE))
+															|| isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.POST_PARTUM_DATE))
+															|| isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.TMA_DATE))
+														),
+														!isCSDBeyondCurrentMonth(DateCategoryEnum.MED_CON_DATE),
+														!isCSDBeyondCurrentMonth(DateCategoryEnum.POST_PARTUM_DATE),
+														!isCSDBeyondCurrentMonth(DateCategoryEnum.TMA_DATE)
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MLscCurMonthCSD : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_MLscCurMonthCSD");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setTenDayNoticeRule(Boolean.TRUE);
+		$eDeterminationfacts.setApply10DayNoticeRule(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MLscCurMonthCSD : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_MLscHonorCSD"
+salience 89935
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value())),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getCsdRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getTmaRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getPpsdRemoved()),
+														isUserSatisfyingRenewalLSC,
+														(isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.MED_CON_DATE))
+															|| isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.POST_PARTUM_DATE))
+															|| isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.TMA_DATE))
+														),
+														!failureToComplyAbscentParent,
+														!ldssForFosterCareOrNursingHomeIndicator
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MLscHonorCSD : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_MLscHonorCSD");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MLscHonorCSD : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_MLscAP"
+salience 89930
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value())),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getCsdRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getTmaRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getPpsdRemoved()),
+														isUserSatisfyingRenewalLSC,
+														(isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.MED_CON_DATE))
+															|| isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.POST_PARTUM_DATE))
+															|| isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.TMA_DATE))
+														),
+														failureToComplyAbscentParent
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MLscAP : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_MLscAP");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setTenDayNoticeRule(Boolean.TRUE);
+		$eDeterminationfacts.setApply10DayNoticeRule(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MLscAP : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_MLscLDSS"
+salience 89925
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value())),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getCsdRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getTmaRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getPpsdRemoved()),
+														isUserSatisfyingRenewalLSC,
+														(isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.MED_CON_DATE))
+															|| isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.POST_PARTUM_DATE))
+															|| isDateAfterElgRunDate(getContinuousSaveDate(DateCategoryEnum.TMA_DATE))
+														),
+														ldssForFosterCareOrNursingHomeIndicator
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MLscLDSS : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_MLscLDSS");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setTenDayNoticeRule(Boolean.TRUE);
+		$eDeterminationfacts.setApply10DayNoticeRule(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_MLscLDSS : End");
+end
+rule "Post_Elg_Medicaid_10_Day_1_A10NR"
+salience 89920
+activation-group "Post_Elg_Medicaid_10_Day_1_AT"
+agenda-group "Post_Elg_Medicaid_10_Day_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isLatestPreviousEligibilityIsMedicaid,
+														isEval10DayNoticeRule(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAWMS.Value())
+															|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value())),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getCsdRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getTmaRemoved()),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getPpsdRemoved()),
+														!isMADeemedNewbornAndUnder13Months,
+														!isUserSatisfyingRenewalLSC
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_A10NR : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Elg_Medicaid_10_Day_1_A10NR");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setTenDayNoticeRule(Boolean.TRUE);
+		$eDeterminationfacts.setApply10DayNoticeRule(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_10_DAY);
+		logger.debug("Rule : Post_Elg_Medicaid_10_Day_1_A10NR : End");
+end

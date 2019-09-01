@@ -1,0 +1,42 @@
+import com.sample.Account;
+ 
+rule "empty"
+ruleflow-group "helloworldgroup"
+when
+then
+  	System.out.println( "Ran empty rule!"); 
+end
+
+rule "nameRequired"
+ruleflow-group "helloworldgroup"
+when
+	$account : Account( name == null )
+then
+  	System.out.println( "Account name cannot be null!"); 
+end
+
+rule "userName"
+ruleflow-group "helloworldgroup"
+when
+	$account : Account( name != null )
+then
+  	System.out.println( "Account not null: " + $account); 
+end
+
+rule "user1Rule"
+ruleflow-group "helloworldgroup"
+when
+	$account : Account( name == "user1" )
+then
+  	System.out.println( "User rule: " + $account); 
+end
+
+
+rule "existAccount"
+ruleflow-group "helloworldgroup"
+when
+	exists Account()
+then
+  	System.out.println( "Exist account: "); 
+end
+

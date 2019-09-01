@@ -1,0 +1,898 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.ChargeCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+rule "MAIN_MEDICAID_VERIFY_SEC3_1_NEW"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3_1_NEW : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_VERIFY_SEC3_1_NEW");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC2_03_ACK);
+		drools.setFocus("MAIN_MEDICAID_VERIFY_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3_1_NEW : End");
+end
+
+
+
+//CR1606
+rule "MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_01"
+salience 95070
+activation-group "MAIN_MEDICAID_VERIFY_STALE_1_AT"
+agenda-group "MAIN_MEDICAID_VERIFY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_1_NEW_03);
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_01 : End");
+end
+
+rule "MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_03"
+salience 95060
+activation-group "MAIN_MEDICAID_VERIFY_STALE_1_AT"
+agenda-group "MAIN_MEDICAID_VERIFY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_03");
+		drools.setFocus("Medicaid_RULE_FLIP_AG");
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_03 : End");
+end
+
+
+//CR1606 code changes end
+
+
+rule "Medicaid_RULE_FLIP_IMIG_6AG"
+salience 2002
+activation-group "Medicaid_RULE_FLIP_AT"
+agenda-group "Medicaid_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_IMIG_6_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_RULE_FLIP_IMIG_6AG : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_RULE_FLIP_IMIG_6AG");
+		drools.setFocus("Medicaid_IMIG_6_AG");
+		logger.debug("Rule : Medicaid_RULE_FLIP_IMIG_6AG : End");
+end
+
+rule "Medicaid_RULE_FLIP_INCAR"
+salience 2001
+activation-group "Medicaid_RULE_FLIP_AT"
+agenda-group "Medicaid_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_RELEASE_1_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_RULE_FLIP_INCAR : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_RULE_FLIP_INCAR");
+		drools.setFocus("Medicaid_RELEASE_1_AG");
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_RULE_FLIP_INCAR : End");
+end
+
+rule "Medicaid_RULE_FLIP_IMIG_8AG"
+salience 2000
+activation-group "Medicaid_RULE_FLIP_AT"
+agenda-group "Medicaid_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_IMIG_8_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_RULE_FLIP_IMIG_8AG : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_RULE_FLIP_IMIG_8AG");
+		drools.setFocus("Medicaid_IMIG_8_AG");
+		logger.debug("Rule : Medicaid_RULE_FLIP_IMIG_8AG : End");
+end
+
+rule "Medicaid_RULE_FLIP_IMIG_9AG"
+salience 1990
+activation-group "Medicaid_RULE_FLIP_AT"
+agenda-group "Medicaid_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_IMIG_9_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_RULE_FLIP_IMIG_9AG : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_RULE_FLIP_IMIG_9AG");
+		drools.setFocus("Medicaid_IMIG_9_AG");
+		logger.debug("Rule : Medicaid_RULE_FLIP_IMIG_9AG : End");
+end
+
+//Medicaid Immigration (6)
+
+rule "Medicaid_Immigration_6_1"
+salience 50000
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														!isFiveYearBarApplies,
+														isResidualPrucolProcess,
+														!HXConstants.RESIDUAL_PRUCOL_OVERRIDE_YES.equals(residualPrucolOverride));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_1 : End");
+end
+
+rule "Medicaid_Immigration_6_2"
+salience 49990
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														HXConstants.RESIDUAL_PRUCOL_OVERRIDE_YES.equals(residualPrucolOverride));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_2 : End");
+end
+
+
+rule "Medicaid_Immigration_6_2A"
+salience 49985
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isHIXDACAEmploymentAuthorized);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_2A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_2A : End");
+end
+
+
+rule "Medicaid_Immigration_6_3"
+salience 49980
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isFiveYearBarApplies,
+														isHIX5YearBanMet,
+														!isHIXPrucol);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.EIGHTYEIGHT);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_3 : End");
+end
+
+// Commented as per defect 57059
+/*
+rule "Medicaid_Immigration_6_4"
+salience 49970
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isFiveYearBarApplies,
+														!isHIX5YearBanMet,
+														!isHIXPrucol,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) && (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))),
+														!isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYEIGHT);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_4 : End");
+end
+*/
+//Added for CR# 1140
+rule "Medicaid_Immigration_6_4A"
+salience 49965
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isFiveYearBarApplies,
+														!isHIX5YearBanMet,
+														!isHIXPrucol,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) && (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))),
+														!isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_4A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_4A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYEIGHT);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_4A : End");
+end
+
+rule "Medicaid_Immigration_6_5"
+salience 49960
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isFiveYearBarApplies,
+														!isHIX5YearBanMet,
+														!isHIXPrucol,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) && (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))),
+														isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_5");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTY);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_5 : End");
+end
+
+//Added for CR# 1140
+rule "Medicaid_Immigration_6_5A"
+salience 49955
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isFiveYearBarApplies,
+														!isHIX5YearBanMet,
+														!isHIXPrucol,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) && (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))),
+														isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_5A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_5A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTY);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_5A : End");
+end
+
+rule "Medicaid_Immigration_6_6"
+salience 49950
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isFiveYearBarApplies,
+														!isHIX5YearBanMet,
+														!isHIXPrucol);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_6");
+		drools.setFocus("Medicaid_IMIG_7_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_6 : End");
+end
+
+rule "Medicaid_Immigration_6_7"
+salience 49940
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isFiveYearBarApplies,
+														!isHIXPrucol,
+														!isResidualPrucolProcess,
+														!HXConstants.RESIDUAL_PRUCOL_OVERRIDE_NO.equals(residualPrucolOverride));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_7");
+		drools.setFocus("Medicaid_IMIG_7_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_7 : End");
+end
+
+
+rule "Medicaid_Immigration_6_7A"
+salience 49935
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isFiveYearBarApplies,
+														!isHIXPrucol,
+														!isResidualPrucolProcess,
+														HXConstants.RESIDUAL_PRUCOL_OVERRIDE_NO.equals(residualPrucolOverride));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_7A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_7A");
+		drools.setFocus("Medicaid_IMIG_7_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_7A : End");
+end
+
+rule "Medicaid_Immigration_6_8"
+salience 49930
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isHIXDACAEmploymentAuthorized,
+														isHIXPrucol
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_8");
+		drools.setFocus("Medicaid_IMIG_7_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_8 : End");
+end
+// The below rule Medicaid_Immigration_6_8A has been commented as part of the defect 55595
+/*
+rule "Medicaid_Immigration_6_8A"
+salience 49925
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isHIXDACAEmploymentAuthorized,
+														isHIXPrucol,
+														HXConstants.RESIDUAL_PRUCOL_OVERRIDE_NO.equals(residualPrucolOverride));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_8A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_8A");
+		drools.setFocus("Medicaid_IMIG_7_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_8A : End");
+end
+*/
+/*
+rule "Medicaid_Immigration_6_9"
+salience 49920
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isHIXDACAEmploymentAuthorized);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_9");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_9 : End");
+end
+*/
+
+//modified for defect 24364
+rule "Medicaid_Immigration_6_10"
+salience 49910
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_NOT_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														!isHIXDACAEmploymentAuthorized,
+														!isHIXPrucol);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_10");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_10 : End");
+end
+
+rule "Medicaid_Immigration_6_11"
+salience 49900
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isFiveYearBarApplies,
+														!isHIX5YearBanMet);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_11");
+		drools.setFocus("Medicaid_IMIG_7_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_11 : End");
+end
+
+
+//Medicaid Immigration (7)
+
+rule "Medicaid_Immigration_7_1"
+salience 49800
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														!isMemberPregnant,
+														!((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_1 : End");
+end
+
+rule "Medicaid_Immigration_7_1A"
+salience 49795
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														!isMemberPregnant,
+														((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_1A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_1A : End");
+end
+
+rule "Medicaid_Immigration_7_2"
+salience 49790
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														!isMemberPregnant,
+														!((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_2 : End");
+end
+
+rule "Medicaid_Immigration_7_2A"
+salience 49785
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														!isMemberPregnant,
+														((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_2A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_2A : End");
+end
+
+
+rule "Medicaid_Immigration_7_3"
+salience 49780
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYFIVE);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_3 : End");
+end
+
+
+rule "Medicaid_Immigration_7_4"
+salience 49770
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYFIVE);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_4 : End");
+end
+
+
+rule "Medicaid_Immigration_7_5"
+salience 49760
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSIX);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_5 : End");
+end
+
+rule "Medicaid_Immigration_7_6"
+salience 49750
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSIX);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_6 : End");
+end
+
+rule "Medicaid_Immigration_7_7"
+salience 49740
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSIX);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_7 : End");
+end
+
+
+rule "Medicaid_Immigration_7_8"
+salience 49730
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSIX);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_8 : End");
+end
+
+
+//Medicaid Immigration (8)new
+
+rule "Medicaid_Immigration_8_1"
+salience 59000
+activation-group "Medicaid_IMIG_8_AT"
+agenda-group "Medicaid_IMIG_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_8_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_8_1");
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_8_1 : End");
+end
+
+rule "Medicaid_Immigration_8_2"
+salience 58990
+activation-group "Medicaid_IMIG_8_AT"
+agenda-group "Medicaid_IMIG_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														!((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_8_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_8_2");
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_8_2 : End");
+end
+
+rule "Medicaid_Immigration_8_3"
+salience 58980
+activation-group "Medicaid_IMIG_8_AT"
+agenda-group "Medicaid_IMIG_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))),
+														isReceivingHomeCareOrPersonCareService);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_8_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_8_3");
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_8_3 : End");
+end
+
+rule "Medicaid_Immigration_8_4"
+salience 58970
+activation-group "Medicaid_IMIG_8_AT"
+agenda-group "Medicaid_IMIG_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))),
+														!isReceivingHomeCareOrPersonCareService);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_8_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_8_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_8_4 : End");
+end
+
+
+//Medicaid Immigration (9)
+
+rule "Medicaid_Immigration_9_1"
+salience 49800
+activation-group "Medicaid_IMIG_9_AT"
+agenda-group "Medicaid_IMIG_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isChargeCodeAvailableInPrevElg(ChargeCode.SIXTYSIX),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))),
+														!isHixPrucolInPrevElg);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_9_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_9_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTY);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_9_1 : End");
+end
+
+
+
+rule "Medicaid_Immigration_9_2"
+salience 49790
+activation-group "Medicaid_IMIG_9_AT"
+agenda-group "Medicaid_IMIG_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isChargeCodeAvailableInPrevElg(ChargeCode.SIXTYSIX),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														!isMemberPregnant,
+														((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))),
+														!isHixPrucolInPrevElg);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_9_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_9_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYEIGHT);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_9_2 : End");
+end
+
+rule "Medicaid_Immigration_9_3"
+salience 49780
+activation-group "Medicaid_IMIG_9_AT"
+agenda-group "Medicaid_IMIG_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isChargeCodeAvailableInPrevElg(ChargeCode.SIXTYSIX),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														isMemberPregnant,
+														((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))),
+														!isHixPrucolInPrevElg);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_9_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_9_3");
+		$eDeterminationfacts.updateProgramWithPreviousElgValues();
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_9_3 : End");
+end
+
+
+rule "Medicaid_Immigration_9_4"
+salience 49770
+activation-group "Medicaid_IMIG_9_AT"
+agenda-group "Medicaid_IMIG_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isChargeCodeAvailableInPrevElg(ChargeCode.SIXTYSIX),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														((memberAge >= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)) 
+															&& (memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT))),
+														isHixPrucolInPrevElg);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_9_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_9_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_9_4 : End");
+end
+
+
+rule "Medicaid_Immigration_9_5"
+salience 49760
+activation-group "Medicaid_IMIG_9_AT"
+agenda-group "Medicaid_IMIG_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isChargeCodeAvailableInPrevElg(ChargeCode.SIXTYSIX),
+														(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_9_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_9_5");
+		$eDeterminationfacts.updateProgramWithPreviousElgValues();
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_9_5 : End");
+end
+
+rule "Medicaid_Immigration_9_6"
+salience 49750
+activation-group "Medicaid_IMIG_9_AT"
+agenda-group "Medicaid_IMIG_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isChargeCodeAvailableInPrevElg(ChargeCode.SIXTYSIX));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_9_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_9_6");
+		$eDeterminationfacts.updateProgramWithPreviousElgValues();
+		drools.setFocus("Medicaid_SEC_3_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_9_6 : End");
+end
+
+
+//Rule completion
+rule "Medicaid_SEC_3_1_NEW_COMP_STEP_1"
+salience 60000
+activation-group "Medicaid_SEC_3_1_NEW_COMP_STEP_AT"
+agenda-group "Medicaid_SEC_3_1_NEW_COMP_STEP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_SEC_3_1_NEW_COMP_STEP_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_SEC_3_1_NEW_COMP_STEP_1");
+		$eDeterminationfacts.setPrevSectionACKName("RULE_EXEC_STEP_SEC3_1_NEW_03");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_1_NEW_03);
+		logger.debug("Rule : Medicaid_SEC_3_1_NEW_COMP_STEP_1 : End");
+end

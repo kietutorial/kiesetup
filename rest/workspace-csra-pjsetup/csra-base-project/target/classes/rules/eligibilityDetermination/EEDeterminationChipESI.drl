@@ -1,0 +1,617 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.ext.NoticeNameEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_CHIP_ESI"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		
+	then
+		logger.debug("Rule : MAIN_CHIP_ESI : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_ESI");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01_ACK);
+		drools.setFocus("CHIP_ESI_STALE_1_AG");
+		logger.debug("Rule : MAIN_CHIP_ESI : End");
+end
+
+
+//CR1606
+rule "CHIP_ESI_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "CHIP_ESI_STALE_1_AT"
+agenda-group "CHIP_ESI_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CHIP_ESI_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "CHIP_ESI_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : CHIP_ESI_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "CHIP_ESI_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "CHIP_ESI_STALE_1_AT"
+agenda-group "CHIP_ESI_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CHIP_ESI_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "CHIP_ESI_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Chip_Undeliverable_1_AG");
+		logger.debug("Rule : CHIP_ESI_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//CHIP Undeliverable (1)
+
+rule "Chip_Undeliverable_1_1"
+salience 90000
+activation-group "Chip_Undeliverable_1_AT"
+agenda-group "Chip_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isCSUndeliverableAddInd,
+														(isFinancialAssistanceRequired && isIncomeEligibleForChip));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Undeliverable_1_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Undeliverable_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.PSIUA);
+		drools.setFocus("Chip_ESI_Rules_1_AG");
+		logger.debug("Rule : Chip_Undeliverable_1_1 : End");
+end
+
+
+rule "Chip_Undeliverable_1_2"
+salience 89990
+activation-group "Chip_Undeliverable_1_AT"
+agenda-group "Chip_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isCSUndeliverableAddInd,
+														!(isFinancialAssistanceRequired && isIncomeEligibleForChip));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Undeliverable_1_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Undeliverable_1_2");
+		drools.setFocus("Chip_ESI_Rules_1_AG");
+		logger.debug("Rule : Chip_Undeliverable_1_2 : End");
+end
+
+rule "Chip_Undeliverable_1_3"
+salience 89980
+activation-group "Chip_Undeliverable_1_AT"
+agenda-group "Chip_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isCSUndeliverableAddInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Undeliverable_1_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Undeliverable_1_3");
+		drools.setFocus("Chip_ESI_Rules_1_AG");
+		logger.debug("Rule : Chip_Undeliverable_1_3 : End");
+end
+
+//CHIP ESI Rules (1)
+
+rule "Chip_ESI_Rules_1_1"
+salience 90001
+activation-group "Chip_ESI_Rules_1_AT"
+agenda-group "Chip_ESI_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isEnrolledInCHIPMECPlan);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ENRLD_CHPESI_MEC_PLAN);
+		$eDeterminationfacts.setChipInEligibleDueTOESIMEC(true);
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		drools.setFocus("Chip_ESI_Rules_2_AG");
+		logger.debug("Rule : Chip_ESI_Rules_1_1 : End");
+end
+
+//CR1346:Child who has NYSHIP access is not eligible for CHIP,EP,APTC
+rule "Chip_ESI_Rules_1_1b"
+salience 89986
+activation-group "Chip_ESI_Rules_1_AT"
+agenda-group "Chip_ESI_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isEnrolledInCHIPMECPlan,
+														accessToNYSHIP);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_1_1b : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_1_1b");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ENRLD_ACCESS_NYSHIP);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipIneligDuetoNyshipInd(Boolean.TRUE);
+		drools.setFocus("Chip_ESI_Rules_2_AG");
+		logger.debug("Rule : Chip_ESI_Rules_1_1b : End");
+end
+
+//CR1361
+rule "Chip_ESI_Rules_1_1c"
+salience 89982
+activation-group "Chip_ESI_Rules_1_AT"
+agenda-group "Chip_ESI_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isEnrolledInCHIPMECPlan,
+														isChildEnrolledInNYSHIPIND,
+														!isCurrentlyEnrolledInChip);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_1_1c : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_1_1c"); 
+	 	$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.NYSHIP_ENRLD_INTERF);
+   		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+   		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipIneligDuetoNyshipInd(Boolean.TRUE);
+   		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipDeniedDueToNyshipInd(Boolean.TRUE);    
+   		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+   		logger.debug("Rule : Chip_ESI_Rules_1_1c : End");
+end
+
+rule "Chip_ESI_Rules_1_1d"
+salience 89980
+activation-group "Chip_ESI_Rules_1_AT"
+agenda-group "Chip_ESI_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isEnrolledInCHIPMECPlan,
+														isChildEnrolledInNYSHIPIND,
+														isCurrentlyEnrolledInChip);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_1_1d : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_1_1d"); 
+	 	$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.NYSHIP_ENRLD_INTERF);
+   		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+   		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipIneligDuetoNyshipInd(Boolean.TRUE);  
+   		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipTerminatedDueToNyshipInd(Boolean.TRUE);  
+   		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+   		logger.debug("Rule : Chip_ESI_Rules_1_1d : End");
+end
+
+
+rule "Chip_ESI_Rules_1_2"
+salience 89978
+activation-group "Chip_ESI_Rules_1_AT"
+agenda-group "Chip_ESI_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isEnrolledInCHIPMECPlan,
+														!isChildEnrolledInNYSHIPIND,
+														!lostOrCancelledCoverInLast6Mons
+														);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_1_2");
+		drools.setFocus("Chip_ESI_Rules_2_AG");
+		logger.debug("Rule : Chip_ESI_Rules_1_2 : End");
+end
+
+
+rule "Chip_ESI_Rules_1_3"
+salience 89975
+activation-group "Chip_ESI_Rules_1_AT"
+agenda-group "Chip_ESI_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isEnrolledInCHIPMECPlan,
+														!isChildEnrolledInNYSHIPIND,
+														lostOrCancelledCoverInLast6Mons,
+														!isCoverageLostDateLessThan3Mons);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_1_3");
+		drools.setFocus("Chip_ESI_Rules_2V1_AG");
+		logger.debug("Rule : Chip_ESI_Rules_1_3 : End");
+end
+
+
+rule "Chip_ESI_Rules_1_4"
+salience 89970
+activation-group "Chip_ESI_Rules_1_AT"
+agenda-group "Chip_ESI_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isEnrolledInCHIPMECPlan,
+														!isChildEnrolledInNYSHIPIND,
+														lostOrCancelledCoverInLast6Mons,
+														isCoverageLostDateLessThan3Mons);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_1_4");
+		drools.setFocus("Chip_ESI_Rules_2_AG");
+		logger.debug("Rule : Chip_ESI_Rules_1_4 : End");
+end
+
+
+//CHIP ESI Rules (2)
+
+rule "Chip_ESI_Rules_2_1"
+salience 87000
+activation-group "Chip_ESI_Rules_2_AT"
+agenda-group "Chip_ESI_Rules_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!lostOrCancelledCoverInLast6Mons);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_2_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setCrowdOutIndicator(Boolean.FALSE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_2_1 : End");
+end
+
+
+rule "Chip_ESI_Rules_2_2"
+salience 86990
+activation-group "Chip_ESI_Rules_2_AT"
+agenda-group "Chip_ESI_Rules_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(lostOrCancelledCoverInLast6Mons,
+														!isCoverageLostDateLessThan6Mons);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_2_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setCrowdOutIndicator(Boolean.FALSE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_2_2 : End");
+end
+
+
+rule "Chip_ESI_Rules_2_3"
+salience 86980
+activation-group "Chip_ESI_Rules_2_AT"
+agenda-group "Chip_ESI_Rules_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(lostOrCancelledCoverInLast6Mons,
+														isCoverageLostDateLessThan6Mons,
+														isCrowdOut);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_2_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setCrowdOutIndicator(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_2_3 : End");
+end
+
+
+rule "Chip_ESI_Rules_2_4"
+salience 86970
+activation-group "Chip_ESI_Rules_2_AT"
+agenda-group "Chip_ESI_Rules_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(lostOrCancelledCoverInLast6Mons,
+														isCoverageLostDateLessThan6Mons,
+														!isCrowdOut);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_2_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_2_4 : End");
+end
+
+
+//CHIP ESI Rules (2V1)
+
+//V1 to call sheet 3.
+
+rule "Chip_ESI_Rules_2V1_1"
+salience 85000
+activation-group "Chip_ESI_Rules_2V1_AT"
+agenda-group "Chip_ESI_Rules_2V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!lostOrCancelledCoverInLast6Mons);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_2V1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_2V1_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setCrowdOutIndicator(Boolean.FALSE);
+		drools.setFocus("Chip_ESI_Rules_3_AG");
+		logger.debug("Rule : Chip_ESI_Rules_2V1_1 : End");
+end
+
+
+rule "Chip_ESI_Rules_2V1_2"
+salience 84990
+activation-group "Chip_ESI_Rules_2V1_AT"
+agenda-group "Chip_ESI_Rules_2V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(lostOrCancelledCoverInLast6Mons,
+														!isCoverageLostDateLessThan6Mons);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_2V1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_2V1_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setCrowdOutIndicator(Boolean.FALSE);
+		drools.setFocus("Chip_ESI_Rules_3_AG");
+		logger.debug("Rule : Chip_ESI_Rules_2V1_2 : End");
+end
+
+
+rule "Chip_ESI_Rules_2V1_3"
+salience 84980
+activation-group "Chip_ESI_Rules_2V1_AT"
+agenda-group "Chip_ESI_Rules_2V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(lostOrCancelledCoverInLast6Mons,
+														isCoverageLostDateLessThan6Mons,
+														isCrowdOut);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_2V1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_2V1_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setCrowdOutIndicator(Boolean.TRUE);
+		drools.setFocus("Chip_ESI_Rules_3_AG");
+		logger.debug("Rule : Chip_ESI_Rules_2V1_3 : End");
+end
+
+
+rule "Chip_ESI_Rules_2V1_4"
+salience 84970
+activation-group "Chip_ESI_Rules_2V1_AT"
+agenda-group "Chip_ESI_Rules_2V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(lostOrCancelledCoverInLast6Mons,
+														isCoverageLostDateLessThan6Mons,
+														!isCrowdOut);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_2V1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_2V1_4");
+		drools.setFocus("Chip_ESI_Rules_3_AG");
+		logger.debug("Rule : Chip_ESI_Rules_2V1_4 : End");
+end
+
+
+
+//Medicaid AP Rules (3)
+
+rule "Chip_ESI_Rules_3_1"
+salience 82000
+activation-group "Chip_ESI_Rules_3_AT"
+agenda-group "Chip_ESI_Rules_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMemberPregnant);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_3_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_3_1 : End");
+end
+
+
+rule "Chip_ESI_Rules_3_2"
+salience 81990
+activation-group "Chip_ESI_Rules_3_AT"
+agenda-group "Chip_ESI_Rules_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_ESI_AGE)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_3_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_3_2 : End");
+end
+
+
+rule "Chip_ESI_Rules_3_3"
+salience 81980
+activation-group "Chip_ESI_Rules_3_AT"
+agenda-group "Chip_ESI_Rules_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_ESI_AGE)),
+														!(chipFpl >= configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MIN) && chipFpl < configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_3_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_3_3 : End");
+end
+
+
+rule "Chip_ESI_Rules_3_4"
+salience 81970
+activation-group "Chip_ESI_Rules_3_AT"
+agenda-group "Chip_ESI_Rules_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_ESI_AGE)),
+														(chipFpl >= configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MIN) && chipFpl < configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MAX)),
+														!lossOfHealthInsuranceCondition);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_3_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_3_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_3_4 : End");
+end
+
+
+rule "Chip_ESI_Rules_3_5"
+salience 81960
+activation-group "Chip_ESI_Rules_3_AT"
+agenda-group "Chip_ESI_Rules_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_ESI_AGE)),
+														(chipFpl >= configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MIN) && chipFpl < configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MAX)),
+														lossOfHealthInsuranceCondition,
+														isChildCovCostMoreThan5PerOfHHIncome);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_3_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_3_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_3_5 : End");
+end
+
+
+rule "Chip_ESI_Rules_3_6"
+salience 81950
+activation-group "Chip_ESI_Rules_3_AT"
+agenda-group "Chip_ESI_Rules_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_ESI_AGE)),
+														(chipFpl >= configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MIN) && chipFpl < configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MAX)),
+														lossOfHealthInsuranceCondition,
+														!isChildCovCostMoreThan5PerOfHHIncome,
+														!noneOfTheseReasons,
+														!isCoverageLostDateLessThan3Mons);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_3_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_3_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.WPFCC);
+		$eDeterminationfacts.updateESIMECReRunForProgram(ProgramCode.CHIP, Boolean.TRUE);
+		$eDeterminationfacts.calculateEndDateForESIWaitingPeriod(ProgramCode.CHIP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_3_6 : End");
+end
+
+
+rule "Chip_ESI_Rules_3_7"
+salience 81940
+activation-group "Chip_ESI_Rules_3_AT"
+agenda-group "Chip_ESI_Rules_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_ESI_AGE)),
+														(chipFpl >= configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MIN) && chipFpl < configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MAX)),
+														lossOfHealthInsuranceCondition,
+														!isChildCovCostMoreThan5PerOfHHIncome,
+														!noneOfTheseReasons,
+														isCoverageLostDateLessThan3Mons);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_3_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_3_7");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_3_7 : End");
+end
+
+
+rule "Chip_ESI_Rules_3_8"
+salience 81930
+activation-group "Chip_ESI_Rules_3_AT"
+agenda-group "Chip_ESI_Rules_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_ESI_AGE)),
+														(chipFpl >= configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MIN) && chipFpl < configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MAX)),
+														lossOfHealthInsuranceCondition,
+														noneOfTheseReasons,
+														!isCoverageLostDateLessThan3Mons);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_3_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_3_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.WPFCC);
+		logger.debug("ESI MEC RERUN IS NOT SET INSTEAD FULL PAY CHIP END DATE IS SET");
+		$eDeterminationfacts.updateESIMECReRunForProgram(ProgramCode.CHIP, Boolean.TRUE);
+		//$eDeterminationfacts.updateProgramWithMECRerunStatus(ProgramCode.CHIP, Boolean.TRUE);
+		$eDeterminationfacts.calculateEndDateForESIWaitingPeriod(ProgramCode.CHIP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_3_8 : End");
+end
+
+
+rule "Chip_ESI_Rules_3_9"
+salience 81920
+activation-group "Chip_ESI_Rules_3_AT"
+agenda-group "Chip_ESI_Rules_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_ESI_AGE)),
+														(chipFpl >= configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MIN) && chipFpl < configGroupBean.getValueFor(RuleKey.CHIP_ESI_FPL_MAX)),
+														lossOfHealthInsuranceCondition,
+														noneOfTheseReasons,
+														isCoverageLostDateLessThan3Mons);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_ESI_Rules_3_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_ESI_Rules_3_9");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Chip_ESI_Rules_3_9 : End");
+end

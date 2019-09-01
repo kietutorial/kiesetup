@@ -1,0 +1,6 @@
+<service>
+	<parameter name="ServiceClass">com.aikiinc.axis2.mathoperation.AddNumber</parameter>
+	<operation name="add">
+		<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+	</operation>
+</service>

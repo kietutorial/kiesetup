@@ -1,0 +1,483 @@
+//created on: Apr 12, 2017
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.eligibility.ext.NoticeNameEnum;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;	
+import com.hcentive.rulesengine.domain.RuleKey;	
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.RetroMonthEnum;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_MEDICAID_SUMMARY_SEC0"
+salience 49620
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_MEDICAID_SUMMARY_SEC0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_SUMMARY_SEC0");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04_ACK);
+		drools.setFocus("MEDICAID_SUMMARY_SEC0_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_SUMMARY_SEC0 : End");
+end
+
+//CR1606
+rule "MEDICAID_SUMMARY_SEC0_STALE_ELG_SEC_01"
+salience 95050
+activation-group "MEDICAID_SUMMARY_SEC0_STALE_1_AT"
+agenda-group "MEDICAID_SUMMARY_SEC0_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_SUMMARY_SEC0_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_SUMMARY_SEC0_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : MEDICAID_SUMMARY_SEC0_STALE_ELG_SEC_01 : End");
+end
+
+rule "MEDICAID_SUMMARY_SEC0_STALE_ELG_SEC_03"
+salience 95060
+activation-group "MEDICAID_SUMMARY_SEC0_STALE_1_AT"
+agenda-group "MEDICAID_SUMMARY_SEC0_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_SUMMARY_SEC0_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_SUMMARY_SEC0_STALE_ELG_SEC_03");
+		drools.setFocus("Medicaid_Summary_A8_AG");
+		logger.debug("Rule : MEDICAID_SUMMARY_SEC0_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//Medicaid Summary(a8)
+//Defect 71650 Skip Referrals where needed.
+
+
+rule "Medicaid_Summary_A8_1"
+salience 49410
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNYSResident);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_1");
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "NNYSR");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_1 : End");
+end
+
+
+rule "Medicaid_Summary_A8_2"
+salience 49400
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isTerminateCovReleaseCode);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_2 : Begin");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "TERM_COV_REL_CODE");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_2");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_2 : End");
+end
+
+// CR 1454 Changes
+rule "Medicaid_Summary_A8_3"
+salience 49390
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														individualHasDuplicateCoverage);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_3 : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "DUP_COV");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_3");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_3 : End");
+end
+
+
+rule "Medicaid_Summary_A8_4"
+salience 49380
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!individualHasDuplicateCoverage,
+														isCSUndeliverableAddInd);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_4 : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "CS_UNDELIVER");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_4");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_4 : End");
+end
+
+rule "Medicaid_Summary_A8_5"
+salience 49370
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!individualHasDuplicateCoverage,
+														!isCSUndeliverableAddInd,
+														!(doesSSNExist),
+														(noSSNReasonCodeType.DONOTWANTTOOBTAIN.equals(noSSNReasonCode)||
+														noSSNReasonCodeType.DONOTWANTTOPROVIDE.equals(noSSNReasonCode)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_5 : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "SSN_REASON");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_5");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_5 : End");
+end
+
+rule "Medicaid_Summary_A8_6"
+salience 49360
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!individualHasDuplicateCoverage,
+														!isCSUndeliverableAddInd,
+														!(doesSSNExist),
+														((noSSNReasonCodeType.NEEDTOAPPLY.equals(noSSNReasonCode) ||
+														noSSNReasonCodeType.INPROCESS.equals(noSSNReasonCode)) && isSSNClockExpired));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_6 : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "SSN_REASON_CLK_EXP");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_6");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_6 : End");
+end
+
+/*
+rule "Medicaid_Summary_A8_6A"
+salience 49355
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!individualHasDuplicateCoverage,
+														!isCSUndeliverableAddInd,
+														!(doesSSNExist),
+														(noSSNReasonCodeType.NEEDTOAPPLY.equals(noSSNReasonCode)||
+														noSSNReasonCodeType.INPROCESS.equals(noSSNReasonCode)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_6A : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_6A");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_6A : End");
+end
+*/
+
+rule "Medicaid_Summary_A8_7"
+salience 49350
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!individualHasDuplicateCoverage,
+														!isCSUndeliverableAddInd,
+														doesSSNExist,
+														(isWMSEnrolled()||
+														iseMednyEnrolled()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_7 : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "WMS_EMEDNY_ENRL");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_7");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_7 : End");
+end
+
+rule "Medicaid_Summary_A8_8"
+salience 49340
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!individualHasDuplicateCoverage,
+														!isCSUndeliverableAddInd,
+														doesSSNExist,
+														!(isWMSEnrolled()||
+														iseMednyEnrolled()),
+														!isFinancialAssistanceRequired);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_8 : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_8");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_8 : End");
+end
+
+
+//CR 1454 changes
+rule "Medicaid_Summary_A8_8_A"
+salience 49330
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!individualHasDuplicateCoverage,
+														!isCSUndeliverableAddInd,
+														doesSSNExist,
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.PD.Value()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_8_A : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "DECEASED");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_8_A");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_8_A : End");
+end
+
+rule "Medicaid_Summary_A8_8_B"
+salience 49320
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!individualHasDuplicateCoverage,
+														!isCSUndeliverableAddInd,
+														doesSSNExist,
+														isReceivingMedicaidInMEC);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_8_B : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "MEC_MEDICAID");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_8_B");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_8_B : End");
+end
+
+rule "Medicaid_Summary_A8_8_C"
+salience 49310
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!individualHasDuplicateCoverage,
+														!isCSUndeliverableAddInd,
+														doesSSNExist,
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.NWTC.Value()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_8_C : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setAbsentParentDoNotSkipFCReferralsInd(Boolean.TRUE);
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "AP_WONT_CO_OPERATE");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_8_C");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_8_C : End");
+end
+
+rule "Medicaid_Summary_A8_8_D"
+salience 49300
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!individualHasDuplicateCoverage,
+														!isCSUndeliverableAddInd,
+														doesSSNExist,
+														medicaidNonCompInd);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_8_D : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setSkipAllReferralsInd(Boolean.TRUE);
+		
+		//This is introduced purely for developer debugging purposes and will not be available in the rules excel sheet
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.LDSS_IGNORE, "MED_NON_COMPLIANT");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_8_D");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_8_D : End");
+end
+//CR 1454 changes
+
+
+rule "Medicaid_Summary_A8_9"
+salience 49290
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+	$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+													!individualHasDuplicateCoverage,
+													!isCSUndeliverableAddInd,
+													!(doesSSNExist),
+													!(noSSNReasonCodeType.DONOTWANTTOOBTAIN.equals(noSSNReasonCode) ||
+													 noSSNReasonCodeType.DONOTWANTTOPROVIDE.equals(noSSNReasonCode)),
+													!((noSSNReasonCodeType.NEEDTOAPPLY.equals(noSSNReasonCode) ||
+													noSSNReasonCodeType.INPROCESS.equals(noSSNReasonCode)) 
+													&& isSSNClockExpired));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_9 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_9");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_9 : End");
+end
+
+rule "Medicaid_Summary_A8_10"
+salience 49280
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+	$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+													!individualHasDuplicateCoverage,
+													!isCSUndeliverableAddInd,
+													(doesSSNExist));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_10 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_10");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_10 : End");
+end
+
+rule "Medicaid_Summary_A8_11"
+salience 49270
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_11 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_11");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_11 : End");
+end
+
+rule "Medicaid_Summary_A8_12"
+salience 49260
+activation-group "Medicaid_Summary_A8_AT"
+agenda-group "Medicaid_Summary_A8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_A8_12 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_A8_12");
+		drools.setFocus("Medicaid_Summary_SEC0_END_AG");
+		logger.debug("Rule : Medicaid_Summary_A8_12 : End");
+end
+
+rule "Medicaid_Summary_SEC0_END"
+salience 45000
+activation-group "Medicaid_Summary_SEC0_END_AT"
+agenda-group "Medicaid_Summary_SEC0_END_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_SEC0_END : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_SEC0_END");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Medicaid_Summary_SEC0_END : End");
+end

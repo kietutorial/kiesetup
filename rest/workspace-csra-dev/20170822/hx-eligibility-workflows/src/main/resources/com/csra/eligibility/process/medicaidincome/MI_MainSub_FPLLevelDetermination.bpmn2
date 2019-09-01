@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<definitions id="Definition"
+             targetNamespace="http://www.jboss.org/drools"
+             typeLanguage="http://www.java.com/javaTypes"
+             expressionLanguage="http://www.mvel.org/2.0"
+             xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd"
+             xmlns:g="http://www.jboss.org/drools/flow/gpd"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:tns="http://www.jboss.org/drools">
+
+  <itemDefinition id="_eligibilityMain" structureRef="com.csra.eligibility.domain.process.EligibilityMain" />
+  <itemDefinition id="_eligibilityResult" structureRef="com.csra.eligibility.domain.rulefact.EligibilityResult" />
+  <itemDefinition id="_member" structureRef="com.csra.eligibility.domain.entity.member.Member" />
+  <itemDefinition id="null" />
+
+  <process processType="Private" isExecutable="true" id="MI_MainSub_FPLLevelDetermination" name="MI_MainSub_FPLLevelDetermination" tns:packageName="com.csra.eligibility.workflow.medicalincome" >
+
+    <!-- process variables -->
+    <property id="eligibilityMain" itemSubjectRef="null"/>
+    <property id="eligibilityResult" itemSubjectRef="null"/>
+    <property id="member" itemSubjectRef="null"/>
+
+    <!-- nodes -->
+    <startEvent id="2d78c9ee-80cd-4b78-9f53-aac3885a2022" name="Start"  isInterrupting="false">
+    </startEvent>
+    <businessRuleTask id="0cdfb294-8daa-41f3-b8ef-f7921e1fb263" name="Rule_FPLLevelDetermination" g:ruleFlowGroup="eligibility_fpllevedetermination" 
+ implementation="http://www.jboss.org/drools/rule" >
+      <ioSpecification>
+        <inputSet>
+        </inputSet>
+        <outputSet>
+        </outputSet>
+      </ioSpecification>
+    </businessRuleTask>
+    <endEvent id="5328cacf-c2d0-445d-b33f-1e2347bbdd89" name="End" >
+        <terminateEventDefinition />
+    </endEvent>
+    <scriptTask id="5fd3c376-27c2-4a29-af2d-efa7fbf94705" name="RuleS_FPLLevelDetermination" scriptFormat="http://www.java.com/java" >
+      <script>System.out.println("SubProcess(" + kcontext.getNodeInstance().getNodeName() + ") ");</script>
+    </scriptTask>
+
+    <!-- connections -->
+    <sequenceFlow id="5fd3c376-27c2-4a29-af2d-efa7fbf94705-0cdfb294-8daa-41f3-b8ef-f7921e1fb263" sourceRef="5fd3c376-27c2-4a29-af2d-efa7fbf94705" targetRef="0cdfb294-8daa-41f3-b8ef-f7921e1fb263" />
+    <sequenceFlow id="0cdfb294-8daa-41f3-b8ef-f7921e1fb263-5328cacf-c2d0-445d-b33f-1e2347bbdd89" sourceRef="0cdfb294-8daa-41f3-b8ef-f7921e1fb263" targetRef="5328cacf-c2d0-445d-b33f-1e2347bbdd89" />
+    <sequenceFlow id="2d78c9ee-80cd-4b78-9f53-aac3885a2022-5fd3c376-27c2-4a29-af2d-efa7fbf94705" sourceRef="2d78c9ee-80cd-4b78-9f53-aac3885a2022" targetRef="5fd3c376-27c2-4a29-af2d-efa7fbf94705" />
+
+  </process>
+
+  <bpmndi:BPMNDiagram>
+    <bpmndi:BPMNPlane bpmnElement="MI_MainSub_FPLLevelDetermination" >
+      <bpmndi:BPMNShape bpmnElement="2d78c9ee-80cd-4b78-9f53-aac3885a2022" >
+        <dc:Bounds x="55" y="90" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="0cdfb294-8daa-41f3-b8ef-f7921e1fb263" >
+        <dc:Bounds x="233" y="178" width="80" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="5328cacf-c2d0-445d-b33f-1e2347bbdd89" >
+        <dc:Bounds x="332" y="96" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="5fd3c376-27c2-4a29-af2d-efa7fbf94705" >
+        <dc:Bounds x="123" y="178" width="80" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="5fd3c376-27c2-4a29-af2d-efa7fbf94705-0cdfb294-8daa-41f3-b8ef-f7921e1fb263" >
+        <di:waypoint x="163" y="202" />
+        <di:waypoint x="273" y="202" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="0cdfb294-8daa-41f3-b8ef-f7921e1fb263-5328cacf-c2d0-445d-b33f-1e2347bbdd89" >
+        <di:waypoint x="273" y="202" />
+        <di:waypoint x="356" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="2d78c9ee-80cd-4b78-9f53-aac3885a2022-5fd3c376-27c2-4a29-af2d-efa7fbf94705" >
+        <di:waypoint x="79" y="114" />
+        <di:waypoint x="163" y="202" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</definitions>

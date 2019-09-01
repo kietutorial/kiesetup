@@ -1,0 +1,53 @@
+package com.hcentive.eligibility.notice;
+ 
+
+import com.hcentive.rulesengine.domain.notice.BrokerApplicationDetailsFact;
+import com.hcentive.agent.domain.Broker;
+
+/* Rule Notice 1025 :
+ * Broker Account Created and SHOP Certification complete 
+ */
+ 
+rule "Notice1025"
+    when
+        n : BrokerApplicationDetailsFact();
+    then
+     	
+		Broker broker = n.getBroker();
+		    
+		if(broker != null && broker.isApplicationCompleted()){
+	    	n.getTemplateNameList().add("Notice1025.ftl");
+	   	} 
+	end
+
+/* Rule Notice 1026 :
+ * Broker's SHOP Certification is deficient 
+ */
+ 
+rule "Notice1026"
+    when
+        n : BrokerApplicationDetailsFact();
+    then
+     	
+		Broker broker = n.getBroker();
+		    
+		if(broker != null && null != broker.getLicenseStatus() && broker.getLicenseStatus().equalsIgnoreCase("NOTAPPROVED")){
+	    	n.getTemplateNameList().add("Notice1026.ftl");
+	   	} 
+	end	
+	
+/* Rule Notice 1027 :
+ * Broker re-certification date is coming up
+ */
+ 
+rule "Notice1027"
+    when
+        n : BrokerApplicationDetailsFact();
+    then
+     	
+		Broker broker = n.getBroker();
+		    
+		if(broker != null && broker.isRevocationRequired()){
+	    	n.getTemplateNameList().add("Notice1027.ftl");
+	   	} 
+	end

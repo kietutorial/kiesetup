@@ -1,0 +1,1802 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.ChargeCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.incarceration.domain.DoccsType;
+import com.hcentive.eligibility.domain.ext.IncarcerationReleaseEnum;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+rule "MAIN_MEDICAID_VERIFY_SEC3"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_VERIFY_SEC3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_03_ACK);
+		drools.setFocus("MAIN_MEDICAID_VERIFY3_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3 : End");
+end
+
+
+
+
+
+//CR1606
+rule "MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_01"
+salience 95070
+activation-group "MAIN_MEDICAID_VERIFY3_STALE_1_AT"
+agenda-group "MAIN_MEDICAID_VERIFY3_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_03);
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_01 : End");
+end
+
+rule "MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_03"
+salience 95060
+activation-group "MAIN_MEDICAID_VERIFY3_STALE_1_AT"
+agenda-group "MAIN_MEDICAID_VERIFY3_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_03");
+		drools.setFocus("MEDICAID_VERIFY_3_AG");
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC3_STALE_ELG_SEC_03 : End");
+end
+
+
+rule "MEDICAID_VERIFY_SEC3"
+salience 95050
+activation-group "MEDICAID_VERIFY_3_AT"
+agenda-group "MEDICAID_VERIFY_3_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_VERIFY_SEC3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_VERIFY_SEC3");
+		if("RULE_EXEC_STEP_SEC3_1_OLD_03".equals($eDeterminationfacts.getPrevSectionACKName())){
+			$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_1_OLD_03_ACK);
+			drools.setFocus("Medicaid_RELEASE_1_AG");
+		}else if("RULE_EXEC_STEP_SEC3_1_NEW_03".equals($eDeterminationfacts.getPrevSectionACKName())){
+			$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_1_NEW_03_ACK);
+			drools.setFocus("Medicaid_RELEASE_1_AG");
+		}
+		logger.debug("Rule : MEDICAID_VERIFY_SEC3 : End");
+end
+
+//CR1606 code changes end
+
+
+
+//Medicaid immigration(6) and Medicaid immigration(7) is moved to EEDeterminationMedicaidVerificationSection3_1_NEW.drl 
+//and EEDeterminationMedicaidVerificationSection3_1_OLD.drl for CR1140.
+/*
+rule "Medicaid_RULE_FLIP_IMIG"
+salience 2002
+activation-group "Medicaid_RULE_FLIP_AT"
+agenda-group "Medicaid_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_IMIG_6_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_RULE_FLIP_IMIG : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_RULE_FLIP_IMIG");
+		drools.setFocus("Medicaid_IMIG_6_AG");
+		logger.debug("Rule : Medicaid_RULE_FLIP_IMIG : End");
+end
+
+rule "Medicaid_RULE_FLIP_INCAR"
+salience 2001
+activation-group "Medicaid_RULE_FLIP_AT"
+agenda-group "Medicaid_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_INCAR_1_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_RULE_FLIP_INCAR : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_RULE_FLIP_INCAR");
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_RULE_FLIP_INCAR : End");
+end
+
+
+
+
+rule "Medicaid_Immigration_6_1"
+salience 50000
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														!isFiveYearBarApplies,
+														isResidualPrucolProcess,
+														!HXConstants.RESIDUAL_PRUCOL_OVERRIDE_YES.equals(residualPrucolOverride));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_1 : End");
+end
+
+rule "Medicaid_Immigration_6_2"
+salience 49990
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														HXConstants.RESIDUAL_PRUCOL_OVERRIDE_YES.equals(residualPrucolOverride));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_2 : End");
+end
+
+
+rule "Medicaid_Immigration_6_3"
+salience 49980
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isFiveYearBarApplies,
+														isHIX5YearBanMet);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.EIGHTYEIGHT);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_3 : End");
+end
+
+rule "Medicaid_Immigration_6_4"
+salience 49970
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isFiveYearBarApplies,
+														!isHIX5YearBanMet,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYEIGHT);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_4 : End");
+end
+
+rule "Medicaid_Immigration_6_5"
+salience 49960
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isFiveYearBarApplies,
+														!isHIX5YearBanMet,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_5");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTY);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_5 : End");
+end
+
+rule "Medicaid_Immigration_6_6"
+salience 49950
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isFiveYearBarApplies,
+														!isHIX5YearBanMet);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_6");
+		drools.setFocus("Medicaid_IMIG_7_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_6 : End");
+end
+
+rule "Medicaid_Immigration_6_7"
+salience 49940
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isFiveYearBarApplies,
+														!isResidualPrucolProcess);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_7");
+		drools.setFocus("Medicaid_IMIG_7_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_7 : End");
+end
+
+rule "Medicaid_Immigration_6_8"
+salience 49930
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isHIXDACAEmploymentAuthorized,
+														isHIXPrucol);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_8");
+		drools.setFocus("Medicaid_IMIG_7_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_8 : End");
+end
+
+rule "Medicaid_Immigration_6_9"
+salience 49920
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isHIXDACAEmploymentAuthorized);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_9");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_9 : End");
+end
+
+//modified for defect 24364
+rule "Medicaid_Immigration_6_10"
+salience 49910
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_NOT_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														//HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_N.equals(isHIXQualifiedNonCitizen),
+														!isHIXDACAEmploymentAuthorized,
+														!isHIXPrucol);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_10");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_10 : End");
+end
+
+rule "Medicaid_Immigration_6_11"
+salience 49900
+activation-group "Medicaid_IMIG_6_AT"
+agenda-group "Medicaid_IMIG_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isFiveYearBarApplies,
+														!isHIX5YearBanMet);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_6_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_6_11");
+		drools.setFocus("Medicaid_IMIG_7_AG");
+		logger.debug("Rule : Medicaid_Immigration_6_11 : End");
+end
+
+
+//Medicaid Immigration (7)
+
+rule "Medicaid_Immigration_7_1"
+salience 49800
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_1 : End");
+end
+
+rule "Medicaid_Immigration_7_2"
+salience 49790
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixStateOnlyFunds(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSEVEN);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_2 : End");
+end
+
+
+rule "Medicaid_Immigration_7_3"
+salience 49780
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYFIVE);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_3 : End");
+end
+
+
+rule "Medicaid_Immigration_7_4"
+salience 49770
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYFIVE);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_4 : End");
+end
+
+
+rule "Medicaid_Immigration_7_5"
+salience 49760
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSIX);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_5 : End");
+end
+
+rule "Medicaid_Immigration_7_6"
+salience 49750
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														!isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSIX);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_6 : End");
+end
+
+rule "Medicaid_Immigration_7_7"
+salience 49740
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														!isCaretakerRelativeFlag,
+														isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSIX);
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_7 : End");
+end
+
+
+rule "Medicaid_Immigration_7_8"
+salience 49730
+activation-group "Medicaid_IMIG_7_AT"
+agenda-group "Medicaid_IMIG_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isCaretakerRelativeFlag,
+														isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_7_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_7_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ChargeCode.SIXTYSIX);
+		drools.setFocus("Medicaid_RELEASE_1_AG");
+		logger.debug("Rule : Medicaid_Immigration_7_8 : End");
+end
+*/
+
+
+/*
+	1413,1594, rules for MA Incarceration Release (1)
+*/
+
+
+rule "Medicaid_Incarceration_Release_1_0"
+salience 59900
+activation-group "Medicaid_RELEASE_1_AT"
+agenda-group "Medicaid_RELEASE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsReleaseCodeValidForReinstatement(),
+														!getIsReleaseCodeThreeToEightFoundonReleaseFile());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_Release_1_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_Release_1_0");
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_Release_1_0 : End");
+end
+
+
+/*
+	1413,1594, rules for MA Incarceration Release (1)
+*/
+
+
+rule "Medicaid_Incarceration_Release_1_1"
+salience 59890
+activation-group "Medicaid_RELEASE_1_AT"
+agenda-group "Medicaid_RELEASE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getIsReleaseCodeValidForReinstatement());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_Release_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_Release_1_1");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.TRUE);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidDOCCSReleaseCode($eDeterminationfacts.getIncarceratedPersonReleaseCode());
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setIncarceratedPersonDOCCSReleaseDate($eDeterminationfacts.getIncarceratedPersonDOCCSReleaseDate());
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_Release_1_1 : End");
+end
+
+
+
+/*
+	1413,1594, rules for MA Incarceration Release (1)
+*/
+
+
+rule "Medicaid_Incarceration_Release_1_2"
+salience 59870
+activation-group "Medicaid_RELEASE_1_AT"
+agenda-group "Medicaid_RELEASE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsReleaseCodeValidForReinstatement(),
+														getIsReleaseCodeThreeToEightFoundonReleaseFile());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_Release_1_2 : Begin");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.TRUE);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_Release_1_2");
+	//	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidDOCCSReleaseCode($eDeterminationfacts.getIncarceratedPersonReleaseCode());
+	//	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setIncarceratedPersonDOCCSReleaseDate($eDeterminationfacts.getIncarceratedPersonDOCCSReleaseDate());
+		drools.setFocus("Medicaid_INCAR_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_Release_1_2 : End");
+end
+//Medicaid Incarceration(1)
+
+
+rule "Medicaid_Incarceration_1_0"
+salience 8040
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMADeemedNewbornAndUnder13Months);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_0");
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_0 : End");
+end
+//CR#1594 :start
+
+rule "Medicaid_Incarceration_1_1"
+salience 8030
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMADeemedNewbornAndUnder13Months,
+														!doesUserAgreeIncarceration,
+														!isNonIncarDocVerified,
+														(!isLSCThruNonRenewalBatch ||isIncarcerationSelfIdentified90ClockExpired),														
+														getIsIncarReleaseCodeFour());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_1");
+		//drools.setFocus("Medicaid_RESID_1_AG");
+		drools.setFocus("Medicaid_INCAR_4B_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_1 : End");
+end
+
+
+rule "Medicaid_Incarceration_1_2"
+salience 8020
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMADeemedNewbornAndUnder13Months,
+														!isNonIncarDocVerified,
+														getIsIncarReleaseCodeFour());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.ICRTLE); 
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_2 : End");
+end
+
+
+rule "Medicaid_Incarceration_1_3"
+salience 8010
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMADeemedNewbornAndUnder13Months,
+														!doesUserAgreeIncarceration,
+														!isNonIncarDocVerified,
+														(!isLSCThruNonRenewalBatch ||isIncarcerationSelfIdentified90ClockExpired),
+														getIsIncarReleaseInThreeFiveSix());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_3");
+		drools.setFocus("Medicaid_INCAR_4C_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_3 : End");
+end
+
+rule "Medicaid_Incarceration_1_4"
+salience 8000
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMADeemedNewbornAndUnder13Months,
+														!isNonIncarDocVerified,
+														getIsIncarReleaseInThreeFiveSix());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.ICTRCF); 
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_4 : End");
+end
+
+rule "Medicaid_Incarceration_1_5"
+salience 7990
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMADeemedNewbornAndUnder13Months,
+														!isHXIncarcerated,
+														!isNonIncarDocVerified,
+														!selfIdentifiedIncarcerationInCurrentApp,
+														getIsReleaseCodeExists(), 
+														!getIsIncarReleaseCodeFour(), 
+														!getIsIncarReleaseInThreeFiveSix());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_5");
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_5 : End");
+end
+
+//CR#1594 :End
+
+rule "Medicaid_Incarceration_1_6"
+salience 7980
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isHXIncarcerated, 
+														!isNonIncarDocVerified,
+														!selfIdentifiedIncarcerationInCurrentApp,
+														(previousSelfIncarcerated || isIncarcerationClockExists));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_6");
+		drools.setFocus("Medicaid_INCAR_4_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_6 : End");
+end
+
+rule "Medicaid_Incarceration_1_7"
+salience 7970
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(selfIdentifiedIncarcerationInCurrentApp,
+														!(getIsReleaseCodeValidForReinstatement()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI);
+		//drools.setFocus("Medicaid_RESID_1_AG");
+		drools.setFocus("Medicaid_INCAR_6_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_7 : End");
+end
+
+rule "Medicaid_Incarceration_1_8"
+salience 7960
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isHXIncarcerated, 
+														isNonIncarDocVerified,
+														!selfIdentifiedIncarcerationInCurrentApp);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_8");
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_8 : End");
+end
+
+rule "Medicaid_Incarceration_1_8A"
+salience 7955
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isHXIncarcerated);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_8A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_8A");
+		drools.setFocus("Medicaid_INCAR_6_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_8A : End");
+end
+
+rule "Medicaid_Incarceration_1_9"
+salience 7950
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHXIncarcerated,
+														doesUserAgreeIncarceration);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_9");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.ICUA);
+		drools.setFocus("Medicaid_INCAR_6_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_9 : End");
+end
+
+rule "Medicaid_Incarceration_1_10"
+salience 7945
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHXIncarcerated,
+														!doesUserAgreeIncarceration,
+														isProposedElgForRenewal,
+														isUserIncarcerationResponseNull);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_10 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES);
+		//$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_10");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.INELIGIBLE, ProgramReasonCode.IAR);
+		drools.setFocus("Medicaid_INCAR_6_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_10 : End");
+end
+
+rule "Medicaid_Incarceration_1_11"
+salience 7940
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHXIncarcerated,
+														!doesUserAgreeIncarceration,
+														!isProposedElgForRenewal,
+														!isNonIncarDocVerified,
+														!isUserIncarcerationResponseNull);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_11");
+		drools.setFocus("Medicaid_INCAR_6_AG");
+		drools.setFocus("Medicaid_INCAR_2_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_11 : End");
+end
+
+
+rule "Medicaid_Incarceration_1_12"
+salience 7930
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHXIncarcerated,
+														!doesUserAgreeIncarceration,
+														!isProposedElgForRenewal,
+														!isNonIncarDocVerified,
+														isUserIncarcerationResponseNull);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_12");
+		drools.setFocus("Medicaid_INCAR_6_AG");
+		drools.setFocus("Medicaid_INCAR_3_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_12 : End");
+end
+
+
+rule "Medicaid_Incarceration_1_13"
+salience 7920
+activation-group "Medicaid_INCAR_1_AT"
+agenda-group "Medicaid_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHXIncarcerated,
+														!doesUserAgreeIncarceration,
+														!isProposedElgForRenewal,
+														isNonIncarDocVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_1_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_1_13");
+		// commented as per comment in rule sheet
+		//drools.setFocus("Medicaid_INCAR_6_AG");
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_1_13 : End");
+end
+
+
+
+//Medicaid Incarceration(2)
+
+
+rule "Medicaid_Incarceration_2_1"
+salience 7000
+activation-group "Medicaid_INCAR_2_AT"
+agenda-group "Medicaid_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((fedIncarcerationStatus),
+														!(isIncarceration_90_NoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.IC);
+		//TO DO
+		//Schedule Verification Notice Trigger				
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_2_1 : End");
+end
+
+rule "Medicaid_Incarceration_2_2"
+salience 6990
+activation-group "Medicaid_INCAR_2_AT"
+agenda-group "Medicaid_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((fedIncarcerationStatus),
+														(isIncarceration_90_NoticeSent),
+														!(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_2_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.IC);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_2_2 : End");
+end
+
+rule "Medicaid_Incarceration_2_3"
+salience 6980
+activation-group "Medicaid_INCAR_2_AT"
+agenda-group "Medicaid_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((fedIncarcerationStatus),
+														(isIncarceration_90_NoticeSent),
+														(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_2_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.INELIGIBLE, ProgramReasonCode.IC_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_2_3 : End");
+end
+
+rule "Medicaid_Incarceration_2_4"
+salience 6970
+activation-group "Medicaid_INCAR_2_AT"
+agenda-group "Medicaid_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														!(is1DayRerunSet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_2_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.PENDING, ProgramReasonCode.IC);
+		//TO DO
+		//Schedule Verification Notice Trigger
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_1);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_2_4 : End");
+end
+
+rule "Medicaid_Incarceration_2_5"
+salience 6960
+activation-group "Medicaid_INCAR_2_AT"
+agenda-group "Medicaid_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														(is1DayRerunSet),
+														!(is1DayRerunExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_2_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.PENDING, ProgramReasonCode.IC);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_1);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_2_5 : End");
+end
+
+rule "Medicaid_Incarceration_2_6"
+salience 6950
+activation-group "Medicaid_INCAR_2_AT"
+agenda-group "Medicaid_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														!(isIncarceration_90_NoticeSent),
+														!(isHXIncarcerated));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_2_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_2_6");
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_2_6 : End");
+end
+
+rule "Medicaid_Incarceration_2_7"
+salience 6940
+activation-group "Medicaid_INCAR_2_AT"
+agenda-group "Medicaid_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														!(isIncarceration_90_NoticeSent),
+														(isHXIncarcerated));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_2_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_2_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.IC);
+		//TO DO
+		//Schedule Verification Notice Trigger				
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_2_7 : End");
+end
+
+rule "Medicaid_Incarceration_2_8"
+salience 6930
+activation-group "Medicaid_INCAR_2_AT"
+agenda-group "Medicaid_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														(isIncarceration_90_NoticeSent),
+														!(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_2_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_2_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.IC);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_2_8 : End");
+end
+
+rule "Medicaid_Incarceration_2_9"
+salience 6920
+activation-group "Medicaid_INCAR_2_AT"
+agenda-group "Medicaid_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														(isIncarceration_90_NoticeSent),
+														(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_2_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_2_9");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.INELIGIBLE, ProgramReasonCode.IC_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_2_9 : End");
+end
+
+
+// Incarceration (3)
+
+
+rule "Medicaid_Incarceration_3_1"
+salience 5000
+activation-group "Medicaid_INCAR_3_AT"
+agenda-group "Medicaid_INCAR_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isIncarceration_10_DayNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_3_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_VER_REQ);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_10);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_3_1 : End");
+end
+
+
+rule "Medicaid_Incarceration_3_2"
+salience 4090
+activation-group "Medicaid_INCAR_3_AT"
+agenda-group "Medicaid_INCAR_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isIncarceration_10_DayNoticeSent),
+														!(isIncarceration_10_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_3_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_VER_REQ);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_10);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_3_2 : End");
+end
+
+
+rule "Medicaid_Incarceration_3_3"
+salience 4080
+activation-group "Medicaid_INCAR_3_AT"
+agenda-group "Medicaid_INCAR_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isPrevElgDOCCSTypeIncarceratedOrPrereleased(),
+														(isIncarceration_10_DayNoticeSent),
+														(isIncarceration_10_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_3_3");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.ICUA);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_3_3 : End");
+end
+
+rule "Medicaid_Incarceration_3_4"
+salience 4070
+activation-group "Medicaid_INCAR_3_AT"
+agenda-group "Medicaid_INCAR_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isPrevElgDOCCSTypeIncarceratedOrPrereleased(),
+														!isDOCCSIncarClockExpiredForMember,
+														(isIncarceration_10_DayNoticeSent),
+														(isIncarceration_10_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_3_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_3_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_VER_REQ);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_10);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_3_4 : End");
+end
+
+rule "Medicaid_Incarceration_3_5"
+salience 4060
+activation-group "Medicaid_INCAR_3_AT"
+agenda-group "Medicaid_INCAR_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isPrevElgDOCCSTypeIncarceratedOrPrereleased(),
+														isDOCCSIncarClockExpiredForMember,
+														(isIncarceration_10_DayNoticeSent),
+														(isIncarceration_10_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_3_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_3_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_3_5 : End");
+end
+
+
+// Incarceration (4)
+
+
+rule "Medicaid_Incarceration_4_1"
+salience 5000
+activation-group "Medicaid_INCAR_4_AT"
+agenda-group "Medicaid_INCAR_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isIncarceration_SelfIdentified_90_NoticeSent);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.IC_90_VN);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4_1 : End");
+end
+
+
+rule "Medicaid_Incarceration_4_2"
+salience 4090
+activation-group "Medicaid_INCAR_4_AT"
+agenda-group "Medicaid_INCAR_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isIncarceration_SelfIdentified_90_NoticeSent,
+														!isIncarcerationSelfIdentified90ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.IC_90_VN);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4_2 : End");
+end
+
+
+rule "Medicaid_Incarceration_4_3"
+salience 4080
+activation-group "Medicaid_INCAR_4_AT"
+agenda-group "Medicaid_INCAR_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isIncarceration_SelfIdentified_90_NoticeSent,
+														isIncarcerationSelfIdentified90ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.INELIGIBLE, ProgramReasonCode.ICVSIP_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4_3 : End");
+end
+
+
+//Medicaid_Incarceration(4B)
+
+rule "Medicaid_Incarceration_4B_1"
+salience 7000
+activation-group "Medicaid_INCAR_4B_AT"
+agenda-group "Medicaid_INCAR_4B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonIncarDocVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4B_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4B_1");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidDOCCSReleaseCode(null);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setIncarceratedPersonDOCCSReleaseDate(null);
+		//$eDeterminationfacts.setClearReleaseCodeandEndDateIncarVerification(Boolean.FALSE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4B_1 : End");
+end
+
+
+rule "Medicaid_Incarceration_4B_2"
+salience 6990
+activation-group "Medicaid_INCAR_4B_AT"
+agenda-group "Medicaid_INCAR_4B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNonIncarDocVerified,
+														!isIncarceration_SelfIdentified_90_NoticeSent,
+														!isIncarcerationSelfIdentified90ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4B_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4B_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RVN);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4B_2 : End");
+end
+
+
+rule "Medicaid_Incarceration_4B_3"
+salience 6980
+activation-group "Medicaid_INCAR_4B_AT"
+agenda-group "Medicaid_INCAR_4B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNonIncarDocVerified,
+														isIncarceration_SelfIdentified_90_NoticeSent,
+														!isIncarcerationSelfIdentified90ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4B_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4B_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RVN);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4B_3 : End");
+end
+
+rule "Medicaid_Incarceration_4B_4"
+salience 6970
+activation-group "Medicaid_INCAR_4B_AT"
+agenda-group "Medicaid_INCAR_4B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNonIncarDocVerified,
+														isIncarceration_SelfIdentified_90_NoticeSent,
+														isIncarcerationSelfIdentified90ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4B_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4B_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.INELIGIBLE, ProgramReasonCode.ICRC4RVN90DAYSPAST);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4B_4 : End");
+end
+
+
+//Medicaid_Incarceration(4C)
+
+rule "Medicaid_Incarceration_4C_1"
+salience 6873
+activation-group "Medicaid_INCAR_4C_AT"
+agenda-group "Medicaid_INCAR_4C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonIncarDocVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4C_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4C_1");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidDOCCSReleaseCode(null);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setIncarceratedPersonDOCCSReleaseDate(null);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4C_1 : End");
+end
+
+
+rule "Medicaid_Incarceration_4C_2"
+salience 6874
+activation-group "Medicaid_INCAR_4C_AT"
+agenda-group "Medicaid_INCAR_4C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNonIncarDocVerified,
+														!isIncarceration_SelfIdentified_90_NoticeSent,
+														!isIncarcerationSelfIdentified90ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4C_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4C_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RVN);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4C_2 : End");
+end
+
+
+rule "Medicaid_Incarceration_4C_3"
+salience 6875
+activation-group "Medicaid_INCAR_4C_AT"
+agenda-group "Medicaid_INCAR_4C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNonIncarDocVerified,
+														isIncarceration_SelfIdentified_90_NoticeSent,
+														!isIncarcerationSelfIdentified90ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4C_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4C_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RVN);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4C_3 : End");
+end
+
+rule "Medicaid_Incarceration_4C_4"
+salience 6876
+activation-group "Medicaid_INCAR_4C_AT"
+agenda-group "Medicaid_INCAR_4C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNonIncarDocVerified,
+														isIncarceration_SelfIdentified_90_NoticeSent,
+														isIncarcerationSelfIdentified90ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_4C_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_4C_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.INELIGIBLE, ProgramReasonCode.ICRC356RVN90DAYSPAST);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_4C_4 : End");
+end
+// Incarceration (5)
+
+/*
+rule "Medicaid_Incarceration_5_1"
+salience 5000
+activation-group "Medicaid_INCAR_5_AT"
+agenda-group "Medicaid_INCAR_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isIncarceration_SelfIdentified_10_NoticeSent);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_5_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_5_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.IC_10_AAVN);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_SELFID_10);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_5_1 : End");
+end
+
+
+rule "Medicaid_Incarceration_5_2"
+salience 4090
+activation-group "Medicaid_INCAR_5_AT"
+agenda-group "Medicaid_INCAR_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isIncarceration_SelfIdentified_10_NoticeSent,
+														!isIncarcerationSelfIdentified10ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_5_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_5_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.IC_10_AAVN);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_5_2 : End");
+end
+
+
+rule "Medicaid_Incarceration_5_3"
+salience 4080
+activation-group "Medicaid_INCAR_5_AT"
+agenda-group "Medicaid_INCAR_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isIncarceration_SelfIdentified_10_NoticeSent,
+														isIncarcerationSelfIdentified10ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_5_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_5_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_5_3 : End");
+end
+*/
+
+
+// Incarceration (6)
+
+rule "Medicaid_Incarceration_6_1"
+salience 6080
+activation-group "Medicaid_INCAR_6_AT"
+agenda-group "Medicaid_INCAR_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getIsUserFoundinCncltnFile99());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_6_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_6_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES);
+		//$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.INCARCERATED.name(), Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setDoccsTypeElgResult(DoccsType.INCARCERATED.name());
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setPreReleaseCancelInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setPreReleaseInd(Boolean.FALSE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_6_1 : End");
+end
+
+rule "Medicaid_Incarceration_6_2"
+salience 6075
+activation-group "Medicaid_INCAR_6_AT"
+agenda-group "Medicaid_INCAR_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsUserFoundinCncltnFile99(),
+														getIsUserFoundinPreRelFile96(),
+														!getIsPreReleaseNoticeSent());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_6_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_6_2");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.PRE_RELEASED.name(), Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setGenPreReleaseNoticeInd(Boolean.TRUE);		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setGenCBICCard(Boolean.TRUE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_6_2 : End");
+end
+
+rule "Medicaid_Incarceration_6_3"
+salience 6070
+activation-group "Medicaid_INCAR_6_AT"
+agenda-group "Medicaid_INCAR_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsUserFoundinCncltnFile99(),
+														getIsUserFoundinPreRelFile96(),
+														getIsPreReleaseNoticeSent(),
+														getIsPreReleaseNoticeSentDatePast12Months());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_6_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_6_3");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.PRE_RELEASED.name(), Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setGenPreReleaseNoticeInd(Boolean.TRUE);		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setGenCBICCard(Boolean.TRUE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_6_3 : End");
+end
+
+rule "Medicaid_Incarceration_6_4"
+salience 6065
+activation-group "Medicaid_INCAR_6_AT"
+agenda-group "Medicaid_INCAR_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsUserFoundinCncltnFile99(),
+														getIsUserFoundinPreRelFile96(),
+														getIsPreReleaseNoticeSent(),
+														!getIsPreReleaseNoticeSentDatePast12Months());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_6_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_6_4");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.PRE_RELEASED.name(), Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setGenCBICCard(Boolean.TRUE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_6_4 : End");
+end
+
+
+rule "Medicaid_Incarceration_6_5"
+salience 6060
+activation-group "Medicaid_INCAR_6_AT"
+agenda-group "Medicaid_INCAR_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsUserFoundinCncltnFile99(),
+														!getIsUserFoundinPreRelFile96(),
+														getIsUserFoundinPreRelFile97(),
+														!getIsPreReleaseNoticeSent());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_6_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_6_5");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.PRE_RELEASED.name(), Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setGenPreReleaseNoticeInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_6_5 : End");
+end
+
+rule "Medicaid_Incarceration_6_6"
+salience 6055
+activation-group "Medicaid_INCAR_6_AT"
+agenda-group "Medicaid_INCAR_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsUserFoundinCncltnFile99(),
+														!getIsUserFoundinPreRelFile96(),
+														getIsUserFoundinPreRelFile97(),
+														getIsPreReleaseNoticeSent(),
+														getIsPreReleaseNoticeSentDatePast12Months());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_6_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_6_6");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.PRE_RELEASED.name(), Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setGenPreReleaseNoticeInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_6_6 : End");
+end
+
+rule "Medicaid_Incarceration_6_7"
+salience 6050
+activation-group "Medicaid_INCAR_6_AT"
+agenda-group "Medicaid_INCAR_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsUserFoundinCncltnFile99(),
+														!getIsUserFoundinPreRelFile96(),
+														getIsUserFoundinPreRelFile97(),
+														getIsPreReleaseNoticeSent(),
+														!getIsPreReleaseNoticeSentDatePast12Months());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_6_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_6_7");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.PRE_RELEASED.name(), Boolean.TRUE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_6_7 : End");
+end
+
+rule "Medicaid_Incarceration_6_8"
+salience 6045
+activation-group "Medicaid_INCAR_6_AT"
+agenda-group "Medicaid_INCAR_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsUserFoundinCncltnFile99(),
+														!getIsUserFoundinPreRelFile96(),
+														!getIsUserFoundinPreRelFile97(),
+														getIsUserFoundinUpdateFile98());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_6_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_6_8");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.PRE_RELEASED.name(), Boolean.TRUE);
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_6_8 : End");
+end
+
+rule "Medicaid_Incarceration_6_9"
+salience 6040
+activation-group "Medicaid_INCAR_6_AT"
+agenda-group "Medicaid_INCAR_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsUserFoundinCncltnFile99(),
+														!getIsUserFoundinPreRelFile96(),
+														!getIsUserFoundinPreRelFile97(),
+														!getIsUserFoundinUpdateFile98());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Incarceration_6_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Incarceration_6_9");
+		drools.setFocus("Medicaid_RESID_1_AG");
+		logger.debug("Rule : Medicaid_Incarceration_6_9 : End");
+end
+
+//Incarceration(6) End
+
+
+
+
+
+//RESIDENCY AND AIAN STATUS INTEGRATION
+
+rule "Medicaid_Residency_1_1"
+salience 6000
+activation-group "Medicaid_RESID_1_AT"
+agenda-group "Medicaid_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isResidencyVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Residency_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Residency_1_1");		
+		drools.setFocus("Medicaid_AIAN_1_AG");
+		logger.debug("Rule : Medicaid_Residency_1_1 : End");
+end
+
+rule "Medicaid_Residency_1_2"
+salience 5990
+activation-group "Medicaid_RESID_1_AT"
+agenda-group "Medicaid_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isResidencyVerified), isLatestPreviousEligibilityIsMedicaid,
+														!(isMemberEnrolledinMMC),
+														!(isMemberEnrolledinFFS));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Residency_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Residency_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.NNYSR);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_AIAN_1_AG");
+		logger.debug("Rule : Medicaid_Residency_1_2 : End");
+end
+
+rule "Medicaid_Residency_1_3"
+salience 5980
+activation-group "Medicaid_RESID_1_AT"
+agenda-group "Medicaid_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isResidencyVerified), isLatestPreviousEligibilityIsMedicaid,
+														!(isMemberEnrolledinMMC),
+														(isMemberEnrolledinFFS));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Residency_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Residency_1_3");
+		//drools.setFocus("Medicaid_RESID_2_AG");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.NNYSR);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_AIAN_1_AG");
+		logger.debug("Rule : Medicaid_Residency_1_3 : End");
+end
+
+rule "Medicaid_Residency_1_4"
+salience 5970
+activation-group "Medicaid_RESID_1_AT"
+agenda-group "Medicaid_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isResidencyVerified), isLatestPreviousEligibilityIsMedicaid,
+														(isMemberEnrolledinMMC),
+														!(isMemberEnrolledinFFS));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Residency_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Residency_1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.NNYSR);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_AIAN_1_AG");
+		logger.debug("Rule : Medicaid_Residency_1_4 : End");
+end
+
+rule "Medicaid_Residency_1_5"
+salience 5960
+activation-group "Medicaid_RESID_1_AT"
+agenda-group "Medicaid_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isResidencyVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Residency_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Residency_1_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.NNYSR);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_AIAN_1_AG");
+		logger.debug("Rule : Medicaid_Residency_1_5 : End");
+end
+
+// Medicaid Residency(2)
+/*
+rule "Medicaid_Residency_2_1"
+salience 3000
+activation-group "Medicaid_RESID_2_AT"
+agenda-group "Medicaid_RESID_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isResidencyVerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Residency_2_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Residency_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.PENDING, ProgramReasonCode.RSNV);
+		//TO DO
+		//Schedule Verification Notice Trigger
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.STATE_RESIDENCY, ClockNameEnum.STATE_RESIDENCY_90);
+		drools.setFocus("Medicaid_AIAN_1_AG");
+		logger.debug("Rule : Medicaid_Residency_2_1 : End");
+end
+
+rule "Medicaid_Residency_2_2"
+salience 2990
+activation-group "Medicaid_RESID_2_AT"
+agenda-group "Medicaid_RESID_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isResidencyVerificationNoticeSent),
+														!(isResidencyClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Residency_2_2 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING, ProgramReasonCode.RSNV);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Residency_2_2");
+		drools.setFocus("Medicaid_AIAN_1_AG");
+		logger.debug("Rule : Medicaid_Residency_2_2 : End");
+end
+
+rule "Medicaid_Residency_2_3"
+salience 2980
+activation-group "Medicaid_RESID_2_AT"
+agenda-group "Medicaid_RESID_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isResidencyVerificationNoticeSent),
+														(isResidencyClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Residency_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Residency_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RSNV_90);
+		drools.setFocus("Medicaid_AIAN_1_AG");
+		logger.debug("Rule : Medicaid_Residency_2_3 : End");
+end
+*/
+
+// Medicaid AIAN(1)
+
+rule "Medicaid_AIAN_1_1"
+salience 4000
+activation-group "Medicaid_AIAN_1_AT"
+agenda-group "Medicaid_AIAN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isAIOrAN));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AIAN_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AIAN_1_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_03);
+		logger.debug("Rule : Medicaid_AIAN_1_1 : End");
+end
+
+rule "Medicaid_AIAN_1_2"
+salience 3990
+activation-group "Medicaid_AIAN_1_AT"
+agenda-group "Medicaid_AIAN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isAIOrAN));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AIAN_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AIAN_1_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_03);
+		logger.debug("Rule : Medicaid_AIAN_1_2 : End");
+end

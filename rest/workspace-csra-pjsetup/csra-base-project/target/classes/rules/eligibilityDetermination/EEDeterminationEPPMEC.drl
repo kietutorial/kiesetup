@@ -1,0 +1,1467 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_EPP_MEC"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_EPP_MEC : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "MAIN_EPP_MEC");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC2_03_ACK);		
+		drools.setFocus("MAIN_EPP_MEC_STALE_1_AG");
+		logger.debug("Rule : MAIN_EPP_MEC : End");
+end
+
+
+//CR1606
+rule "MAIN_EPP_MEC_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "MAIN_EPP_MEC_STALE_1_AT"
+agenda-group "MAIN_EPP_MEC_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_EPP_MEC_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "MAIN_EPP_MEC_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : MAIN_EPP_MEC_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "MAIN_EPP_MEC_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "MAIN_EPP_MEC_STALE_1_AT"
+agenda-group "MAIN_EPP_MEC_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_EPP_MEC_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "MAIN_EPP_MEC_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("EPP_MEC_0_AG");
+		logger.debug("Rule : MAIN_EPP_MEC_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+
+
+
+// ****** EPP rules are implemented per program ****** //
+
+//EPP WMS MEC(0)
+// This is not available in the FDD but has been implemented to satisfy WMS requirement [01/06/2014]
+rule "EPP_MEC_0_1"
+salience 80000
+activation-group "EPP_MEC_0_AT"
+agenda-group "EPP_MEC_0_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isWMSEnrolled());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_0_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_0_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RAWMS);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_0_1 : End");
+end
+
+rule "EPP_MEC_0_2"
+salience 79990
+activation-group "EPP_MEC_0_AT"
+agenda-group "EPP_MEC_0_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isWMSEnrolled());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_0_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_0_2");
+		drools.setFocus("EPP_MEC_1b_AG");
+		logger.debug("Rule : EPP_MEC_0_2 : End");
+end
+
+
+//EPP Public MEC(1)
+//Implementation not required
+
+
+//---------------------------------------------------
+//EPP Public MEC(1b)
+//It has been Implemented to satisfy eMedNY FC requirement CR #1186
+
+rule "EPP_MEC_1b_1"
+salience 79980
+activation-group "EPP_MEC_1b_AT"
+agenda-group "EPP_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!iseMednyEnrolled());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_1b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_1b_1");
+		drools.setFocus("EPP_MEC_2_AG");
+		logger.debug("Rule : EPP_MEC_1b_1 : End");
+end
+
+
+rule "EPP_MEC_1b_2"
+salience 79970
+activation-group "EPP_MEC_1b_AT"
+agenda-group "EPP_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((iseMednyEnrolled()),
+														(HXConstants.EPP.equals(currentCovaragebydate)));
+														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_1b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_1b_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RAEMEDNY);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setCoverageEndIndicator(HXConstants.EOCM);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setForceCloseDuetoInd(ProgramCode.EPP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_1b_2 : End");
+end
+
+
+rule "EPP_MEC_1b_3"
+salience 79960
+activation-group "EPP_MEC_1b_AT"
+agenda-group "EPP_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((iseMednyEnrolled()),
+														!(HXConstants.EPP.equals(currentCovaragebydate)));
+														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_1b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_1b_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RAEMEDNY);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_1b_3 : End");
+end
+
+
+
+//EPP Public MEC(2)
+
+rule "EPP_MEC_2_1"
+salience 48000
+activation-group "EPP_MEC_2_AT"
+agenda-group "EPP_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isFinancialAssistanceRequired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_2_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_2_1 : End");
+end
+
+rule "EPP_MEC_2_2"
+salience 47990
+activation-group "EPP_MEC_2_AT"
+agenda-group "EPP_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														!(isSeekingCoverage));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_2_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_2_2 : End");
+end
+
+rule "EPP_MEC_2_3"
+salience 47987
+activation-group "EPP_MEC_2_AT"
+agenda-group "EPP_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+													    isSeekingCoverage,
+														!isMemberOnAssistanceByFed, 
+														!isMemberOnAssistanceByState,
+														isDataErrorExists());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPL_RRE_DATA_ERROR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_2_3 : End");
+end
+
+rule "EPP_MEC_2_3A"
+salience 47985
+activation-group "EPP_MEC_2_AT"
+agenda-group "EPP_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+													    isSeekingCoverage,
+														!isMemberOnAssistanceByFed, 
+														!isMemberOnAssistanceByState,
+														!(getIsRRECodeExists() || getHasCoverageFromTplService()),
+														!(isDataErrorExists()),
+														!(getIsEnrolledInMedicaidESIMEC())
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_2_3A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_2_3A");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_2_3A : End");
+end
+
+rule "EPP_MEC_2_3B"
+salience 47983
+activation-group "EPP_MEC_2_AT"
+agenda-group "EPP_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+													    isSeekingCoverage,
+														!isMemberOnAssistanceByFed, 
+														!isMemberOnAssistanceByState,
+														!(getIsRRECodeExists() || getHasCoverageFromTplService()),
+														!(isDataErrorExists()),
+														(getIsEnrolledInMedicaidESIMEC())
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_2_3B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_2_3B");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setTplrreDescrInd(Boolean.TRUE);
+	 	$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.TPHI_DESCRPNC);	 
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_2_3B : End");
+end
+
+rule "EPP_MEC_2_4"
+salience 47980
+activation-group "EPP_MEC_2_AT"
+agenda-group "EPP_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isSeekingCoverage,
+														!isMemberOnAssistanceByFed, 
+														isMemberOnAssistanceByState);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_2_4");
+		drools.setFocus("EPP_MEC_3_AG");
+		logger.debug("Rule : EPP_MEC_2_4 : End");
+end
+
+rule "EPP_MEC_2_5"
+salience 47975
+activation-group "EPP_MEC_2_AT"
+agenda-group "EPP_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isSeekingCoverage,
+														isMemberOnAssistanceByFed);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_2_5");
+		drools.setFocus("EPP_MEC_3_AG");
+		logger.debug("Rule : EPP_MEC_2_5 : End");
+end
+
+rule "EPP_MEC_2_6"
+salience 47965
+activation-group "EPP_MEC_2_AT"
+agenda-group "EPP_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isSeekingCoverage,
+														(getIsRRECodeExists() || getHasCoverageFromTplService()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_2_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_2_6");
+		drools.setFocus("EPP_MEC_3_AG");
+		logger.debug("Rule : EPP_MEC_2_6 : End");
+end
+
+//EPP Public MEC(3)
+
+rule "EPP_MEC_3_1"
+salience 47000
+activation-group "EPP_MEC_3_AT"
+agenda-group "EPP_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingMECMedicaidORChipORRefugee);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3_1");
+		drools.setFocus("EPP_MEC_3c_AG");
+		logger.debug("Rule : EPP_MEC_3_1 : End");
+end
+
+
+rule "EPP_MEC_3_2"
+salience 46990
+activation-group "EPP_MEC_3_AT"
+agenda-group "EPP_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidORChipORRefugee,
+														isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MCR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_3_2 : End");
+end
+
+rule "EPP_MEC_3_3"
+salience 46980
+activation-group "EPP_MEC_3_AT"
+agenda-group "EPP_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidORChipORRefugee,
+														!isProposedElgForRenewal,
+														isMCRCoverageEndingWithinAllowableLimits);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3_3");
+		$eDeterminationfacts.setEligibilityStartAfterMCRAllowableEndingDate (ProgramCode.EPP);
+		drools.setFocus("EPP_MEC_3c_AG");
+		logger.debug("Rule : EPP_MEC_3_3 : End");
+end
+
+rule "EPP_MEC_3_4"
+salience 46970
+activation-group "EPP_MEC_3_AT"
+agenda-group "EPP_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidORChipORRefugee,
+														!isProposedElgForRenewal,
+														!doesUserAgreesWithMECMedicaidORChipORRefugee,
+														!isMECMedicaidORChipORRefugeeStatusVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MCR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_3_4 : End");
+end
+
+rule "EPP_MEC_3_5"
+salience 46960
+activation-group "EPP_MEC_3_AT"
+agenda-group "EPP_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidORChipORRefugee,
+														!isProposedElgForRenewal,
+														!doesUserAgreesWithMECMedicaidORChipORRefugee,
+														isMECMedicaidORChipORRefugeeStatusVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3_5");
+		drools.setFocus("EPP_MEC_3c_AG");
+		logger.debug("Rule : EPP_MEC_3_5 : End");
+end
+
+rule "EPP_MEC_3_6"
+salience 46950
+activation-group "EPP_MEC_3_AT"
+agenda-group "EPP_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidORChipORRefugee,
+														!isProposedElgForRenewal,
+														doesUserAgreesWithMECMedicaidORChipORRefugee);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MCR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_3_6 : End");
+end
+
+//CR577
+
+rule "EPP_MEC_3c_1"
+salience 90900
+activation-group "EPP_MEC_3c_AT"
+agenda-group "EPP_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( isDataErrorExists()) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3c_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3c_1");
+	   	drools.setFocus("EPP_MEC_5_AG");
+	 	logger.debug("Rule : EPP_MEC_3c_1 : End");
+end
+
+
+rule "EPP_MEC_3c_2"
+salience 90085
+activation-group "EPP_MEC_3c_AT"
+agenda-group "EPP_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														 HXConstants.COMPR_COV_N_IND.equals(getComprehensiveCoverageIndicator())) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3c_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3c_2");
+	   	drools.setFocus("EPP_MEC_5_AG");
+	 	logger.debug("Rule : EPP_MEC_3c_2 : End");
+end
+
+rule "EPP_MEC_3c_3"
+salience 90080
+activation-group "EPP_MEC_3c_AT"
+agenda-group "EPP_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														  //getComprehensiveCoverageIndicator(),
+														  HXConstants.COMP_COV_OVERRIDE_EXISTS_Y_IND.equals(getIsBackOfficeCCOverrideExists())) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3c_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3c_3");
+	   	drools.setFocus("EPP_MEC_5_AG");
+	 	logger.debug("Rule : EPP_MEC_3c_3 : End");
+end
+
+
+
+
+rule "EPP_MEC_3c_4"
+salience 90075
+activation-group "EPP_MEC_3c_AT"
+agenda-group "EPP_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														  HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														  HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),
+														  !isMedicarePartIndReceived()) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3c_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3c_4");
+		//$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.REC_TPHI);
+	   	drools.setFocus("EPP_MEC_5_AG");
+	 	logger.debug("Rule : EPP_MEC_3c_4 : End");
+end
+
+rule "EPP_MEC_3c_5"
+salience 90070
+activation-group "EPP_MEC_3c_AT"
+agenda-group "EPP_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														  HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														  HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),
+														  //isMedicarePartIndReceived(), not required as mutually exclusive
+														  HXConstants.NO_MEDICARE_LEFT_OVERRIDE_Y_IND.equals(getNoMedicareLeftoverrideInd())) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3c_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3c_4");
+		//$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.REC_TPHI);
+ 	   	drools.setFocus("EPP_MEC_5_AG");
+	 	logger.debug("Rule : EPP_MEC_3c_4 : End");
+end
+
+rule "EPP_MEC_3c_6"
+salience 90065
+activation-group "EPP_MEC_3c_AT"
+agenda-group "EPP_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														  HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														  HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),
+														  isMedicarePartIndReceived(),
+														  HXConstants.NO_MEDICARE_LEFT_OVERRIDE_N_IND.equals(getNoMedicareLeftoverrideInd())) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_3c_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_3c_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+	    drools.setFocus("EPP_MEC_5_AG");
+	 	logger.debug("Rule : EPP_MEC_3c_6 : End");
+end
+
+
+
+//EPP Public MEC(5)
+
+rule "EPP_MEC_5_1"
+salience 81500
+activation-group "EPP_MEC_5_AT"
+agenda-group "EPP_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECMedicaidAORB),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_5_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_5_1");
+		drools.setFocus("EPP_MEC_6a_AG");
+		logger.debug("Rule : EPP_MEC_5_1 : End");
+end
+
+
+rule "EPP_MEC_5_2"
+salience 81490
+activation-group "EPP_MEC_5_AT"
+agenda-group "EPP_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECMedicaidAORB),
+														(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_5_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_5_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.NRPM_MEDAB);
+		drools.setFocus("EPP_MEC_6a_AG");
+		logger.debug("Rule : EPP_MEC_5_2 : End");
+end
+
+
+rule "EPP_MEC_5_3"
+salience 81480
+activation-group "EPP_MEC_5_AT"
+agenda-group "EPP_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB,
+														isProposedElgForRenewal );
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_5_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_5_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+		drools.setFocus("EPP_MEC_6a_AG");
+		logger.debug("Rule : EPP_MEC_5_3 : End");
+end
+
+rule "EPP_MEC_5_4"
+salience 81470
+activation-group "EPP_MEC_5_AT"
+agenda-group "EPP_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														!(doesUserAgreesWithMECMedicaidAORB),
+														!(isMECMedicaidAORBStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_5_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_5_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_5_4 : End");
+end
+
+
+rule "EPP_MEC_5_5"
+salience 81460
+activation-group "EPP_MEC_5_AT"
+agenda-group "EPP_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														!(doesUserAgreesWithMECMedicaidAORB),
+														(isMECMedicaidAORBStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_5_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_5_5");
+		drools.setFocus("EPP_MEC_6a_AG");
+		logger.debug("Rule : EPP_MEC_5_5 : End");
+end
+
+
+rule "EPP_MEC_5_6"
+salience 81450
+activation-group "EPP_MEC_5_AT"
+agenda-group "EPP_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														(doesUserAgreesWithMECMedicaidAORB));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_5_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_5_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_5_6 : End");
+end
+
+
+
+//EPP Public MEC(6a)
+
+rule "EPP_MEC_6a_0"
+salience 45600
+activation-group "EPP_MEC_6a_AT"
+agenda-group "EPP_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6a_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6a_0");
+		drools.setFocus("EPP_MEC_6b_AG");
+		logger.debug("Rule : EPP_MEC_6a_0 : End");
+end
+
+rule "EPP_MEC_6a_1"
+salience 45595
+activation-group "EPP_MEC_6a_AT"
+agenda-group "EPP_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!(isReceivingMECTricare));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6a_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6a_1");
+		drools.setFocus("EPP_MEC_6b_AG");
+		logger.debug("Rule : EPP_MEC_6a_1 : End");
+end
+
+rule "EPP_MEC_6a_2"
+salience 45590
+activation-group "EPP_MEC_6a_AT"
+agenda-group "EPP_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+		                                                 isReceivingMECTricare,
+														!doesUserAgreesWithMECTricare,
+														 isMECTricareStatusVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6a_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6a_2");
+		drools.setFocus("EPP_MEC_6b_AG");
+		logger.debug("Rule : EPP_MEC_6a_2 : End");
+end
+
+rule "EPP_MEC_6a_3"
+salience 45585
+activation-group "EPP_MEC_6a_AT"
+agenda-group "EPP_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECTricare,
+														!doesUserAgreesWithMECTricare,
+														!isMECTricareStatusVerified,
+														!isTricareTerminationClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6a_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6a_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.RPM_TRI);
+		drools.setFocus("EPP_MEC_8a_AG");
+		logger.debug("Rule : EPP_MEC_6a_3 : End");
+end
+
+rule "EPP_MEC_6a_4"
+salience 45580
+activation-group "EPP_MEC_6a_AT"
+agenda-group "EPP_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECTricare,
+														!doesUserAgreesWithMECTricare,
+														!isMECTricareStatusVerified,
+														isTricareTerminationClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6a_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6a_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_90_TRI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6a_4 : End");
+end
+
+// Added the new rule for Enh42290
+rule "EPP_MEC_6a_4a"
+salience 45577
+activation-group "EPP_MEC_6a_AT"
+agenda-group "EPP_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECTricare,
+														doesUserAgreesWithMECTricare,
+														isTricareCoverageEndingWithinAllowableLimits
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6a_4a : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6a_4a");
+		drools.setFocus("EPP_MEC_6b_AG");
+		logger.debug("Rule : EPP_MEC_6a_4a : End");
+end
+
+// Modified the rule for Enh42290
+rule "EPP_MEC_6a_5"
+salience 45575
+activation-group "EPP_MEC_6a_AT"
+agenda-group "EPP_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECTricare,
+														doesUserAgreesWithMECTricare,
+														!isTricareCoverageEndingWithinAllowableLimits,
+														!isTricareTerminationClockExpired,
+														UserMECResponseEnum.H_SRV_NOT_AAVAILABLE.equals(tricareUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6a_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6a_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_TRI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6a_5 : End");
+end
+
+// Modified the rule for Enh42290
+rule "EPP_MEC_6a_6"
+salience 45570
+activation-group "EPP_MEC_6a_AT"
+agenda-group "EPP_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECTricare,
+														doesUserAgreesWithMECTricare,
+														!isTricareCoverageEndingWithinAllowableLimits,
+														!isTricareTerminationClockExpired,
+														!(UserMECResponseEnum.H_SRV_NOT_AAVAILABLE.equals(tricareUserMECResponse)),
+														UserMECResponseEnum.I_WANT_TO_KNOW_OTHER_AVAILABLE_INSURANCE.equals(tricareUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6a_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6a_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_TRI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6a_6 : End");
+end
+
+// Modified the rule for Enh42290
+rule "EPP_MEC_6a_7"
+salience 45565
+activation-group "EPP_MEC_6a_AT"
+agenda-group "EPP_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECTricare,
+														doesUserAgreesWithMECTricare,
+														!isTricareCoverageEndingWithinAllowableLimits,
+														!isTricareTerminationClockExpired,
+														!(UserMECResponseEnum.H_SRV_NOT_AAVAILABLE.equals(tricareUserMECResponse)),
+														!(UserMECResponseEnum.I_WANT_TO_KNOW_OTHER_AVAILABLE_INSURANCE.equals(tricareUserMECResponse)),
+														UserMECResponseEnum.LOSING_COVERAGE_IN_3_MONTHS.equals(tricareUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6a_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6a_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_TRI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6a_7 : End");
+end
+
+// Modified the rule for Enh42290
+rule "EPP_MEC_6a_8"
+salience 45560
+activation-group "EPP_MEC_6a_AT"
+agenda-group "EPP_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECTricare,
+														doesUserAgreesWithMECTricare,
+														!isTricareCoverageEndingWithinAllowableLimits,
+														isTricareTerminationClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6a_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6a_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_TRI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6a_8 : End");
+end
+
+
+//EPP Public MEC(6b)
+
+rule "EPP_MEC_6b_0"
+salience 45400
+activation-group "EPP_MEC_6b_AT"
+agenda-group "EPP_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6b_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6b_0");
+		//drools.setFocus("EPP_MEC_6c_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6b_0 : End");
+end
+
+rule "EPP_MEC_6b_1"
+salience 45395
+activation-group "EPP_MEC_6b_AT"
+agenda-group "EPP_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isReceivingMECPeaceCorps);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6b_1");
+		//drools.setFocus("EPP_MEC_6c_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6b_1 : End");
+end
+
+rule "EPP_MEC_6b_2"
+salience 45390
+activation-group "EPP_MEC_6b_AT"
+agenda-group "EPP_MEC_6b_AG"
+	when
+		//<CONDITION>`
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECPeaceCorps,
+														!doesUserAgreesWithMECPeaceCorps,
+														isMECPeaceCorpsStatusVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6b_2");
+		//drools.setFocus("EPP_MEC_6c_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6b_2 : End");
+end
+
+rule "EPP_MEC_6b_3"
+salience 45385
+activation-group "EPP_MEC_6b_AT"
+agenda-group "EPP_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECPeaceCorps,
+														!doesUserAgreesWithMECPeaceCorps,
+														!isMECPeaceCorpsStatusVerified,
+														!isPeaceCorpsTerminationClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6b_3");
+		drools.setFocus("EPP_MEC_8b_AG");
+		logger.debug("Rule : EPP_MEC_6b_3 : End");
+end
+
+rule "EPP_MEC_6b_4"
+salience 45380
+activation-group "EPP_MEC_6b_AT"
+agenda-group "EPP_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECPeaceCorps,
+														!doesUserAgreesWithMECPeaceCorps,
+														!isMECPeaceCorpsStatusVerified,
+														isPeaceCorpsTerminationClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6b_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6b_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_90_PEACE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6b_4 : End");
+end
+
+//Added for enhnc 42290
+rule "EPP_MEC_6b_4a"
+salience 45380
+activation-group "EPP_MEC_6b_AT"
+agenda-group "EPP_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECPeaceCorps,
+														doesUserAgreesWithMECPeaceCorps,
+														isPeaceCorpsCoverageEndingWithinAllowableLimits);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6b_4a : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6b_4a");
+			//drools.setFocus("EPP_MEC_6c_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6b_4a : End");
+end
+
+// Modified the rule for Enh42290
+rule "EPP_MEC_6b_5"
+salience 45375
+activation-group "EPP_MEC_6b_AT"
+agenda-group "EPP_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+													    isReceivingMECPeaceCorps,
+														doesUserAgreesWithMECPeaceCorps,
+														!isPeaceCorpsCoverageEndingWithinAllowableLimits,
+														UserMECResponseEnum.I_WANT_TO_KNOW_OTHER_AVAILABLE_INSURANCE.equals(PeaceCorpsUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6b_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6b_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_PEACE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6b_5 : End");
+end
+
+// Modified the rule for Enh42290
+rule "EPP_MEC_6b_6"
+salience 45370
+activation-group "EPP_MEC_6b_AT"
+agenda-group "EPP_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECPeaceCorps,
+														doesUserAgreesWithMECPeaceCorps,
+														!isPeaceCorpsCoverageEndingWithinAllowableLimits,
+														!(UserMECResponseEnum.I_WANT_TO_KNOW_OTHER_AVAILABLE_INSURANCE.equals(PeaceCorpsUserMECResponse)),
+														UserMECResponseEnum.LOSING_COVERAGE_IN_3_MONTHS.equals(PeaceCorpsUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6b_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6b_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_PEACE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6b_6 : End");
+end
+
+// Modified the rule for Enh42290
+rule "EPP_MEC_6b_7"
+salience 45365
+activation-group "EPP_MEC_6b_AT"
+agenda-group "EPP_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isReceivingMECPeaceCorps,
+														doesUserAgreesWithMECPeaceCorps,
+														!isPeaceCorpsCoverageEndingWithinAllowableLimits,
+														isPeaceCorpsTerminationClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6b_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6b_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_PEACE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6b_7 : End");
+end
+
+
+
+
+
+//EPP Public MEC(6c)
+/*
+rule "EPP_MEC_6c_0"
+salience 45300
+activation-group "EPP_MEC_6c_AT"
+agenda-group "EPP_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6c_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6c_0");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6c_0 : End");
+end
+
+rule "EPP_MEC_6c_1"
+salience 45295
+activation-group "EPP_MEC_6c_AT"
+agenda-group "EPP_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!(isReceivingMECAmeriCorps));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6c_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6c_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6c_1 : End");
+end
+
+rule "EPP_MEC_6c_2"
+salience 45290
+activation-group "EPP_MEC_6c_AT"
+agenda-group "EPP_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														(isReceivingMECAmeriCorps),
+														!(doesUserAgreesWithMECAmeriCorps),
+														(isMECAmeriCorpsStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6c_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6c_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6c_2 : End");
+end
+
+rule "EPP_MEC_6c_3"
+salience 45285
+activation-group "EPP_MEC_6c_AT"
+agenda-group "EPP_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														(isReceivingMECAmeriCorps),
+														!(doesUserAgreesWithMECAmeriCorps),
+														!(isMECAmeriCorpsStatusVerified),
+														!(isAmeriCorpsTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6c_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6c_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.RPM_AMERI);
+		drools.setFocus("EPP_MEC_8c_AG");
+		logger.debug("Rule : EPP_MEC_6c_3 : End");
+end
+
+rule "EPP_MEC_6c_4"
+salience 45280
+activation-group "EPP_MEC_6c_AT"
+agenda-group "EPP_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														(isReceivingMECAmeriCorps),
+														!(doesUserAgreesWithMECAmeriCorps),
+														!(isMECAmeriCorpsStatusVerified),
+														(isAmeriCorpsTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6c_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6c_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_90_AMERI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6c_4 : End");
+end
+
+rule "EPP_MEC_6c_5"
+salience 45275
+activation-group "EPP_MEC_6c_AT"
+agenda-group "EPP_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														(isReceivingMECAmeriCorps),
+														(doesUserAgreesWithMECAmeriCorps),
+														UserMECResponseEnum.I_WANT_TO_KNOW_OTHER_AVAILABLE_INSURANCE.equals(ameriCorpsUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6c_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6c_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_AMERI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6c_5 : End");
+end
+
+rule "EPP_MEC_6c_6"
+salience 45270
+activation-group "EPP_MEC_6c_AT"
+agenda-group "EPP_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														(isReceivingMECAmeriCorps),
+														(doesUserAgreesWithMECAmeriCorps),
+														!(UserMECResponseEnum.I_WANT_TO_KNOW_OTHER_AVAILABLE_INSURANCE.equals(ameriCorpsUserMECResponse)),
+														UserMECResponseEnum.LOSING_COVERAGE_IN_3_MONTHS.equals(ameriCorpsUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6c_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6c_6");
+		drools.setFocus("EPP_MEC_7c_AG");
+		logger.debug("Rule : EPP_MEC_6c_6 : End");
+end
+
+rule "EPP_MEC_6c_7"
+salience 45265
+activation-group "EPP_MEC_6c_AT"
+agenda-group "EPP_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														(isReceivingMECAmeriCorps),
+														(doesUserAgreesWithMECAmeriCorps),
+														(isAmeriCorpsTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_6c_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_6c_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPM_90_AMERI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_6c_7 : End");
+end
+
+*/
+
+//EPP Public MEC(7a)
+
+rule "EPP_MEC_7a_1"
+salience 61000
+activation-group "EPP_MEC_7a_AT"
+agenda-group "EPP_MEC_7a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isTricareTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_7a_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_7a_1");
+		//TO DO
+		//Re-check
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_TRI_TERMIN, ClockNameEnum.MEC_TRI_TERMIN_1);
+		drools.setFocus("EPP_MEC_6b_AG");
+		logger.debug("Rule : EPP_MEC_7a_1 : End");
+end
+
+rule "EPP_MEC_7a_2"
+salience 60990
+activation-group "EPP_MEC_7a_AT"
+agenda-group "EPP_MEC_7a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isTricareTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_7a_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_7a_2");
+		drools.setFocus("EPP_MEC_6b_AG");
+		logger.debug("Rule : EPP_MEC_7a_2 : End");
+end
+
+//EPP Public MEC(8a)
+
+rule "EPP_MEC_8a_1"
+salience 60000
+activation-group "EPP_MEC_8a_AT"
+agenda-group "EPP_MEC_8a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECTricare90DaysNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_8a_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_8a_1");
+		//TO DO
+		//Set Notice trigger
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_TRI, ClockNameEnum.MEC_TRI_90);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.VNPMR);
+		drools.setFocus("EPP_MEC_6b_AG");
+		logger.debug("Rule : EPP_MEC_8a_1 : End");
+end
+
+rule "EPP_MEC_8a_2"
+salience 59990
+activation-group "EPP_MEC_8a_AT"
+agenda-group "EPP_MEC_8a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECTricare90DaysNoticeSent),
+														!(isMECTricare_90_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_8a_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_8a_2");
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_TRI, ClockNameEnum.MEC_TRI_90);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.VNPMR);
+		drools.setFocus("EPP_MEC_6b_AG");
+		logger.debug("Rule : EPP_MEC_8a_2 : End");
+end
+
+rule "EPP_MEC_8a_3"
+salience 59985
+activation-group "EPP_MEC_8a_AT"
+agenda-group "EPP_MEC_8a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECTricare90DaysNoticeSent),
+														(isMECTricare_90_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_8a_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_8a_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_90);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setEppNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_8a_3 : End");
+end
+
+//EPP Public MEC(7b)
+
+rule "EPP_MEC_7b_1"
+salience 61000
+activation-group "EPP_MEC_7b_AT"
+agenda-group "EPP_MEC76b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isPeaceCorpsTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_7b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_7b_1");
+		//TO DO
+		//Re-check
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_PEACE_TERMIN, ClockNameEnum.MEC_PEACE_TERMIN_1);
+		//drools.setFocus("EPP_MEC_6c_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_7b_1 : End");
+end
+
+rule "EPP_MEC_7b_2"
+salience 60990
+activation-group "EPP_MEC_7b_AT"
+agenda-group "EPP_MEC_7b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isPeaceCorpsTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_7b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_7b_2");
+		//drools.setFocus("EPP_MEC_6c_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_7b_2 : End");
+end
+
+//EPP Public MEC(8b)
+
+rule "EPP_MEC_8b_1"
+salience 30000
+activation-group "EPP_MEC_8b_AT"
+agenda-group "EPP_MEC_8b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECPeaceCorps90DaysNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_8b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_8b_1");
+		//TO DO
+		//Set Notice trigger
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_PEACE, ClockNameEnum.MEC_PEACE_90);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.VNPMR);
+		//drools.setFocus("EPP_MEC_6c_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_8b_1 : End");
+end
+
+rule "EPP_MEC_8b_2"
+salience 29990
+activation-group "EPP_MEC_8b_AT"
+agenda-group "EPP_MEC_8b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECPeaceCorps90DaysNoticeSent),
+														!(isMECPeaceCorps_90_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_8b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_8b_2");
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_PEACE, ClockNameEnum.MEC_PEACE_90);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.VNPMR);
+		//drools.setFocus("EPP_MEC_6c_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_8b_2 : End");
+end
+
+rule "EPP_MEC_8b_3"
+salience 29980
+activation-group "EPP_MEC_8b_AT"
+agenda-group "EPP_MEC_8b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECPeaceCorps90DaysNoticeSent),
+														(isMECPeaceCorps_90_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_8b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_8b_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_90);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setEppNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_8b_3 : End");
+end
+/*
+//EPP Public MEC(7c)
+
+rule "EPP_MEC_7c_1"
+salience 28000
+activation-group "EPP_MEC_7c_AT"
+agenda-group "EPP_MEC_7c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isAmeriCorpsTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_7c_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_7c_1");
+		//TO DO
+		//Re-check
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_AMERI_TERMIN, ClockNameEnum.MEC_AMERI_TERMIN_1);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_7c_1 : End");
+end
+
+rule "EPP_MEC_7c_2"
+salience 27990
+activation-group "EPP_MEC_7c_AT"
+agenda-group "EPP_MEC_7c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isAmeriCorpsTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_7c_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_7c_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_7c_2 : End");
+end
+
+//EPP Public MEC(8c)
+
+rule "EPP_MEC_8c_1"
+salience 27980
+activation-group "EPP_MEC_8c_AT"
+agenda-group "EPP_MEC_8c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECAmeriCorps90DaysNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_8c_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_8c_1");
+		//TO DO
+		//Set Notice trigger
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_AMERI, ClockNameEnum.MEC_AMERI_90);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.VNPMR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_8c_1 : End");
+end
+
+rule "EPP_MEC_8c_2"
+salience 27970
+activation-group "EPP_MEC_8c_AT"
+agenda-group "EPP_MEC_8c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECAmeriCorps90DaysNoticeSent),
+														!(isMECAmeriCorps_90_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_8c_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_8c_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.VNPMR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_8c_2 : End");
+end
+
+rule "EPP_MEC_8c_3"
+salience 27960
+activation-group "EPP_MEC_8c_AT"
+agenda-group "EPP_MEC_8c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECAmeriCorps90DaysNoticeSent),
+														(isMECAmeriCorps_90_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_MEC_8c_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_MEC_8c_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_90);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setEppNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : EPP_MEC_8c_3 : End");
+end
+*/
+
+

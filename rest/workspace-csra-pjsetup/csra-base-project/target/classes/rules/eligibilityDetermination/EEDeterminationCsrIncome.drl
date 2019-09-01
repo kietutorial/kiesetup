@@ -1,0 +1,238 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+import com.hcentive.utils.ext.HXUtility;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+rule "MAIN_CSR_INCOME"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_CSR_INCOME : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "MAIN_CSR_INCOME");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_INIT_ACK);
+		drools.setFocus("MAIN_CSR_INCOME_STALE_1_AG");
+		logger.debug("Rule : MAIN_CSR_INCOME : End");
+end
+
+//CR1606
+rule "MAIN_CSR_INCOME_STALE_ELG_SEC_01"
+salience 95070
+activation-group "MAIN_CSR_INCOME_STALE_1_AT"
+agenda-group "MAIN_CSR_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CSR_INCOME_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "MAIN_CSR_INCOME_STALE_ELG_SEC_01");
+		drools.setFocus("CSR_FPL_Band_1_AG");
+		logger.debug("Rule : MAIN_CSR_INCOME_STALE_ELG_SEC_01 : End");
+end
+
+rule "MAIN_CSR_INCOME_STALE_ELG_SEC_02"
+salience 95060
+activation-group "MAIN_CSR_INCOME_STALE_1_AT"
+agenda-group "MAIN_CSR_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,!isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CSR_INCOME_STALE_ELG_SEC_02 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "MAIN_CSR_INCOME_STALE_ELG_SEC_02");
+		$eDeterminationfacts.updateProgram(ProgramCode.CSR, program_status.INELIGIBLE, ProgramReasonCode.STALE_MEM);// set program as Ineligble with reason code
+		$eDeterminationfacts.skipProgramExecution(ProgramCode.CSR, HXConstants.BOLTRUE); // Set Flag to stop further execution of drls for this program
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : MAIN_CSR_INCOME_STALE_ELG_SEC_02 : End");
+end
+
+rule "MAIN_CSR_INCOME_STALE_ELG_SEC_03"
+salience 95050
+activation-group "MAIN_CSR_INCOME_STALE_1_AT"
+agenda-group "MAIN_CSR_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CSR_INCOME_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "MAIN_CSR_INCOME_STALE_ELG_SEC_03");
+		$eDeterminationfacts.clearStaleFlag();
+		drools.setFocus("CSR_FPL_Band_1_AG");
+		logger.debug("Rule : MAIN_CSR_INCOME_STALE_ELG_SEC_03 : End");
+end
+//CR1606 code changes end
+
+//-------------------------------------------------------------------------------------CSR BEGIN------------------------------------------------------------
+
+//-------------------------CSR CONTROLLER-----------------------
+
+
+rule "CSR_FPL_Band_1_1"
+salience 85700
+activation-group "CSR_FPL_Band_1_AT"
+agenda-group "CSR_FPL_Band_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAIANSpecialBenefits);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_FPL_Band_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_FPL_Band_1_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CSR).setFplMin(configGroupBean.getValueFor(RuleKey.APTC_FPL_MIN));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CSR).setFplMax(configGroupBean.getValueFor(RuleKey.CSR_FPL_MAX));
+		drools.setFocus("CSR_Income_1_AG");
+		logger.debug("Rule : CSR_FPL_Band_1_1 : End");
+end
+
+rule "CSR_FPL_Band_1_2"
+salience 85690
+activation-group "CSR_FPL_Band_1_AT"
+agenda-group "CSR_FPL_Band_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAIANSpecialBenefits);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_FPL_Band_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_FPL_Band_1_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CSR).setFplMin(configGroupBean.getValueFor(RuleKey.APTC_FPL_MIN));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CSR).setFplMax(configGroupBean.getValueFor(RuleKey.CSR_FPL_MIN));
+		drools.setFocus("CSR_Income_1_AG");
+		logger.debug("Rule : CSR_FPL_Band_1_2 : End");
+end
+
+
+//CSR Income(1)
+
+rule "CSR_Income_1_1"
+salience 98000
+activation-group "CSR_Income_1_AT"
+agenda-group "CSR_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Income_1_1 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.CSR, program_status.INELIGIBLE, ProgramReasonCode.NOT_APTC_ELG);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Income_1_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : CSR_Income_1_1 : End");
+end
+
+
+rule "CSR_Income_1_2"
+salience 97090
+activation-group "CSR_Income_1_AT"
+agenda-group "CSR_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.APTC),
+														!isProgramStatusPending(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Income_1_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Income_1_2");
+		drools.setFocus("CSR_Income_2_AG");
+		logger.debug("Rule : CSR_Income_1_2 : End");
+end
+
+
+rule "CSR_Income_1_3"
+salience 97080
+activation-group "CSR_Income_1_AT"
+agenda-group "CSR_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.APTC),
+														isProgramStatusPending(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Income_1_3 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.CSR, program_status.PENDING, null);		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Income_1_3");
+		drools.setFocus("CSR_Income_2_AG");
+		logger.debug("Rule : CSR_Income_1_3 : End");
+end
+
+
+rule "CSR_Income_2_1"
+salience 96000
+activation-group "CSR_Income_2_AT"
+agenda-group "CSR_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(aptcFPL <= configGroupBean.getValueFor(RuleKey.CSR_FPL_MAX)));	
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Income_2_1 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.CSR, program_status.INELIGIBLE, ProgramReasonCode.OI);		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Income_2_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : CSR_Income_2_1 : End");
+end
+
+rule "CSR_Income_2_2"
+salience 95090
+activation-group "CSR_Income_2_AT"
+agenda-group "CSR_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((aptcFPL <= configGroupBean.getValueFor(RuleKey.CSR_FPL_MAX)),
+														(isAIANSpecialBenefits));	
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Income_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Income_2_2");
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.CSR_ELG_AI, $eDeterminationfacts.getAptcFPL() +"");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : CSR_Income_2_2 : End");
+end
+
+rule "CSR_Income_2_3"
+salience 95080
+activation-group "CSR_Income_2_AT"
+agenda-group "CSR_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((aptcFPL <= configGroupBean.getValueFor(RuleKey.CSR_FPL_MAX)),
+														!(isAIANSpecialBenefits),
+														(aptcFPL <= configGroupBean.getValueFor(RuleKey.CSR_FPL_MIN)) );	
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Income_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Income_2_3");
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.CSR_ELG_NAI, $eDeterminationfacts.getAptcFPL() +"");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : CSR_Income_2_3 : End");
+end
+
+rule "CSR_Income_2_4"
+salience 95070
+activation-group "CSR_Income_2_AT"
+agenda-group "CSR_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((aptcFPL <= configGroupBean.getValueFor(RuleKey.CSR_FPL_MAX)),
+														!(isAIANSpecialBenefits),
+														!(aptcFPL <= configGroupBean.getValueFor(RuleKey.CSR_FPL_MIN)));	
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Income_2_4 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.CSR, program_status.INELIGIBLE, ProgramReasonCode.OI);	
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Income_2_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : CSR_Income_2_4 : End");
+end

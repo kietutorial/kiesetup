@@ -1,0 +1,224 @@
+package com.hcentive.eligibility.notice;
+ 
+import com.hcentive.rulesengine.domain.notice.EmployerEligibilityDetailsFact;
+import com.hcentive.shop.domain.ext.CompanyDetail;
+import com.hcentive.shop.domain.Employer;
+import com.hcentive.user.UserProfile;
+import com.hcentive.shop.domain.EmployerEligibilityStatusEnum;
+import com.hcentive.shop.domain.EmployerEligibility;
+import com.hcentive.shop.domain.EnrollmentSetup;
+import com.hcentive.agent.domain.Broker;
+import com.hcentive.enrollment.app.domain.Application;
+import org.apache.commons.lang.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Iterator;
+import java.util.Date;
+
+/* Rule Notice 1000a :
+ * Employer submits a paper application that is received by DOH customer service
+ */
+ 
+rule "Notice1000a"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		UserProfile userProfile = eligibility.getEmployer().getUserProfile();
+		EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+		String eligibilityVerificationStatus = eligibility.getEligibilityVerificationStatus().name();
+		String eligibilityStatus = eligibility.getEligibilityStatus().name();
+		if(eligibility != null && eligibility.isTriggeredByCSR() && eligibilityStatus.equalsIgnoreCase("SUBMITTED") && eligibilityVerificationStatus.equalsIgnoreCase("Eligible")){
+	    	n.getTemplateNameList().add("Notice1000a.ftl");
+	   	} 
+
+	end
+	
+/* Rule Notice 1003a :
+ * Employer's SHOP Application has been approved; no further information is needed prior 
+ * to employee open enrollment
+ */
+ 
+rule "Notice1003a"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		UserProfile userProfile = eligibility.getEmployer().getUserProfile();
+		EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+		String eligibilityStatus = eligibility.getEligibilityStatus().name();
+		String eligibilityVerificationStatus = eligibility.getEligibilityVerificationStatus().name();
+		
+		if(userProfile.getType().toString().equalsIgnoreCase("EMPLOYER")){
+			if(eligibility != null && !eligibility.isTriggeredByCSR() && enrollmentSetup != null && enrollmentSetup.isAllEmployeesNotified() && eligibilityStatus.equalsIgnoreCase("SUBMITTED") && eligibilityVerificationStatus.equalsIgnoreCase("Eligible")){
+		    	n.getTemplateNameList().add("Notice1003a.ftl");
+		   	} 
+	   	}
+	end
+	
+/* Rule Notice 1005b :
+ * Employer submitted incorrect information on an employee that would prevent open enrollment within 30 days of 
+ * target open enrollment
+ */
+ 
+rule "Notice1005b"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+		UserProfile userProfile = eligibility.getEmployer().getUserProfile();
+		Date currentDate = new Date();
+		String eligibilityStatus = eligibility.getEligibilityStatus().name();
+		String eligibilityVerificationStatus = eligibility.getEligibilityVerificationStatus().name();
+		
+		if(null != userProfile && userProfile.getType().toString().equalsIgnoreCase("EMPLOYER")){
+			if(eligibility != null && null != eligibility.getEmployees() && eligibilityStatus.equalsIgnoreCase("SUBMITTED") && eligibilityVerificationStatus.equalsIgnoreCase("Eligible")){
+				if(null != enrollmentSetup && !enrollmentSetup.isAllEmployeesNotified() && !enrollmentSetup.isEnrollmentTerminated() && enrollmentSetup.getEnrollmentEndDate().getTime() > currentDate.getTime() && enrollmentSetup.getPlanStatusEventNotification() == null){
+		    		n.getTemplateNameList().add("Notice1005b.ftl");
+		    	}
+		   	} 
+	   	}
+	end
+	
+/* Rule Notice 1008 :
+ * Employee coverage in current QHP will be terminated; includes employee opting to seek coverage from another source
+ * and/or an employee cancelling one coverage for another due to a qualifying event); employer receives an initial 
+ * confirmation of coverage ending for eligible employee.
+ */
+ 
+rule "Notice1008"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+		UserProfile userProfile = eligibility.getEmployer().getUserProfile();
+
+		String eligibilityStatus = eligibility.getEligibilityStatus().name();
+		String eligibilityVerificationStatus = eligibility.getEligibilityVerificationStatus().name();
+		
+		if(null != userProfile && userProfile.getType().name().equalsIgnoreCase("EMPLOYER")){
+			if(eligibility != null && eligibilityStatus.equalsIgnoreCase("SUBMITTED") && eligibilityVerificationStatus.equalsIgnoreCase("Eligible")){
+				if(null != enrollmentSetup && enrollmentSetup.isEnrollmentTerminated()){
+		    		n.getTemplateNameList().add("Notice1008.ftl");
+		    		
+		    	}
+		   	} 
+	   	}
+	end	
+	
+/* Rule Notice Notice1024 :
+ * Notice to an employee when a plan that they are enrolled in is no longer available 
+ */  
+  
+rule "Notice1024"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+		//EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+	   if(null != n.getEnrollmentSetup())
+	       if(n.getRecipient().equalsIgnoreCase("EMP") && n.getEnrollmentSetup().getPlanStatusEventNotification() != null)
+	          n.getTemplateNameList().add("Notice1024.ftl");
+end
+
+/* Rule Notice Notice1010 :
+ * Plan terminates participation in SHOP and plan provides coverage for one or more employees
+ */	
+  
+rule "Notice1010"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+		//EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+	   if(null != n.getEnrollmentSetup())
+	       if(n.getRecipient().equalsIgnoreCase("EMR") && n.getEnrollmentSetup().getPlanStatusEventNotification() != null)
+	          n.getTemplateNameList().add("Notice1010.ftl");
+end
+
+/* Rule Notice Notice1006 :
+ * Employee Enrollment During Special Enrollment Periods
+ */	
+  
+rule "Notice1006"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+	   EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+	   Application application = n.getApplication();
+	   
+	   if(null != application && null != enrollmentSetup && enrollmentSetup.isSpecialEnrollmentPending())
+	          n.getTemplateNameList().add("Notice1006.ftl");
+end		
+	
+/* Rule Notice Notice1009a :
+ * Rule Notice Notice1040 :
+ * Employer leaves SHOP; Initial notice after employer requests to terminate coverage
+ */	
+  
+rule "Notice1009a"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+	  
+	  if(null != eligibility){ 
+     	if(eligibility.isInitialTerminationNotice()){
+     		if( eligibility.getTerminationNoticeType().equals("FM_NON_PAYMENT")){
+	     		n.getTemplateNameList().add("Notice1040.ftl");
+	     	}else{
+	     		n.getTemplateNameList().add("Notice1009a.ftl");
+	     	}
+     	}
+     }
+     end
+     
+/* Rule Notice Notice1042 :
+ * Employer Reinstates to SHOP; Initial notice after employer is ReInstated
+ */	  
+rule "Notice1042"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+	  
+	  if(null != eligibility){ 
+     	if(eligibility.isReInstatementNotice()){
+     		n.getTemplateNameList().add("Notice1042.ftl");
+     	}
+     }
+     end		
+	
+/* Rule Notice Notice1009b :
+ * Employer leaves SHOP
+ */	
+  
+rule "Notice1009b"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+	   EmployerEligibility eligibility = n.getEmployerEligibility();
+	             
+	   if(null != eligibility && eligibility.isFinalTerminationNotice()){
+		     n.getTemplateNameList().add("Notice1009b.ftl");
+	   }
+end		
+	/* Rule Notice Notice1050 :
+ * Employer eligible for SHOP renewal
+ */	
+  
+rule "Notice1050"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+	   EmployerEligibility eligibility = n.getEmployerEligibility();
+	             
+	   if(null != eligibility && eligibility.isEligibleForRenewal()){
+		     n.getTemplateNameList().add("Notice1050.ftl");
+	   }
+end	

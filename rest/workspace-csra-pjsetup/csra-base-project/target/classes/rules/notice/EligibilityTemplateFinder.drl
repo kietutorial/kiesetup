@@ -1,0 +1,1397 @@
+package com.hcentive.eligibility.notice;
+ 
+import com.hcentive.rulesengine.domain.notice.EligibilityDetailsFact;
+import com.hcentive.eligibility.prescreening.domain.Member;
+import com.hcentive.eligibility.prescreening.domain.ProgramResult;
+import com.hcentive.eligibility.prescreening.domain.ext.ProgramResultReason;
+import com.hcentive.eligibility.domain.Program;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.utils.ext.HXUtility;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Iterator;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import java.util.HashSet;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.user.UserProfile;
+ global org.slf4j.Logger logger;  
+ 
+/* Rule Notice 001 :
+ * Only Medicaid eligible individuals in the household (ie: not a mixed coverage household),Individual(s) did not select a plan for enrollment.
+ * There is no Missing information that delays the eligibility.
+ */
+
+/*
+rule "Notice001"
+    when
+        n : EligibilityDetailsFact()
+    then
+     	
+        int counter=0;
+        int houseHoldSize= 0;  
+       List<Member> memberList = n.getMemberList();
+      
+    if (memberList != null) {
+	    for (Member member : memberList) {
+	       if (member.getApplying() && !member.isIneligibleForAllPrograms())
+	       		houseHoldSize++;
+	       
+	        if (member.isMedicaidEligible() && !member.isAwaitingDocs(Program.getMedicaidId())) {            	
+	    		counter++;
+	     	}
+	    }
+	}
+       
+ 	if ((houseHoldSize == counter) && (houseHoldSize != 0)){
+    	n.getTemplateNameList().add("Notice001.ftl");
+ 	}        
+end
+*/
+
+/* Rule Notice 003 :
+ * Only Medicaid eligible individuals in the household (ie: not a mixed coverage household),did not select a plan for enrollment 
+ * There is an income inconsistency preventing a non-conditional eligibility determination
+ * Medicaid pending individual due to financial reason
+ * 
+ */
+ 
+ /*
+rule "Notice003"
+    when
+        n : EligibilityDetailsFact();
+    then
+    
+		int counter=0;
+		
+		int houseHoldSize= 0;
+		int medicaidHouseHoldCount = 0; 
+		List<Member> memberList = n.getMemberList();
+      
+		if (memberList != null){
+		
+        	for(Member member : memberList){
+        	
+        		if (member.getApplying() && !member.isIneligibleForAllPrograms())
+	       			houseHoldSize++;
+	       		
+        		if (member.isMedicaidEligible() || member.isMedicaidPending()){
+        			medicaidHouseHoldCount++;        			
+        			if(member.isAwaitingIncomeDocs(Program.getMedicaidId()))
+        			    counter++;
+        			}
+        	}
+		}
+		
+		if ((houseHoldSize == medicaidHouseHoldCount) && (counter != 0)){		
+	    		n.getTemplateNameList().add("Notice003.ftl");
+    	}
+end
+*/
+
+/* Rule Notice 004 :
+ * Only APTC/CSR eligible individuals in the household  (ie: not a mixed coverage household),Individual(s) did not select a plan for enrollment.
+ * There is no missing information that delays eligibility
+ */
+  
+rule "Notice004"
+    when
+        n : EligibilityDetailsFact()
+    then     	
+       int counter=0;
+       int houseHoldSize= 0;
+       List<Member> memberList = n.getMemberList();
+       List<Member> previousMemberList = n.getPreviousMemberList();
+       
+       List<Member> sepMemberList = new ArrayList<Member>();
+       
+	    if ((n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){	
+	      
+		    if (memberList != null) {
+			     for (Member member : memberList) {			     	
+			     
+			     	if (member.getApplying() && !member.isIneligibleForAllPrograms())
+			       		houseHoldSize++;			       
+			       	
+			        if (member.isAptcOrCSROnlyEligible() && !member.isAwaitingDocs()) {           	
+			           	counter++;
+			           	sepMemberList.add( member );
+			        }
+			     }
+			}
+		}
+	 	
+	 	if ( counter > 0 ) {
+	    	n.getTemplateNameList().add("Notice004.ftl");
+	    	n.getSepNoticeData().put( "Notice004.ftl", sepMemberList );    	
+	 	}
+	 	       
+end
+
+/* Rule Notice 007 : Notice of Temporary APTC/CSR Eligibility and Request for Additional Information
+ * Only APTC/CSR eligible individuals in the household (ie: not a mixed coverage household),Individual(s) did not select a plan for enrollment.
+ * Additional information is required to confirm eligibility
+ *
+ */
+  
+rule "Notice007"
+    when
+        n : EligibilityDetailsFact()
+    then
+     	
+       int counter=0;
+       int temporaryAptccounter=0;
+       int houseHoldSize= 0;
+       List<Member> memberList = n.getMemberList();
+       List<Member> previousMemberList = n.getPreviousMemberList();
+       
+       List<Member> sepMemberList = new ArrayList<Member>();
+       
+      if ((n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){	
+		    if (memberList != null) {
+			     for (Member member : memberList) {
+			     
+			     if (member.getApplying() && !member.isIneligibleForAllPrograms())
+		       		houseHoldSize++;
+		       		
+			        if (member.isAptcOrCSROnlyEligible()) {
+			        	counter++;		        	
+			        	if (member.isAwaitingDocs(Program.getAPTCId()) || member.isAwaitingDocs(Program.getAPTCId())) {          	
+			           		temporaryAptccounter++;
+			           		sepMemberList.add( member );		           	
+			           	}
+			        }
+			     }
+			}
+		}	
+	
+		if (temporaryAptccounter > 0){
+	    	n.getTemplateNameList().add("Notice007.ftl");
+	    	n.getSepNoticeData().put( "Notice007.ftl", sepMemberList );    	
+	 	}        
+end
+
+
+
+
+/* Rule N017: 
+* Ineligible for Unsubsidized QHP because of an incomplete application 
+* Did not request Financial Assitance*  
+
+rule "Notice017"
+    when
+        n : EligibilityDetailsFact() 
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+
+    if (!n.getIsPublicProgram()) {
+    
+    	if (memberList != null) {
+        	 for (Member member : memberList) {
+           		List<ProgramResult> programResultList = member.getProgramResults();           		
+           		for (ProgramResult programResult : programResultList) {               		
+               		if (programResult.getProgramStatus().equals(program_status.INELIGIBLE.name()) && programResult.getProgramId() == 8 ) {
+                   		n.getTemplateNameList().add("Notice017.ftl");
+                   		return;
+               		}
+           		}
+       		}
+       	}
+     }
+end
+*/
+
+/* Rule N018: 
+* Unsubsidized QHP,APTC,MEDICAID Ineligible because of an incomplete application  
+
+rule "Notice018"
+    when
+        n : EligibilityDetailsFact() 
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+
+    if (! n.getIsPublicProgram()) {
+    
+    	if (memberList != null) {
+        	 for (Member member : memberList) {
+        	 	if (! member.isQHPEligible() && ! member.isAPTCEligible() && ! member.isMedicaidEligible()) {
+        	 			// incomplete application is it due to clock expiration of the required documentation        	 			
+                   		n.getTemplateNameList().add("Notice018.ftl");
+                   		return;                   		
+               	}
+             }
+       	}
+     }
+end
+
+*/
+
+/* Rule N019: 
+* Only CHIP eligible individuals in the household, No Plan Selected 
+* (i.e.: not a mixed coverage household).Individuals did not select a plan for enrollment  
+* There is no missing information that delays eligibility
+*/
+
+rule "Notice019"
+    when
+        n : EligibilityDetailsFact()
+    then
+     	
+       int counter=0;
+       int houseHoldSize= 0;
+       int chipCount=0;
+       List<Member> memberList = n.getMemberList();
+   	   List<Member> previousMemberList = n.getPreviousMemberList();
+   	   
+ 	   if ((n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){
+	       if (! HXUtility.isEmpty(memberList)){
+	       
+	       		for (Member member : memberList) {
+	       		    if (member.getApplying() && !member.isIneligibleForAllPrograms())
+		       		  houseHoldSize++;
+	       			if (member.isChipEligible() && !member.isAwaitingDocs())
+	       				chipCount++;	
+	           	}
+	       }  
+	   }
+	   
+ 	   if (chipCount > 0 ){
+    		n.getTemplateNameList().add("Notice019.ftl");
+ 	   }    
+end
+
+
+
+/* 
+*  Rule 22 : 	
+*   Individual(s) requested financial assistance.Only QHP eligible individuals in the household.
+*	Individual(s) did not select a plan for enrollment.There is no missing information that delays eligibility
+*
+*/
+rule "Notice022"
+    when
+        n : EligibilityDetailsFact()
+    then
+     	
+       int counter=0;
+       int houseHoldSize= 0;    
+       List<Member> memberList = n.getMemberList();
+       List<Member> previousMemberList = n.getPreviousMemberList();
+       
+       List<Member> sepMemberList = new ArrayList<Member>();
+ 		
+ 		if ((n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){
+	       if ( n.getIsPublicProgram()) {    	                
+			  if (memberList != null) {   
+		       		
+				     for (Member member : memberList) {
+				      if (member.getApplying() && !member.isIneligibleForAllPrograms())
+		       		      houseHoldSize++;
+				        if (! member.isPendedForAnyProgram() && member.isQHPOnlyEligible() && !(member.isAwaitingDocs() || member.isFullPayAwaitingDocs()))	{	           		             	   	
+				           			counter++;
+				           	sepMemberList.add( member );		           	
+				        }
+				     }
+				 }
+			}
+		}		
+       		
+ 		if ( counter > 0 ){
+    		n.getTemplateNameList().add("Notice022.ftl");
+    		n.getSepNoticeData().put( "Notice022.ftl", sepMemberList );    	
+ 		}
+ 		
+end
+
+/* Rule Notice 025: 
+* 
+*	Individual(s) did not request financial assistance. Only Unsubsidized QHP eligible individuals in the household.
+*	Individual(s) did not select a plan for enrollment.There is no missing information that delays eligibility.
+*
+*/
+
+rule "Notice025"
+	when
+    	n : EligibilityDetailsFact() 
+  	then
+     	
+	  int counter=0;
+       int houseHoldSize= 0;
+       List<Member> memberList = n.getMemberList();
+       List<Member> previousMemberList = n.getPreviousMemberList();
+       
+       List<Member> sepMemberList = new ArrayList<Member>();
+       
+ 	   if ((n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){
+	       if (! n.getIsPublicProgram()) {     
+			  if (memberList != null) {
+			     for (Member member : memberList) {
+			     
+			     	if (member.getApplying() && !member.isIneligibleForAllPrograms())
+		       			houseHoldSize++;
+		       		
+			        if (! member.isPendedForAnyProgram() && member.isQHPOnlyEligible() && !(member.isAwaitingDocs() || member.isFullPayAwaitingDocs())){        	
+			        	counter++;
+			        	sepMemberList.add( member );			        
+			        }
+			     }
+			  }
+		   }
+	   }   
+ 	
+	 	if (counter > 0 ){
+	    	n.getTemplateNameList().add("Notice025.ftl");
+	    	n.getSepNoticeData().put( "Notice025.ftl", sepMemberList );    	
+	 	}   
+ 	
+ 	
+end
+
+/* Rule Notice 028: *  
+*	Individual(s) requested fianncial assistance.Individual failed residency test and is not a resident of New York.
+*	Individual is ineligible for insurance through the NY-HBE
+*/
+
+rule "Notice028"
+    when
+        n : EligibilityDetailsFact();
+    then        
+		int counter=0;
+		List<Member> memberList = n.getMemberList();     
+		List<Member> previousMemberList = n.getPreviousMemberList();		 
+		logger.debug("Executing Rile EligibilityTemplateFinder.drl.Notice028: ");		
+ 		if (( n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){ 
+			if (n.getIsPublicProgram()) {
+				if (HXUtility.isEmpty(previousMemberList)){		
+					if(memberList != null){
+			        	for(Member member : memberList){   	        	   
+			        	    logger.debug("Member Ineligible For NYHBE: " + member.isMemberIneligibleForNYHBE());     	
+			           		if(member.isMemberIneligibleForNYHBE())
+			           		counter++;
+			           		}
+					}
+				}
+			}
+		}	
+    
+		if (counter > 0) {
+    		n.getTemplateNameList().add("Notice028.ftl");    
+    	}
+end
+
+/*
+* Rule : N029 :Individual(s) did not request financial assistance, not qualified for NY-HBE Insurance due to eligibility factor.
+*	Individual is ineligible for insurance through the NY-HBE.
+*
+*/
+rule "Notice029"
+    when
+        n : EligibilityDetailsFact() 
+    then
+		int counter=0;
+    	List<Member> memberList = n.getMemberList();
+		List<Member> previousMemberList = n.getPreviousMemberList();
+ 		if ((n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){
+		    if (!n.getIsPublicProgram()) {
+		    	if (memberList != null) {
+		        	for (Member member : memberList) {	    
+		        	//Assumption if he is not qhp eligible , he wont be eligible for any other program
+		        		if (member.getApplying()) { 
+	        	 			if (! member.isQHPEligible() && ! member.isQHPPending())
+			           			counter++;
+			           	}
+			         }
+			    	 	
+		       	}
+		     }
+		 }
+		 
+	     if (counter > 0) {
+		 	n.getTemplateNameList().add("Notice029.ftl");
+		 }
+end
+
+/* Rule Notice N031 :
+*  Individual previously requested paper notifications and switched to receipt of notifications 
+*  through the secure inbox 
+*/
+/*
+rule "Notice031"
+    when
+        n : EligibilityDetailsFact()
+    then
+    	UserProfile profile = n.getUserProfile();
+    	
+    	List<Member> previousMemberList = n.getPreviousMemberList();
+ 		if (HXUtility.isEmpty(previousMemberList)){ 		
+	    	if (profile !=null){
+	    	   if (profile.getGoPaperless()!=null && profile.getGoPaperless().equals("1"))
+	    		   n.getTemplateNameList().add("Notice031.ftl");
+	    	}   
+	   	}     
+end
+**/
+
+/*
+* Rule : N032 : Temporarily Eligible for Unsubsidized Qualified Health Plan 
+*	Individual(s) requested financial assistance.Only Unsubsidized QHP eligible individuals in the household.
+*	Individual(s) did not select a plan for enrollment.Missing information delays confirmation of eligibility.
+	
+**/
+rule "Notice032"
+	when
+    	n : EligibilityDetailsFact() 
+  	then
+    	int memberCount = 0; 	
+    	int houseHoldSize= 0;
+    	int countAwaitingDocs = 0;	
+    	List<Member> previousMemberList = n.getPreviousMemberList();
+    	
+    	List<Member> sepMemberList = new ArrayList<Member>();
+ 		
+ 		if ((n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){ 	
+				List<Member> memberList = n.getMemberList();	
+				if(memberList != null){				
+					for(Member member : memberList){				
+						if (member.getApplying() && !member.isIneligibleForAllPrograms())
+		       				houseHoldSize++;		
+		       										
+						if (! member.isPendedForAnyProgram()){
+							
+							if (member.isQHPOnlyEligible())    	 
+				         	 	memberCount++;			             	 			             	 
+				        
+				        	if (member.isQHPOnlyEligible() && (member.isAwaitingDocs() || member.isFullPayAwaitingDocs())){
+								countAwaitingDocs++;
+								sepMemberList.add( member );
+							}
+						}
+					
+					}
+			     }
+		}
+    	
+    	if (countAwaitingDocs > 0 ){		   		
+    		n.getTemplateNameList().add("Notice032.ftl");    		
+    		n.getSepNoticeData().put( "Notice032.ftl", sepMemberList );    		
+    	}		
+end
+
+/*
+* Rule : N061 : 
+*	Individual was Medicaid eligible. New eligibility result made individual CHP eligible
+*	Medicaid to CHIP due to Reported Change
+*/
+
+rule "Notice061"
+    when
+        n : EligibilityDetailsFact() 
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+
+ 	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {
+	  		if (previousMember.isMedicaidEligible()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (member.getApplying() && member.isChipEligible()) {
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+							//changedEligibilityMemberList.add(member.getId());
+	               		}
+	       			}
+	       		}
+	     	}		   	
+	    }
+	}
+    if (memberCount > 0) {
+    	//n.setChangedEligibilityMemberList(changedEligibilityMemberList);
+    	n.getTemplateNameList().add("Notice061.ftl");
+    	return;
+    }
+end
+
+
+
+/*
+* Rule : N063 : 
+*	Individual reported a change.Individual's eligibility report indicates individual is no longer Medicaid eligible.
+*	Individual is now eligible for APTC.
+*    Medicaid to APTC due to Reported Change 
+*/
+
+rule "Notice063"
+    when
+        n : EligibilityDetailsFact() 
+    then
+
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+    
+    List<Member> sepMemberList = new ArrayList<Member>();
+	
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {	
+	        if (previousMember.isMedicaidEligible() || previousMember.isChipEligible()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (member.getApplying() && member.isAptcOrCSROnlyEligible()) {
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+							sepMemberList.add( member );
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+	
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice063.ftl");
+    	n.getSepNoticeData().put( "Notice063.ftl", sepMemberList );
+    	return;
+    }
+end
+
+/*
+* Rule : N065 :              	 
+*	Individual reported a change. Individual's eligibility indicates individual is no longer eligible for APTC.
+*	Individual is now eligible only for an Unsubsidized QHP.    
+*   APTC  To QHP due to Reported Change 
+*/
+
+ rule "Notice065"
+   when
+        n : EligibilityDetailsFact()
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+    
+    List<Member> sepMemberList = new ArrayList<Member>();
+
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {		
+	        if (previousMember.isAptcOrCSROnlyEligible()) {		
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {						
+						if (! member.isPendedForAnyProgram() && member.isQHPOnlyEligible()) {
+								memberCount++;
+								n.getChangedEligibilityMemberList().add(member.getId());
+								sepMemberList.add( member );
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+	
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice065.ftl");     
+    	n.getSepNoticeData().put( "Notice065.ftl", sepMemberList ); 	  	
+    }
+end
+
+/*
+* Rule : N066 :              	 
+*	Individual reported a change. Individual's eligibility indicates individual is no longer eligible for Subsidized CHIP.
+*	Individual is now eligible only for an Unsubsidized CHIP.    
+*   Subsidized CHIP to FULL PAY  CHIP 
+*/
+rule "Notice066"
+   when
+        n : EligibilityDetailsFact()
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {
+	        if (previousMember.isSubsidizedChipEligible()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId()) ) {
+						if (member.isFullPayChipEligible()) {						 
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+	
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice066.ftl");    	
+    }
+end
+
+/*
+* Rule : N067 :              	 
+*	Individual reported a change. Individual's eligibility indicates individual is no longer Full Pay CHIP eligible.
+*	Individual is now eligible only for an subsidized CHIP.    
+*   FULL PAY  CHIP to Subsidized CHIP 
+*/
+rule "Notice067"
+   when
+        n : EligibilityDetailsFact()
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {
+	        if (previousMember.isFullPayChipEligible()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (member.isSubsidizedChipEligible()) {						 
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+	
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice067.ftl");    	
+    }
+end
+
+
+/*
+* Rule : N068 :              	 
+*	Individual reported a change. 
+*	Subsidized CHIP without Premium to Subsidized CHIP with Premium due to Reported Change   
+*/
+rule "Notice068"
+   when
+        n : EligibilityDetailsFact()
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {
+	        if (previousMember.isSubsidizedChipEligible() && ! previousMember.hasChipPremiumAmount()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (member.isSubsidizedChipEligible() && member.hasChipPremiumAmount()) {						 
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+	
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice068.ftl");    	
+    }
+end
+
+/*
+* Rule : N069 :              	 
+*	Individual reported a change. 
+*	Subsidized CHIP with Premium to Subsidized CHIP without Premium due to Reported Change   
+*/
+
+rule "Notice069"
+   when
+        n : EligibilityDetailsFact()
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {
+	        if (previousMember.isSubsidizedChipEligible() && previousMember.hasChipPremiumAmount()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (member.isSubsidizedChipEligible() && ! member.hasChipPremiumAmount()) {						 
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+	
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice069.ftl");    	
+    }
+end
+
+
+
+/*Rule Notice : N070
+*	Individual reported a change. Individual's eligibility report indicates individual is no longer eligible for Unsubsidized QHP.
+*	Individual is now eligible only for an APTC/CSR.
+*   QHP To APTC/CSR due to Reported Change
+*
+*/
+rule "Notice070"
+    when
+        n : EligibilityDetailsFact() 
+    then     	
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+    
+    List<Member> sepMemberList = new ArrayList<Member>();
+
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {		
+			if (previousMember.isQHPOnlyEligible()) {		
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (member.isAptcOrCSROnlyEligible()) {
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+							sepMemberList.add( member );
+	               		}
+	       			}
+       			}
+			}
+		}
+	}
+
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice070.ftl");  
+    	n.getSepNoticeData().put( "Notice070.ftl", sepMemberList );
+    }
+end		
+
+/*Rule Notice : N071
+*	Individual reported a change.Individual's eligibility report indicates individual as no longer eligible for APTC with CSR.
+*	Individual is now eligible only for an APTC without CSR.
+*   APTC with CSR   to APTC without CSR
+*/
+
+rule "Notice071"
+    when
+        n : EligibilityDetailsFact() 
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+    
+    List<Member> sepMemberList = new ArrayList<Member>();
+	
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {
+	        if (previousMember.isCSROnlyEligible()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (member.isAPTCOnlyEligible()) {
+							memberCount++;
+						    n.getChangedEligibilityMemberList().add(member.getId());
+						    sepMemberList.add( member );
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice071.ftl");    
+    	n.getSepNoticeData().put( "Notice071.ftl", sepMemberList );	
+    }
+end
+/*
+* Rule : N072 :
+*	Individual reported a change.Individual's eligibility report indicates individual is no longer eligible for APTC without CSR.
+*	Individual is now eligible only for an APTC with CSR.
+*   APTC without CSR  to APTC with CSR
+*/
+ rule "Notice072"
+    when
+        n : EligibilityDetailsFact() 
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+    
+    List<Member> sepMemberList = new ArrayList<Member>();
+
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {
+	        if (previousMember.isAPTCOnlyEligible()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (member.isCSROnlyEligible()) {
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+							sepMemberList.add( member );
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+	
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice072.ftl");    
+    	n.getSepNoticeData().put( "Notice072.ftl", sepMemberList );
+    }
+end
+/* Rule : N073 :
+*              : Temporarily Eligible for Medicaid (non-financial inconsistency) 
+*                Only Medicaid eligible individuals in the household (ie: not a mixed coverage household).
+*	DISABLING AS PER THE MAIL DATED 12/06/2013
+*/
+/*
+rule "Notice073"
+    when
+       n : EligibilityDetailsFact()
+        then
+
+        int counter=0;
+        int rejectedCounter=0;
+        int houseHoldSize= 0;
+        List<Member> memberList = n.getMemberList();
+
+       if (memberList != null) {
+           for (Member member : memberList) {
+           
+           		if (member.getApplying() && !member.isIneligibleForAllPrograms()) 
+	       			houseHoldSize++;
+	       			           		
+	       		if (member.isMedicaidPending() || member.isMedicaidEligible() ) {	   
+	       			logger.debug("Rule 73: ");
+	       			
+	       			if (member.isMedicaidEligibleAndAwaitingNonIncomeDocs()){
+	       			   logger.debug("program reason xx: ");    
+		        	   rejectedCounter++;
+	       			}
+	       			counter++;
+	        	 }
+   			}
+       	}
+
+	  	if ((houseHoldSize == counter)  && (rejectedCounter>0)){
+	     	n.getTemplateNameList().add("Notice073.ftl");
+	 	}       
+end
+*/
+
+/*Rule Notice : N076
+*	Only CHIP eligible individuals in the household (ie: not a mixed coverage household).Individuals did not select a plan for enrollment.
+*	Additional information required to resolve income inconsistency.
+*
+*/
+rule "Notice076"
+    when
+        n : EligibilityDetailsFact()
+    then
+     	
+       int counter=0;
+       int houseHoldSize=0;
+       int chipCount=0;
+       List<Member> memberList = n.getMemberList();
+   	   List<Member> previousMemberList = n.getPreviousMemberList();
+   	   
+ 	   if ((n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){   
+	       if (! HXUtility.isEmpty(memberList)){
+	       		for (Member member : memberList) {       		
+	       		  if (member.getApplying() && !member.isIneligibleForAllPrograms())
+		       			houseHoldSize++;
+		       		
+	       			if (member.isChipEligible())
+	       				chipCount++;
+	       				
+	       			if (member.isChipEligibleAndAwaitingIncomeDocs()) {
+	           			counter++;
+	       			}
+	           	}
+	       }   
+	    }   
+	   
+ 		
+ 		if (counter > 0){
+    		n.getTemplateNameList().add("Notice076.ftl");
+ 		}        
+end
+
+/*Rule Notice : N079
+*	Only CHIP eligible individuals in the household (ie: not a mixed coverage household).Individuals did not select a plan for enrollment.
+*	Request for Documentation.
+*/
+
+rule "Notice079"
+    when
+        n : EligibilityDetailsFact()
+    then
+     	
+       int counter=0;
+       int houseHoldSize=0;
+       int chipCount=0;
+       List<Member> memberList = n.getMemberList();
+   	   List<Member> previousMemberList = n.getPreviousMemberList();
+ 	   if ((n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){   
+	       if (! HXUtility.isEmpty(memberList)){
+	       		for (Member member : memberList) {
+	       		
+	       			if (member.getApplying() && !member.isIneligibleForAllPrograms())
+		       			houseHoldSize++;
+		       		
+	       			if (member.isChipEligible())
+	       				chipCount++;
+	       				
+	       			if (member.isChipEligibleAndAwaitingNonIncomeDocs()) {
+	           			counter++;
+	       			}
+	           	}
+	       }
+	   }   
+	   
+	   
+ 	   if ( counter > 0){
+    		n.getTemplateNameList().add("Notice079.ftl");
+ 	   } 
+end
+/*
+* Rule 83:
+*	Individual(s) is/are non-immigrant/undocumented immigrant.	Individual requested financial assistance.
+*	Individual(s) is not eligible for Unsubsidized QHP, APTC or Medicaid.
+*
+*/
+rule "Notice083"
+    when
+        n : EligibilityDetailsFact() 
+    then
+
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+ 	if ((n.isMemberEligibilityStatusChanged() || HXUtility.isEmpty(previousMemberList)) && n.isNoneOfTheMemberIncarcerated()){
+	    if(n.getIsPublicProgram()){	
+		   	if (memberList != null) {
+			    for (Member member : memberList) {	       	
+		   		  	if(member.getApplying() && member.isIneligibleForAllPrograms() && !(member.isUnverifiedReason("PD")|| member.isUnverifiedReason("IC_REL_8_DECEASED"))){
+		           		n.getTemplateNameList().add("Notice083.ftl");
+		           		return;
+		          	}
+		       	}
+		    }
+	    }
+	 }
+end
+
+/*
+* Rule : N085 : 
+*	Individual(s) are incarcerated, and Individual(s) are not eligible for Unsubsidized QHP, APTC or Medicaid
+*	
+*
+rule "Notice085"
+   when
+        n : EligibilityDetailsFact()
+    then
+    	int counter=0;
+       	List<Member> memberList = n.getMemberList();
+      
+      	if( n.getIsPublicProgram()){
+      			
+		    if (! HXUtility.isEmpty(memberList)){
+		        for (Member member : memberList) {
+		            if(member.getIncarcerationStatus()){
+		            	if(!member.isMedicaidEligible() && !member.isAPTCEligible() && !member.isQHPEligible() && !member.isChipEligible()){
+		            			counter++;
+		            	}
+		            }
+		        }
+		    }	
+		}
+		   
+	    if (counter > 0){
+    		n.getTemplateNameList().add("Notice085.ftl");
+ 		}
+end
+ */
+ 
+ /*
+ * Rule : N088 
+ *	Discontinue Presumptive CHIPChild Health Plus after Reasonable Period Due to Failure to Provide Requested Documentation
+ *	N080 or N081 previously sent. 90 day clock expired; no information received. 
+ */
+ rule "Notice088"
+   when
+        n : EligibilityDetailsFact()
+    then
+    	int counter=0;		
+      	int chipCount=0;
+       	
+       	List<Member> memberList = n.getMemberList();
+   
+       if (! HXUtility.isEmpty(memberList)){
+       		for (Member member : memberList) {
+       		
+       	/* check for chip ineligible members due to 90 days expiration */
+       		if (member.isChipIneligibleFor90DaysClockExpiration())
+       				counter++;
+           	}
+       }   
+ 	   
+ 	   if (counter > 0){
+    		n.getTemplateNameList().add("Notice088.ftl");
+ 	   }
+end
+
+ /*
+ * Rule : N090 
+ *	Individual is CHPChild Health Plus eligible. N080 or N081 previously sent.
+ *	Documentation received within timeframe. Individual's eligibility remains unchanged.
+ */
+ rule "Notice090"
+   when
+        n : EligibilityDetailsFact()
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {
+	        if (previousMember.isChipEligible() && previousMember.isAwaitingDocs()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (member.isChipEligible()) {						 
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+	
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice090.ftl");
+    	return;
+    }
+end
+
+/*
+* Rule : N091 : Individual is APTC/CSR eligible, Notice N007, N008, or N009 previously sent
+*               Documentation received within timeframe, Eligibility remains unchanged.
+*               Previous sent notice implementation handled by kalyan team 
+*/
+ rule "Notice091"
+   when
+        n : EligibilityDetailsFact()
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+    
+    List<Member> sepMemberList = new ArrayList<Member>();
+
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {
+	        if (previousMember.isAptcOrCSROnlyEligible()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (member.isAptcOrCSROnlyEligible()) {						 
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+							sepMemberList.add( member );
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+	
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice091.ftl");    	
+    	n.getSepNoticeData().put( "Notice091.ftl", sepMemberList );
+    }
+end
+
+/*
+* Rule : N092 : Individual is QHP eligible, Notice N032, N033, or N034 previously sent
+*               Documentation received within timeframe, Eligibility remains unchanged.
+*                Previous sent notice implementation handled by kalyan team   
+*          An extra entity is gettting added , if can be done here then it is good to do it here
+*/
+ rule "Notice092"
+   when
+        n : EligibilityDetailsFact()
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+    
+    List<Member> sepMemberList = new ArrayList<Member>();
+
+	if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+		for (Member previousMember : previousMemberList) {
+	        if (previousMember.isQHPOnlyEligible()) {
+				for (Member member : memberList) {
+					if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+						if (! member.isPendedForAnyProgram() && member.isQHPOnlyEligible()) {
+							memberCount++;
+							n.getChangedEligibilityMemberList().add(member.getId());
+							sepMemberList.add( member );
+	               		}
+	       			}
+	       		}
+	     	}
+	    }
+	}
+	
+    if (memberCount > 0) {
+    	n.getTemplateNameList().add("Notice092.ftl");    	
+    	n.getSepNoticeData().put( "Notice092.ftl", sepMemberList );
+    }
+end
+
+/*
+* Rule : N094 : Discontinue Eligibility for CHIPChild Health Plus due to Unable to Locate 
+*       Implementation need to be determined....where maximus update the status of the returned mail for the eligiiblity Id   
+*/
+
+
+
+/* 
+ * Rule : 100 : Individual was earlier eligible for QHP
+ *              Discontinue Eligibility for Unsubsidized QHP due to Moving Out of State
+ */
+rule "Notice100"
+   when
+        n : EligibilityDetailsFact()
+    then
+     	
+    List<Member> memberList = n.getMemberList();
+    List<Member> previousMemberList = n.getPreviousMemberList();
+    List<Long> changedEligibilityMemberList = new ArrayList<Long>();
+    int memberCount = 0;
+
+	if (! HXUtility.isEmpty(previousMemberList)){
+		for (Member previousMember : previousMemberList) {
+			for (Member member : memberList) {
+				if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId()) && !previousMember.isIneligibleForAllPrograms() && !previousMember.isPendedForAnyProgram()) {						
+					if(member.getApplying() && member.isIneligibleForAllPrograms() && !(member.isUnverifiedReason("PD")|| member.isUnverifiedReason("IC_REL_8_DECEASED"))){
+						memberCount++;
+	      				n.getChangedEligibilityMemberList().add(member.getId());
+	       			}
+	       		}
+	    	}
+		}
+	}
+	
+	if (memberCount > 0) {
+	    	//n.setChangedEligibilityMemberList(changedEligibilityMemberList);
+	    	n.getTemplateNameList().add("Notice100.ftl");	    	
+	}
+end
+
+rule "Template010"
+when
+n : EligibilityDetailsFact()
+then
+List<Member> memberList = n.getMemberList();
+int memberCount = 0;
+for (Member member : memberList) {
+	if(!member.isIneligibleForAllPrograms() && !member.isPendedForAnyProgram() && !member.isUnverifiedReason("RISNVP_15") && !member.isClockSetForName("INCARCERATION_10")){
+		memberCount++;
+	}
+}
+if (memberCount > 0) {
+n.getTemplateNameList().add("Template010.ftl");
+}
+end
+
+rule "Template002"
+when
+n : EligibilityDetailsFact()
+then
+if (n.ismemberPended()) {
+n.getTemplateNameList().add("Template002.ftl");
+}
+end
+
+rule "Template004"
+when
+n : EligibilityDetailsFact()
+then
+if(n.isPendedAndDeniedOnReRun()){
+   n.getTemplateNameList().add("Template004.ftl");
+  }
+end
+
+rule "Template043"
+when
+n : EligibilityDetailsFact()
+then
+if(n.isLDSSNoticeToGenerate()){
+   n.getTemplateNameList().add("Template043.ftl");
+  }
+end
+
+/* 
+* Rule Notice T42: * 
+* Business Rules:
+* 1. Individual is eligible for insurance through NYSOH.
+* 2. Individual is now found on a check for public assistance through WMS.
+*/
+/* 
+rule "Template042"
+when
+n : EligibilityDetailsFact()
+then
+	List<Member> memberList = n.getMemberList();
+	int memberCount = 0;
+	for (Member member : memberList) {
+		if(member.isIneligibleForAnySubsidizedProgramsDueToRAWMS() && !member.isClockSetForName("INCARCERATION_10")){
+			memberCount++;
+		}
+	}
+	if (memberCount > 0) {
+		n.getTemplateNameList().add("Template042.ftl");
+	}
+end
+*/
+rule "Template023"
+when
+n : EligibilityDetailsFact()
+then
+ List<Member> memberList = n.getMemberList();	
+ for (Member member : memberList){
+	if(member.isUnverifiedReason("PD")|| member.isUnverifiedReason("IC_REL_8_DECEASED")){
+   		n.getTemplateNameList().add("Template023.ftl");
+  	}
+ }
+end
+
+rule "Notice064"
+    when
+        n : EligibilityDetailsFact()
+    then
+     	
+       int memberCount = 0;
+       List<Member> memberList = n.getMemberList();
+   	   List<Member> previousMemberList = n.getPreviousMemberList();
+   	   List<Member> sepMemberList = new ArrayList<Member>();
+ 	   if (! HXUtility.isEmpty(previousMemberList) && n.isNoneOfTheMemberIncarcerated()){
+	 	   for (Member previousMember : previousMemberList) {
+		        if (previousMember.isMedicaidEligible() || previousMember.isChipEligible()) {
+					for (Member member : memberList) {
+						if (previousMember.getNyhxMemberId().equals(member.getNyhxMemberId())) {
+							if (member.getApplying() && member.isQHPOnlyEligible()) {
+								memberCount++;
+								n.getChangedEligibilityMemberList().add(member.getId());
+								sepMemberList.add( member );
+		               		}
+		       			}
+		       		}
+		     	}
+		   }	   
+	   }
+ 	   if (memberCount > 0 ){
+    		n.getTemplateNameList().add("Notice064.ftl");
+    		n.getSepNoticeData().put( "Notice064.ftl", sepMemberList );
+ 	   }    
+end
+
+/* Rule T50: 
+* Notification in change of program : Medicaid to Unsubsidized QHP Eligible
+*/
+
+rule "Template050"
+    when
+        n : EligibilityDetailsFact()
+    then
+     	
+       int memberCount = 0;
+       List<Member> memberList = n.getMemberList();       
+       if(n.isNoneOfTheMemberIncarcerated()){
+	   for (Member member : memberList) {
+		   if (member.isRetroInEligible() && !member.isUnverifiedReason("RISNVP_15")) {
+				memberCount++;
+				n.getChangedEligibilityMemberList().add(member.getId());
+       	   }		   
+	   }  
+	   }
+	   
+ 	   if (memberCount > 0 ){
+    		n.getTemplateNameList().add("Template050.ftl");
+ 	   }    
+end
+
+/* Rule T48: 
+* Notification Ineligible for Retro
+*/
+
+rule "Template048"
+    when
+        n : EligibilityDetailsFact()
+    then
+
+       int memberCount = 0;
+       List<Member> memberList = n.getMemberList(); 
+	   if(n.isNoneOfTheMemberIncarcerated()){
+	   for (Member member : memberList) {
+		   if (member.isUnverifiedReason("RISNVP_15")) {
+				memberCount++;
+       	   }		   
+	   }  
+	   }
+ 	   if (memberCount > 0 ){
+    		n.getTemplateNameList().add("Template048.ftl");
+ 	   }    
+end
+
+rule "Template033"
+    when
+        n : EligibilityDetailsFact()
+    then
+
+       int memberCount = 0;
+       List<Member> memberList = n.getMemberList(); 
+
+	   for (Member member : memberList) {
+		   if (member.isClockSetForName("INCARCERATION_10")) {
+				memberCount++;
+       	   }		   
+	   }  
+
+ 	   if (memberCount > 0 ){
+    		n.getTemplateNameList().add("Template033.ftl");
+ 	   }    
+end

@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:util="http://www.springframework.org/schema/util" xmlns:cache="http://www.springframework.org/schema/cache"
+	xsi:schemaLocation="
+	http://www.springframework.org/schema/beans 
+	http://www.springframework.org/schema/beans/spring-beans-3.0.xsd 
+	http://www.springframework.org/schema/tx 
+	http://www.springframework.org/schema/tx/spring-tx-3.0.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context-3.0.xsd
+	http://www.springframework.org/schema/aop 
+	http://www.springframework.org/schema/aop/spring-aop-3.0.xsd
+	http://www.springframework.org/schema/cache http://www.springframework.org/schema/cache/spring-cache.xsd">
+	
+	<bean id="ehcache" class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean" 
+			p:configLocation="classpath:ehcache.xml" 
+			p:shared="true"/>
+
+	<bean id="cacheManager" class="org.springframework.cache.ehcache.EhCacheCacheManager" 
+			p:cacheManager-ref="ehcache"/> 
+
+	<context:annotation-config />
+ 	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+		<property name="driverClassName" value="com.ibm.db2.jcc.DB2Driver" />
+		<property name="url" value="jdbc:db2://20.20.141.154:60004/HXADEV:currentSchema=NYHBEODB;" />
+		<property name="username" value="eeapp1" />
+		<property name="password" value="ee09876%" />
+	</bean>
+
+	<bean id="dataSourcefti" class="org.apache.commons.dbcp.BasicDataSource">
+		<property name="driverClassName" value="com.ibm.db2.jcc.DB2Driver" />
+		<property name="url" value="jdbc:db2://20.20.141.154:60004/HXADEV:currentSchema=NYHBEODB;" />
+		<property name="username" value="ftapp1" />
+		<property name="password" value="ee09876%" />
+	</bean>
+	
+
+	<bean id="txManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+	</bean>
+
+
+	<bean class="org.springframework.orm.jpa.JpaTransactionManager"
+		id="transactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactoryfti" />
+	</bean> 
+	
+	<!-- <tx:annotation-driven mode="aspectj" transaction-manager="txManager" /> -->
+	
+	<tx:annotation-driven transaction-manager="txManager" />
+
+	<bean id="entityManagerFactory"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="persistenceUnitName" value="DEFAULT" />
+		<property name="packagesToScan"
+			value="com.hcentive.paper.domain,org.hx.pm.hcentive.model,org.hx.pm.model,org.hx.services.edi834,com.hcentive.carrier.domain,com.hcentive.broker.domain,com.hcentive.xchange.app.domain,com.hcentive.user,com.hcentive.platform.domain,com.hcentive.platform.eligibility,com.hcentive.eligibility,
+		com.hcentive.eligibility.individual.domain,com.hcentive.individual.customer.domain,com.hcentive.eligibility.service,com.hcentive.core.notification.domain,com.hcentive.platform.service,com.hcentive.quotesengine.productCategory,com.hcentive.plan.domain,
+		com.hcentive.xchange.agent.domain,com.hcentive.xchange.carrier.domain,com.hcentive.user.individual.domain,com.hcentive.payment.domain,com.hcentive.billing.domain,com.hcentive.eligibility.prescreening.domain,
+		com.hcentive.enrollment.app.domain,com.hcentive.xchange.proposal.domain,com.hcentive.individual.domain,com.hcentive.individual.shoppingcart.domain,com.hcentive.platform.cart.domain,com.hcentive.utils.picklist.domain,com.hcentive.individual.lsc.domain,com.hcentive.individual.hix.lsc.domain,com.hcentive.individual.appeal,
+		com.hcentive.shop.domain,com.hcentive.utils.notification.domain,com.hcentive.individual.hix.lsc.domain,com.hcentive.individual.hix.exemption,com.hcentive.individual.hix.appeal,com.hcentive.agent.domain,
+		com.hcentive.utils.ui.screen.config.domain,com.hcentive.utils.orm.dao,com.hcentive.msgcenter.domain,com.hcentive.utils.demographics.domain,com.hcentive.utils.organization,com.hcentive.quotesengine.domain,com.hcentive.utils.tooltip.service,com.hcentive.shop.lsc.domain,com.hcentive.utils.utils,com.hcentive.individual.hix.prescreening.util,
+		com.hcentive.individual.hix.prescreening.util.ext,com.hcentive.eligibility.prescreening.domain.ext,com.hcentive.utils.demographics.domain.ext,com.hcentive.utils.job.service
+		,com.hcentive.jobs,com.hcentive.jobs.domain,com.csc.cmis.domain,com.hcentive.rulesengine.domain,com.hcentive.notice.domain
+		,com.hcentive.agent.domain,	com.hcentive.paper.domain,com.hcentive.resequence.domain,com.hcentive.individual.dashboard.domain
+		,org.hx.services.enrollmentmessage.client,com.hcentive.utils.invitation.domain,com.hcentive.cs.notification.entities" /> 
+		<property name="jpaPropertyMap">
+			<map>
+				<entry key="javax.persistence.validation.factory" value-ref="validator" />
+			</map>
+		</property>
+		<property name="jpaProperties">
+			<props>
+				<prop key="org.hibernate.envers.default_schema">${jdbc.audit.schema}</prop>
+				<prop key="org.hibernate.envers.store_data_at_delete">true</prop>
+				<prop key="org.hibernate.envers.audit_strategy">org.hibernate.envers.strategy.ValidityAuditStrategy
+				</prop>
+				<prop key="hibernate.listeners.envers.autoRegister">${enableAuditing}</prop>
+				<prop key="javax.persistence.validation.mode">none</prop>
+				<prop key="org.hibernate.envers.audit_table_prefix">${auditTablePrefix}</prop>
+				<prop key="hibernate.cache.use_second_level_cache">true</prop>
+				<prop key="hibernate.cache.use_query_cache">true</prop>
+				<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.ehcache.SingletonEhCacheRegionFactory</prop>
+			</props>
+		</property>
+		<property name="jpaVendorAdapter">
+			<bean class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+				<property name="showSql" value="true" />
+				<property name="database" value="DB2" />
+				<property name="databasePlatform" value="org.hibernate.dialect.DB2Dialect" />
+			</bean>
+		</property>
+	</bean>
+	
+	<bean id="entityManagerFactoryfti"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSourcefti" />
+		<property name="persistenceUnitName" value="FTI" />
+		<property name="packagesToScan" value="com.hcentive.paper.domain,org.hx.pm.hcentive.model,org.hx.pm.model,org.hx.services.edi834,com.hcentive.carrier.domain,com.hcentive.broker.domain,com.hcentive.xchange.app.domain,com.hcentive.user,com.hcentive.platform.domain,com.hcentive.platform.eligibility,com.hcentive.eligibility,
+		com.hcentive.eligibility.individual.domain,com.hcentive.individual.customer.domain,com.hcentive.eligibility.service,com.hcentive.core.notification.domain,com.hcentive.platform.service,com.hcentive.quotesengine.productCategory,com.hcentive.plan.domain,
+		com.hcentive.xchange.agent.domain,com.hcentive.xchange.carrier.domain,com.hcentive.user.individual.domain,com.hcentive.payment.domain,com.hcentive.billing.domain,com.hcentive.eligibility.prescreening.domain,
+		com.hcentive.enrollment.app.domain,com.hcentive.xchange.proposal.domain,com.hcentive.individual.domain,com.hcentive.individual.shoppingcart.domain,com.hcentive.platform.cart.domain,com.hcentive.utils.picklist.domain,com.hcentive.individual.lsc.domain,com.hcentive.individual.hix.lsc.domain,com.hcentive.individual.appeal,
+		com.hcentive.shop.domain,com.hcentive.utils.notification.domain,com.hcentive.individual.hix.lsc.domain,com.hcentive.individual.hix.exemption,com.hcentive.individual.hix.appeal,com.hcentive.agent.domain,
+		com.hcentive.utils.ui.screen.config.domain,com.hcentive.utils.orm.dao,com.hcentive.msgcenter.domain,com.hcentive.utils.demographics.domain,com.hcentive.utils.organization,com.hcentive.quotesengine.domain,com.hcentive.utils.tooltip.service,com.hcentive.shop.lsc.domain,com.hcentive.utils.utils,com.hcentive.individual.hix.prescreening.util,
+		com.hcentive.individual.hix.prescreening.util.ext,com.hcentive.eligibility.prescreening.domain.ext,com.hcentive.utils.demographics.domain.ext,com.hcentive.utils.job.service
+		,com.hcentive.jobs,com.hcentive.jobs.domain,com.csc.cmis.domain,com.hcentive.rulesengine.domain,com.hcentive.notice.domain
+		,com.hcentive.agent.domain,	com.hcentive.paper.domain,com.hcentive.resequence.domain,com.hcentive.individual.dashboard.domain
+		,org.hx.services.enrollmentmessage.client,com.hcentive.utils.invitation.domain,com.hcentive.cs.notification.entities" />
+		<property name="jpaProperties">
+			<props>
+				<prop key="org.hibernate.envers.default_schema">${jdbc.audit.schema}</prop>
+				<prop key="org.hibernate.envers.store_data_at_delete">true</prop>
+				<prop key="org.hibernate.envers.audit_strategy">org.hibernate.envers.strategy.ValidityAuditStrategy
+				</prop>
+				<prop key="hibernate.listeners.envers.autoRegister">${enableAuditing}</prop>
+				<prop key="javax.persistence.validation.mode">none</prop>
+				<prop key="org.hibernate.envers.audit_table_prefix">${auditTablePrefix}</prop>
+				<prop key="hibernate.cache.use_second_level_cache">true</prop>
+				<prop key="hibernate.cache.use_query_cache">true</prop>
+				<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.ehcache.SingletonEhCacheRegionFactory</prop>
+			</props>
+		</property>
+		<property name="jpaPropertyMap">
+			<map>
+				<entry key="javax.persistence.validation.factory" value-ref="validator" />
+			</map>
+		</property>
+		<property name="jpaVendorAdapter" ref="jpaAdapter"></property>
+	</bean>
+
+	<bean id="validator"
+		class="org.springframework.validation.beanvalidation.LocalValidatorFactoryBean" />
+
+	<bean id="jpaAdapter"
+		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="database" value="${database}" />
+		<property name="showSql" value="true"></property>
+		<property name="databasePlatform" value="${database.dialect}"></property>
+		<property name="generateDdl" value="true" />
+	</bean>
+		
+	 
+	
+	<bean name="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+        <constructor-arg ref="dataSource"/>
+    </bean>
+     
+	<bean id="genericDAO" class="com.hcentive.utils.orm.dao.GenericDAOImpl" />
+		
+	<context:component-scan base-package="org.hx">
+    	<context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
+    </context:component-scan>	
+</beans>

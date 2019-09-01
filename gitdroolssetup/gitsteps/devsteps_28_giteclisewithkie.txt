@@ -1,0 +1,72 @@
+Version 1: Create Git Repository Localy
+--------------------------------------------------------------
+Authoring - Repository - Clone Repository 
+URI: ssh://pchauvet@localhost:8001/csra-workflow-a
+Host: localhost
+Repository path: csra-workflow-a
+user: pchauvet
+password: pchauvet
+
+
+Import Project
+-------------
+Working xxxx
+o Select desired project
+** Start working
+
+
+Push / Pull
+-------------
+* Make sure to pull before making new changes
+
+
+
+Version 2: Create Git Repository Localy
+---------------------------------------
+git init
+git add
+git commit
+
+In KIE - 
+------------
+Authoring - Repository - Clone Repository 
+- Enter local git url
+ex:file:///C:/GITSANDBOX_DEV/20170926v102a/.git
+
+In Eclipse
+------------
+import local repository with url
+ex:file:///C:/GITSANDBOX_DEV/20170926v102a/.git
+
+Pull from remote server
+Git Repositories: Right-Click git repository definition
+Pull->
+Remote name: origin
+URI: ssh://pchauvet@localhost:8001/csra-workflow-a
+Host: localhost
+Repository path: csra-workflow-a
+user: pchauvet
+password: pchauvet
+Next->
+reference: refs/heads/master
+* May have to enter info again in New Remote
+Enter: ssh://pchauvet@localhost:8001/csra-workflow-a
+pchauvet 
+pchauvet
+
+Change Property of Local:
+Right-Click Git property url:
+Property - Configuration - remote-origin
+
+Change:
+branch.master.merge:  refs/heads/master
+branch.master.remote: origin
+filemode: false
+logallrefupdates: true
+repositoryformatversion: 0
+symlinks: false
+remote: orgin
+fetch: +refs/heads/*:refs/remotes/origin/*
+url: ssh://pchauvet@localhost:8001/csra-workflow-a
+
+

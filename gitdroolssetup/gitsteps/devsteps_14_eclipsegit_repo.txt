@@ -1,0 +1,56 @@
+Create a Repository From An Eclipse Project
+---------------------------------------------------
+A refactoring of the KIE domain project for Medical Income was placed in:
+C:\A-PRJ-DROOLS\kiedevbackups\20170724\hx-entity-medicalincome
+
+
+Access A Local Created Git Projecj From Eclipse
+------------------------------------------------------
+My existing local Git repositgory:
+C:\GITREPOS\sanboxkie 
+
+o Go to Git Perspective
+->Add an Existing Locak Git Repository
+Directory: C:\GITREPOS\sanboxkie
+->Select C:\GITREPOS\sanboxkie\.git
+
+o "Working Tree" is where eclipse projects will appear
+
+
+Import Project As Maven Project
+--------------------------------------
+o Go to Java Perspective
+File->Import->Existing Maven Projects
+Root Directory: C:\A-PRJ-DROOLS\kiedevbackups\20170724\hx-entity-medicalincome
+->Finish
+
+o Share Project with Git
+->Right Click project name
+->Team->Share Project	
+->Repository->Select sandboxkie
+Finish
+
+o Lots of question mark appear
+- Project artifacts are not added
+->Right Click project name
+->Team->Add To Index
+
+o Lots of asteriks appear
+- Files are not commited to repo yet
+->Right Click project name
+->Team->Commit
+->Add comment: "First Commit"
+Commit
+
+
+o View new Maven Project in repo
+->Go to Git Perspective
+- In Working Tree, see the new "hx-entity-medicalincome" projectg
+
+
+ 	
+
+
+
+	
+	

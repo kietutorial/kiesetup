@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.csra.eligibility.workflow.medicalincome.WF_MI_Main_EligibilityTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 6.966 sec

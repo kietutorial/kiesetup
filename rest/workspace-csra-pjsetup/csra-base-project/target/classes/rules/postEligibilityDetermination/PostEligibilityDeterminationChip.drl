@@ -1,0 +1,974 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.StartDateType;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.utils.ext.HxDateUtils;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import java.util.Calendar;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+rule "MAIN_CHIP_POST_ELG"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CHIP_POST_ELG : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_POST_ELG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG_ACK);
+		drools.setFocus("CHIP_POST_ELG_STALE_1_AG");
+		logger.debug("Rule : MAIN_CHIP_POST_ELG : End");
+end
+
+
+
+//CR1606
+rule "CHIP_POST_ELG_STALE_ELG_SEC_01"
+salience 95050
+activation-group "CHIP_POST_ELG_STALE_1_AT"
+agenda-group "CHIP_POST_ELG_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CHIP_POST_ELG_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "CHIP_POST_ELG_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : CHIP_POST_ELG_STALE_ELG_SEC_01 : End");
+end
+
+rule "CHIP_POST_ELG_STALE_ELG_SEC_03"
+salience 95060
+activation-group "CHIP_POST_ELG_STALE_1_AT"
+agenda-group "CHIP_POST_ELG_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CHIP_POST_ELG_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "CHIP_POST_ELG_STALE_ELG_SEC_03");
+		drools.setFocus("Post_Elg_Chip_Deceased_1_AG");
+		logger.debug("Rule : CHIP_POST_ELG_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+
+//Chip Post Elg Deceased(1)
+
+rule "Post_Elg_Chip_Deceased_1_0"
+salience 90000
+activation-group "Post_Elg_Chip__Deceased_1_AT"
+agenda-group "Post_Elg_Chip_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.CHIP),
+														madeIneligibleDueToBeingDeceased,
+														isMemberMarkedDeceasedInPrevRun);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Elg_Chip_Deceased_1_0");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, $eDeterminationfacts.getPrevElgStartDateForDeceasedMember(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, $eDeterminationfacts.getPrevElgEndDateForDeceasedMember(ProgramCode.CHIP));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getPrevElgEndDateForDeceasedMember(ProgramCode.CHIP)));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED_IN_PRV_RUN, "1");		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_0 : End");
+end
+
+rule "Post_Elg_Chip_Deceased_1_1"
+salience 89597
+activation-group "Post_Elg_Chip__Deceased_1_AT"
+agenda-group "Post_Elg_Chip_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.CHIP), 
+														!isEligibleForProgram(ProgramCode.CHIP),
+														madeIneligibleDueToBeingDeceased,
+														HXUtility.isDate2GreaterThanDate1(getPreviousElgStartDate(ProgramCode.CHIP), HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Elg_Chip_Deceased_1_1");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString(HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased())));
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_1 : End");
+end
+
+rule "Post_Elg_Chip_Deceased_1_1A"
+salience 89595
+activation-group "Post_Elg_Chip__Deceased_1_AT"
+agenda-group "Post_Elg_Chip_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.CHIP), 
+														!isEligibleForProgram(ProgramCode.CHIP),
+														madeIneligibleDueToBeingDeceased,
+														HXUtility.isDate2GreaterThanOrEqualToDate1(HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased()), getPreviousElgStartDate(ProgramCode.CHIP)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Elg_Chip_Deceased_1_1A");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getPreviousElgStartDate(ProgramCode.CHIP)));
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_1A : End");
+end
+
+/*
+
+Enh 46986 - Commented below rules as we don't need to check for Subscriber/non-Subscriber
+
+rule "Post_Elg_Chip_Deceased_1_2"
+salience 89590
+activation-group "Post_Elg_Chip__Deceased_1_AT"
+agenda-group "Post_Elg_Chip_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.CHIP), 
+														!isEligibleForProgram(ProgramCode.CHIP),
+														madeIneligibleDueToBeingDeceased,
+														!isMemberTheSubscriberForPlan,
+														HXUtility.isDate2GreaterThanDate1(getPreviousElgStartDate(ProgramCode.CHIP), HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Elg_Chip_Deceased_1_2");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString(HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased())));
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_2 : End");
+end
+
+rule "Post_Elg_Chip_Deceased_1_2A"
+salience 89585
+activation-group "Post_Elg_Chip__Deceased_1_AT"
+agenda-group "Post_Elg_Chip_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.CHIP), 
+														!isEligibleForProgram(ProgramCode.CHIP),
+														madeIneligibleDueToBeingDeceased,
+														!isMemberTheSubscriberForPlan,
+														HXUtility.isDate2GreaterThanDate1(HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased()), getPreviousElgStartDate(ProgramCode.CHIP)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Elg_Chip_Deceased_1_2A");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString(HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getPreviousElgStartDate(ProgramCode.CHIP))));
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_2A : End");
+end
+*/
+
+rule "Post_Elg_Chip_Deceased_1_3"
+salience 89580
+activation-group "Post_Elg_Chip__Deceased_1_AT"
+agenda-group "Post_Elg_Chip_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.CHIP), 
+														!isEligibleForProgram(ProgramCode.CHIP),
+														!madeIneligibleDueToBeingDeceased);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Elg_Chip_Deceased_1_3");
+		drools.setFocus("Post_Chip_PD_1_AG");
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_3 : End");
+end
+
+rule "Post_Elg_Chip_Deceased_1_4"
+salience 89570
+activation-group "Post_Elg_Chip__Deceased_1_AT"
+agenda-group "Post_Elg_Chip_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Elg_Chip_Deceased_1_4");
+		drools.setFocus("Post_Chip_PD_1_AG");
+		logger.debug("Rule : Post_Elg_Chip_Deceased_1_4 : End");
+end
+
+
+//Death Indicator Fix Defect# 16341
+//Bypass post eligibility when person is not living or when has duplicate coverage
+
+rule "Post_Chip_PD_0_1"
+salience 80990
+activation-group "Post_Chip_PD_1_AT"
+agenda-group "Post_Chip_PD_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(employeeHasDuplicateCoverage);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_PD_0_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_PD_0_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_PD_0_1 : End");
+end
+
+rule "Post_Chip_PD_0_2"
+salience 80980
+activation-group "Post_Chip_PD_1_AT"
+agenda-group "Post_Chip_PD_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														individualHasDuplicateCoverage);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_PD_0_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_PD_0_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_PD_0_2 : End");
+end
+
+
+rule "Post_Chip_PD_0_3"
+salience 80970
+activation-group "Post_Chip_PD_1_AT"
+agenda-group "Post_Chip_PD_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														!individualHasDuplicateCoverage);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_PD_0_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_PD_0_3");
+		drools.setFocus("Post_Chip_12MO_CON_1_AG");
+		logger.debug("Rule : Post_Chip_PD_0_3 : End");
+end
+
+//For CR111 - removed all isLiving & CSROverride related facts and moved them to the previous rule set
+/*
+rule "Post_Chip_PD_0_4"
+salience 80960
+activation-group "Post_Chip_PD_1_AT"
+agenda-group "Post_Chip_PD_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isPersonLiving,
+														!csDeathIndOverride,
+														!isDecesedAcctHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_PD_0_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_PD_0_4");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_PD_0_4 : End");
+end
+
+
+rule "Post_Chip_PD_0_5"
+salience 80950
+activation-group "Post_Chip_PD_1_AT"
+agenda-group "Post_Chip_PD_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isPersonLiving,
+														!csDeathIndOverride,
+														isDecesedAcctHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_PD_0_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_PD_0_5");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_PD_0_5 : End");
+end
+
+
+rule "Post_Chip_PD_0_6"
+salience 80940
+activation-group "Post_Chip_PD_1_AT"
+agenda-group "Post_Chip_PD_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isPersonLiving,
+														csDeathIndOverride);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_PD_0_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_PD_0_6");
+		drools.setFocus("Post_Chip_12MO_CON_1_AG");
+		logger.debug("Rule : Post_Chip_PD_0_6 : End");
+end
+*/
+
+
+//Chip 12MO Continuous(1)
+
+rule "Post_Chip_12MO_CON_1_1"
+salience 90000
+activation-group "Post_Chip_12MO_CON_1_AT"
+agenda-group "Post_Chip_12MO_CON_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.MEDICAID), 
+														!isEligibleForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_1_1");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_1_1 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_1_2"
+salience 89990
+activation-group "Post_Chip_12MO_CON_1_AT"
+agenda-group "Post_Chip_12MO_CON_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID), 
+														isEligibleForProgram(ProgramCode.CHIP),
+														!HXUtility.isNull(getContinuousSaveDate(ProgramCode.CHIP)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_1_2");
+		drools.setFocus("Post_Chip_12MO_CON_2A_AG");
+		drools.setFocus("Post_Chip_12MO_CON_2_AG");
+		logger.debug("Rule : Post_Chip_12MO_CON_1_2 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_1_3"
+salience 89980
+activation-group "Post_Chip_12MO_CON_1_AT"
+agenda-group "Post_Chip_12MO_CON_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID), 
+														isEligibleForProgram(ProgramCode.CHIP),
+														HXUtility.isNull(getContinuousSaveDate(ProgramCode.CHIP)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_1_3");
+		drools.setFocus("Post_Chip_12MO_CON_2A_AG");
+		drools.setFocus("Post_Chip_12MO_CON_2_AG");
+		logger.debug("Rule : Post_Chip_12MO_CON_1_3 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_1_4"
+salience 89970
+activation-group "Post_Chip_12MO_CON_1_AT"
+agenda-group "Post_Chip_12MO_CON_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID), 
+														!isEligibleForProgram(ProgramCode.CHIP),
+														!HXUtility.isNull(getContinuousSaveDate(ProgramCode.CHIP)),
+														isDateAfterCurrentDate(getContinuousSaveDate(ProgramCode.CHIP)),
+														isDateAfter(getContinuousSaveDate(ProgramCode.CHIP), getEligibilityEndDate(ProgramCode.CHIP)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_1_4");
+		drools.setFocus("Post_Chip_12MO_CON_3_AG");
+		logger.debug("Rule : Post_Chip_12MO_CON_1_4 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_1_5"
+salience 89960
+activation-group "Post_Chip_12MO_CON_1_AT"
+agenda-group "Post_Chip_12MO_CON_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID), 
+														!isEligibleForProgram(ProgramCode.CHIP),
+														!HXUtility.isNull(getContinuousSaveDate(ProgramCode.CHIP)),
+														isDateAfterCurrentDate(getContinuousSaveDate(ProgramCode.CHIP)),
+														!isDateAfter(getContinuousSaveDate(ProgramCode.CHIP), getEligibilityEndDate(ProgramCode.CHIP)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_1_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_1_5 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_1_6"
+salience 89950
+activation-group "Post_Chip_12MO_CON_1_AT"
+agenda-group "Post_Chip_12MO_CON_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID), 
+														!isEligibleForProgram(ProgramCode.CHIP),
+														!HXUtility.isNull(getContinuousSaveDate(ProgramCode.CHIP)),
+														!isDateAfterCurrentDate(getContinuousSaveDate(ProgramCode.CHIP)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_1_6");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_1_6 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_1_7"
+salience 89940
+activation-group "Post_Chip_12MO_CON_1_AT"
+agenda-group "Post_Chip_12MO_CON_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID), 
+														!isEligibleForProgram(ProgramCode.CHIP),
+														HXUtility.isNull(getContinuousSaveDate(ProgramCode.CHIP)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_1_7");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_1_7 : End");
+end
+
+
+//Chip 12MO Continuous(2)
+
+rule "Post_Chip_12MO_CON_2_1"
+salience 88000
+activation-group "Post_Chip_12MO_CON_2_AT"
+agenda-group "Post_Chip_12MO_CON_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_2_1");
+		//Removing this fact for cr 256 as it is no longer used
+		//$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_2_1 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_2_2"
+salience 87990
+activation-group "Post_Chip_12MO_CON_2_AT"
+agenda-group "Post_Chip_12MO_CON_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAllVerificationsVerified,
+														!isFullPayCHIPEligible(ProgramCode.CHIP),
+														!isLSCThruNonRenewalBatch);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_2_2");
+		//Removing this fact for cr 256 as it is no longer used
+		//$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		
+		//TODO - Set CHIP Continuous Save Date =  Financial Assistance Application Date + 12 months
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, 
+							HxDateUtils.moveDatetoEndOfMonth(HxDateUtils.addTodate($eDeterminationfacts.getEligibilityStartDate(ProgramCode.CHIP), Calendar.MONTH, 11))); 
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_2_2 : End");
+end
+
+rule "Post_Chip_12MO_CON_2_2B"
+salience 87985
+activation-group "Post_Chip_12MO_CON_2_AT"
+agenda-group "Post_Chip_12MO_CON_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAllVerificationsVerified,
+														isFullPayCHIPEligible(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_2_2B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_2_2B");
+		//Removing this fact for cr 256 as it is no longer used
+		//$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_2_2B : End");
+end
+
+rule "Post_Chip_12MO_CON_2_3"
+salience 87980
+activation-group "Post_Chip_12MO_CON_2_AT"
+agenda-group "Post_Chip_12MO_CON_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAllVerificationsVerified,
+														!isFullPayCHIPEligible(ProgramCode.CHIP),
+														isLSCThruNonRenewalBatch,
+														!HXUtility.isNull(getContinuousSaveDate(ProgramCode.CHIP)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_2_3");
+		//Removing this fact for cr 256 as it is no longer used
+		//$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_2_3 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_2_4"
+salience 87970
+activation-group "Post_Chip_12MO_CON_2_AT"
+agenda-group "Post_Chip_12MO_CON_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAllVerificationsVerified,
+														!isFullPayCHIPEligible(ProgramCode.CHIP),
+														isLSCThruNonRenewalBatch,
+														HXUtility.isNull(getContinuousSaveDate(ProgramCode.CHIP)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_2_4");
+		//Removing this fact for cr 256 as it is no longer used
+		//$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, true);
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, 
+							($eDeterminationfacts.getPreviousElgEndDate(ProgramCode.CHIP))); 
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_2_4 : End");
+end
+
+
+//Chip Continuous(2A)
+
+rule "Post_Chip_12MO_CON_2A_1"
+salience 87600
+activation-group "Post_Chip_12MO_CON_2A_AT"
+agenda-group "Post_Chip_12MO_CON_2A_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_2A_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_2A_1");
+		logger.debug("Rule : Post_Chip_12MO_CON_2A_1 : End");
+end
+
+rule "Post_Chip_12MO_CON_2A_2"
+salience 87590
+activation-group "Post_Chip_12MO_CON_2A_AT"
+agenda-group "Post_Chip_12MO_CON_2A_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getUserPreviousEndDateDueToDeceasedInfo()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_2A_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_2A_2");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, $eDeterminationfacts.getPreviousElgEndDate(ProgramCode.CHIP));
+		logger.debug("Rule : Post_Chip_12MO_CON_2A_2 : End");
+end
+
+rule "Post_Chip_12MO_CON_2A_3"
+salience 87585
+activation-group "Post_Chip_12MO_CON_2A_AT"
+agenda-group "Post_Chip_12MO_CON_2A_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getUserPreviousEndDateDueToDeceasedInfo())
+														&&  isFullPayCHIPEligible(ProgramCode.CHIP)	);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_2A_2B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_2A_2B");
+ 		logger.debug("Rule : Post_Chip_12MO_CON_2A_2B : End");
+end
+
+//Chip 12MO Continuous(4)
+rule "Post_Chip_12MO_CON_2A_4"
+salience 87580
+activation-group "Post_Chip_12MO_CON_2A_AT"
+agenda-group "Post_Chip_12MO_CON_2A_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getUserPreviousEndDateDueToDeceasedInfo()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_2A_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_2A_3");		
+		logger.debug("Rule : Post_Chip_12MO_CON_2A_3 : End");
+end
+
+
+//Chip 12MO Continuous(3)
+
+rule "Post_Chip_12MO_CON_3_1"
+salience 86000
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNYSResident);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_1");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_1 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_3_2"
+salience 85990
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_2");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_2 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_3_2A"
+salience 85985
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														isCSUndeliverableAddInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_2A");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_2A : End");
+end
+
+//It has been Implemented to satisfy eMedNY FC requirement CR #1186
+//------------------------------------
+
+rule "Post_Chip_12MO_CON_3_2B"
+salience 85982
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														!isCSUndeliverableAddInd,
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_2B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_2B");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_2B : End");
+end
+
+
+rule "Post_Chip_12MO_CON_3_3"
+salience 85980
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()),
+														!isCSUndeliverableAddInd,
+														isChipInEligibleDueTOESIMEC);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_3");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_3 : End");
+end
+
+//1361 changes to check coverage in NYSHIP
+rule "Post_Chip_12MO_CON_3_4"
+salience 85975
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()),
+														!isCSUndeliverableAddInd,
+														!isChipInEligibleDueTOESIMEC,
+														isChildEnrolledInNYSHIPIND); // added isChildEnrolledInNYSHIPIND : CR1361
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_4");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_4 : End");
+end
+//1361  
+
+rule "Post_Chip_12MO_CON_3_5"
+salience 85970
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()),
+														!isCSUndeliverableAddInd,
+														!isChipInEligibleDueTOESIMEC,
+														!isChildEnrolledInNYSHIPIND, //CR1361 
+														accessToNYSHIP);//CR1346:CHIP CSD should be removed for child who has NYSHIP access
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_5");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_5 : End");
+end
+
+rule "Post_Chip_12MO_CON_3_6"
+salience 85960
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()),
+														!isCSUndeliverableAddInd,
+														!isChipInEligibleDueTOESIMEC,
+														//CR1346 !accessToNYSHIP,
+														(isIncarcerated ||isIncarceration90ClockExpired));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_6");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_6 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_3_6A"
+salience 85955
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()),
+														!isCSUndeliverableAddInd,
+														!isChipInEligibleDueTOESIMEC,
+														//CR1346 !accessToNYSHIP,
+														!(isIncarcerated ||isIncarceration90ClockExpired),
+														(isUserIncarcerationResponseNull && isIncarceration_10_DayClockExpired));
+					
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_6A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_6A");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_6A : End");
+end
+
+rule "Post_Chip_12MO_CON_3_7"
+salience 85950
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()),
+														!isCSUndeliverableAddInd,
+														!isChipInEligibleDueTOESIMEC,
+														//CR1346 !accessToNYSHIP,
+														!(isIncarcerated ||isIncarceration90ClockExpired),
+														!(isUserIncarcerationResponseNull && isIncarceration_10_DayClockExpired),
+														isChipInEligibleDueTOMEC);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_7");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_7 : End");
+end
+
+/*
+rule "Post_Chip_12MO_CON_3_7"
+salience 85940
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()),
+														!isCSUndeliverableAddInd,
+														!isChipInEligibleDueTOESIMEC,
+														!accessToNYSHIP,
+														!isIncarcerated,
+														!isChipInEligibleDueTOMEC,
+														dateOfDeathExist);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_7");
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, null);
+		$eDeterminationfacts.updatePremiumCategoryContributionLocked(ProgramCode.CHIP, false);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		logger.debug("Rule : Post_Chip_12MO_CON_3_7 : End");
+end
+*/
+
+rule "Post_Chip_12MO_CON_3_8"
+salience 85930
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()),
+														!isCSUndeliverableAddInd,
+														!isChipInEligibleDueTOESIMEC,
+														//CR1346 !accessToNYSHIP,
+														!(isIncarcerated ||isIncarceration90ClockExpired),
+														!(isUserIncarcerationResponseNull && isIncarceration_10_DayClockExpired),
+														!isChipInEligibleDueTOMEC,
+														(HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()) || CitizenshipStatusEnum.OTHER.equals(citizenshipType)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_8");
+		
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CHIP, program_status.ELIGIBLE, ProgramReasonCode.CHIP_CNT_COV);
+		
+		//TODO - Implementation needs to be looked at [More on the date settings]
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, $eDeterminationfacts.getRunEligibilityAsOfDate());
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, $eDeterminationfacts.getContinuousSaveDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityRunDate(new java.util.Date());
+		
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H3 , null);
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		
+		logger.debug("Rule : Post_Chip_12MO_CON_3_8 : End");
+end
+
+
+rule "Post_Chip_12MO_CON_3_9"
+salience 85920
+activation-group "Post_Chip_12MO_CON_3_AT"
+agenda-group "Post_Chip_12MO_CON_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNYSResident,
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.RAEMEDNY.Value()),
+														!isCSUndeliverableAddInd,
+														!isChipInEligibleDueTOESIMEC,
+														//CR1346 !accessToNYSHIP,
+														!(isIncarcerated ||isIncarceration90ClockExpired),
+														!(isUserIncarcerationResponseNull && isIncarceration_10_DayClockExpired),
+														!isChipInEligibleDueTOMEC,
+														!(HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()) || CitizenshipStatusEnum.OTHER.equals(citizenshipType)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Chip_12MO_CON_3_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Post_Chip_12MO_CON_3_9");
+		
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CHIP, program_status.ELIGIBLE, ProgramReasonCode.CHIP_CNT_COV);
+		
+		//TODO - Implementation needs to be looked at [More on the date settings]
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, $eDeterminationfacts.getRunEligibilityAsOfDate());
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, $eDeterminationfacts.getContinuousSaveDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityRunDate(new java.util.Date());
+		
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H4 , null);
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_POST_ELG);
+		
+		logger.debug("Rule : Post_Chip_12MO_CON_3_9 : End");
+end

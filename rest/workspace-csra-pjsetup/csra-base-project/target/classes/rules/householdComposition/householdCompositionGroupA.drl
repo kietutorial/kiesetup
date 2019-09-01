@@ -1,0 +1,304 @@
+//created on: Feb 6, 2014
+package com.hcentive.eligibility.prescreening.domain
+
+import com.hcentive.rulesengine.hhComp.domain.HHCompRuleFacts;
+import com.hcentive.rulesengine.hhComp.domain.HHCompResultBean;
+import com.hcentive.rulesengine.hhComp.domain.HHCompMemberBean;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+
+global org.slf4j.Logger logger;
+
+rule "MAIN_SUBSIDIZED"
+salience 100000
+	when
+		$hhCompRuleFacts : HHCompRuleFacts();
+	then
+		logger.debug("Rule : MAIN_SUBSIDIZED : Begin");
+		$hhCompRuleFacts.setHhCompResultBean(new HHCompResultBean(HXConstants.MEMBER_HH_COMPOSITION_TYPE_SUBSIDIZED));
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("MAIN_SUBSIDIZED");
+		$hhCompRuleFacts.setRuleExecCompletionStep(HXConstants.HHCOMP_RULE_EXEC_SEC1_ACK);
+		drools.setFocus("HH_COMP_1_AG");
+		logger.debug("Rule : MAIN_SUBSIDIZED : End");
+end
+
+rule "HH_COMP_1_1"
+salience 90000
+activation-group "HH_COMP_1_AT"
+agenda-group "HH_COMP_1_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(isTaxDependent, !isClaimedByParent);
+	then
+		logger.debug("Rule : HH_COMP_1_1 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_1_1");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleType("NON_FILER");
+		drools.setFocus("HH_COMP_3_AG");
+		logger.debug("Rule : HH_COMP_1_1 : End");
+end
+
+
+rule "HH_COMP_1_2"
+salience 89990
+activation-group "HH_COMP_1_AT"
+agenda-group "HH_COMP_1_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(isTaxDependent, 
+											isClaimedByParent,
+											!(memberAge <19 || ((memberAge == 19 || memberAge ==20 )) && isFullTimeStudent));
+	then
+		logger.debug("Rule : HH_COMP_1_2 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_1_2");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleType("FILER");
+		drools.setFocus("HH_COMP_2_AG");
+		logger.debug("Rule : HH_COMP_1_2 : End");
+end
+
+
+rule "HH_COMP_1_3"
+salience 89980
+activation-group "HH_COMP_1_AT"
+agenda-group "HH_COMP_1_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(isTaxDependent, 
+											isClaimedByParent,
+											(memberAge <19 || (((memberAge == 19 || memberAge ==20 )) && isFullTimeStudent)),
+											isMemberLivingWithBothParents,
+											isParentsFilingJointly);
+	then
+		logger.debug("Rule : HH_COMP_1_3 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_1_3");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleType("FILER");
+		drools.setFocus("HH_COMP_2_AG");
+		logger.debug("Rule : HH_COMP_1_3 : End");
+end
+
+
+rule "HH_COMP_1_4"
+salience 89970
+activation-group "HH_COMP_1_AT"
+agenda-group "HH_COMP_1_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(isTaxDependent, 
+											isClaimedByParent,
+											(memberAge <19 || (((memberAge == 19 || memberAge ==20 )) && isFullTimeStudent)),
+											isMemberLivingWithBothParents,
+											!isParentsFilingJointly);
+	then
+		logger.debug("Rule : HH_COMP_1_4 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_1_4");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleType("NON_FILER");
+		drools.setFocus("HH_COMP_3_AG");
+		logger.debug("Rule : HH_COMP_1_4 : End");
+end
+
+
+rule "HH_COMP_1_5"
+salience 89960
+activation-group "HH_COMP_1_AT"
+agenda-group "HH_COMP_1_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(isTaxDependent, 
+											isClaimedByParent,
+											(memberAge <19 || (((memberAge == 19 || memberAge ==20 )) && isFullTimeStudent)),
+											!isMemberLivingWithBothParents,
+											!isClaimedByParentNotInHome);
+	then
+		logger.debug("Rule : HH_COMP_1_5 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_1_5");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleType("FILER");
+		drools.setFocus("HH_COMP_2_AG");
+		logger.debug("Rule : HH_COMP_1_5 : End");
+end
+
+
+rule "HH_COMP_1_6"
+salience 89950
+activation-group "HH_COMP_1_AT"
+agenda-group "HH_COMP_1_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(isTaxDependent, 
+											isClaimedByParent,
+											(memberAge <19 || (((memberAge == 19 || memberAge ==20 )) && isFullTimeStudent)),
+											!isMemberLivingWithBothParents,
+											isClaimedByParentNotInHome);
+	then
+		logger.debug("Rule : HH_COMP_1_6 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_1_6");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleType("NON_FILER");
+		drools.setFocus("HH_COMP_3_AG");
+		logger.debug("Rule : HH_COMP_1_6 : End");
+end
+
+
+rule "HH_COMP_1_7"
+salience 89940
+activation-group "HH_COMP_1_AT"
+agenda-group "HH_COMP_1_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(!isTaxDependent, 
+											isTaxFiler);
+	then
+		logger.debug("Rule : HH_COMP_1_7 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_1_7");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleType("FILER");
+		drools.setFocus("HH_COMP_2_AG");
+		logger.debug("Rule : HH_COMP_1_7 : End");
+end
+
+
+rule "HH_COMP_1_8"
+salience 89930
+activation-group "HH_COMP_1_AT"
+agenda-group "HH_COMP_1_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(!isTaxDependent, 
+											!isTaxFiler,
+											isNonFiler);
+	then
+		logger.debug("Rule : HH_COMP_1_8 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_1_8");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleType("NON_FILER");
+		drools.setFocus("HH_COMP_3_AG");
+		logger.debug("Rule : HH_COMP_1_8 : End");
+end
+
+
+
+rule "HH_COMP_2_1"
+salience 80000
+activation-group "HH_COMP_2_AT"
+agenda-group "HH_COMP_2_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(!isTaxDependentsAvailableforPrimary,
+										  !isPrimarySpouselivingAndFilingFlag );
+	then
+		logger.debug("Rule : HH_COMP_2_1 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_2_1");
+		$hhCompRuleFacts.addMemberToComposition($hhCompRuleFacts.getPrimaryTaxMember(), $hhCompRuleFacts.getExecMember());
+		$hhCompRuleFacts.setRuleExecCompletionStep(HXConstants.HHCOMP_RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : HH_COMP_2_1 : End");
+end
+
+
+
+rule "HH_COMP_2_2"
+salience 79990
+activation-group "HH_COMP_2_AT"
+agenda-group "HH_COMP_2_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(!isTaxDependentsAvailableforPrimary,
+										  isPrimarySpouselivingAndFilingFlag);
+	then
+		logger.debug("Rule : HH_COMP_2_2 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_2_2");
+		$hhCompRuleFacts.addMemberToComposition($hhCompRuleFacts.getPrimaryTaxMember(), $hhCompRuleFacts.getExecMember());
+		$hhCompRuleFacts.updateTaxFilerRuleSpouseDtlsToComposition();
+		$hhCompRuleFacts.setRuleExecCompletionStep(HXConstants.HHCOMP_RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : HH_COMP_2_2 : End");
+end
+
+rule "HH_COMP_2_3"
+salience 79980
+activation-group "HH_COMP_2_AT"
+agenda-group "HH_COMP_2_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(isTaxDependentsAvailableforPrimary,
+											!isPrimarySpouselivingAndFilingFlag);
+	then
+		logger.debug("Rule : HH_COMP_2_3 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_2_3");
+		$hhCompRuleFacts.addMemberToComposition($hhCompRuleFacts.getPrimaryTaxMember(), $hhCompRuleFacts.getExecMember());
+		$hhCompRuleFacts.updateTaxFilerRuleDependentDtlsToComposition();
+		$hhCompRuleFacts.setRuleExecCompletionStep(HXConstants.HHCOMP_RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : HH_COMP_2_3 : End");
+end
+
+
+rule "HH_COMP_2_4"
+salience 79970
+activation-group "HH_COMP_2_AT"
+agenda-group "HH_COMP_2_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(isTaxDependentsAvailableforPrimary,
+										   isPrimarySpouselivingAndFilingFlag );
+	then
+		logger.debug("Rule : HH_COMP_2_4 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_2_4");
+		$hhCompRuleFacts.addMemberToComposition($hhCompRuleFacts.getPrimaryTaxMember(), $hhCompRuleFacts.getExecMember());
+		$hhCompRuleFacts.updateTaxFilerRuleDependentDtlsToComposition();
+		$hhCompRuleFacts.updateTaxFilerRuleSpouseDtlsToComposition();
+		$hhCompRuleFacts.setRuleExecCompletionStep(HXConstants.HHCOMP_RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : HH_COMP_2_4 : End");
+end
+
+
+
+rule "HH_COMP_3_1"
+salience 60000
+activation-group "HH_COMP_3_AT"
+agenda-group "HH_COMP_3_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(memberAge < 19);
+	then
+		logger.debug("Rule : HH_COMP_3_1 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_3_1");
+		$hhCompRuleFacts.updateMemberToComposition($hhCompRuleFacts.getExecMember(), true);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_SPOUSE);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_CHILD);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_PARENT);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_SIBLING);
+		$hhCompRuleFacts.setRuleExecCompletionStep(HXConstants.HHCOMP_RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : HH_COMP_3_1 : End");
+end
+
+
+rule "HH_COMP_3_2"
+salience 59990
+activation-group "HH_COMP_3_AT"
+agenda-group "HH_COMP_3_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(((memberAge == 19 || memberAge == 20) && isFullTimeStudent));
+	then
+		logger.debug("Rule : HH_COMP_3_2 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_3_2");
+		$hhCompRuleFacts.updateMemberToComposition($hhCompRuleFacts.getExecMember(), true);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_SPOUSE);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_CHILD);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_PARENT);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_SIBLING);
+		$hhCompRuleFacts.setRuleExecCompletionStep(HXConstants.HHCOMP_RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : HH_COMP_3_2 : End");
+end
+
+
+rule "HH_COMP_3_3"
+salience 59980
+activation-group "HH_COMP_3_AT"
+agenda-group "HH_COMP_3_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(((memberAge == 19 || memberAge == 20) && !isFullTimeStudent));
+	then
+		logger.debug("Rule : HH_COMP_3_3 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_3_3");
+		$hhCompRuleFacts.updateMemberToComposition($hhCompRuleFacts.getExecMember(), true);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_SPOUSE);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_CHILD);
+		$hhCompRuleFacts.setRuleExecCompletionStep(HXConstants.HHCOMP_RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : HH_COMP_3_3 : End");
+end
+
+rule "HH_COMP_3_4"
+salience 59970
+activation-group "HH_COMP_3_AT"
+agenda-group "HH_COMP_3_AG"
+	when
+		$hhCompRuleFacts : HHCompRuleFacts(memberAge > 20);
+	then
+		logger.debug("Rule : HH_COMP_3_4 : Begin");
+		$hhCompRuleFacts.getHhCompResultBean().setRuleExecOrder("HH_COMP_3_4");
+		$hhCompRuleFacts.updateMemberToComposition($hhCompRuleFacts.getExecMember(), true);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_SPOUSE);
+		$hhCompRuleFacts.updateCompositionByRelType(HXConstants.RELATION_TYPE_CHILD);
+		$hhCompRuleFacts.setRuleExecCompletionStep(HXConstants.HHCOMP_RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : HH_COMP_3_4 : End");
+end

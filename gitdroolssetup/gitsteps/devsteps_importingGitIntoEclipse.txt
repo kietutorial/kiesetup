@@ -1,0 +1,127 @@
+Install Git In Eclipse
+----------------------------------------------
+Help->Eclipse MarketPlace
+Find->Git
+Select->Egit
+
+Clone Git Repository
+----------------------------------------------
+Window->Perspective->Open Perspective->Git
+Clone a Git Repository
+
+Past this in the URI:
+ssh://kvenkat1@nyxsvlalb015/opt/was/git/NYSOHRulesRepository
+Password: Sep@2017
+
+Next->Deselect All->Select master only
+Next
+
+Local Destination:
+Directory: C:\GITSANDBOX_TEMP\20170911
+Finish
+
+* Accept Legal dialog
+
+
+Import Projects Into Eclipse
+----------------------------------------------
+Select 20170911->Working Tree->EligibilityProjects
+Select these four projects:
+hx-eligibility-dto
+hx-eligibility-dto-test
+hx-eligibility-workflows
+hx-eligibility-workflows-test
+
+Right-Click->Import
+
+
+Switch to Java Perspective to View Project
+----------------------------------------------
+Done!
+Project is ready for eclipse development
+
+
+Importing Project To KIE 
+---------------------------------
+From windows command line:
+cd C:\GITSANDBOX_TEMP\20170911\EligibilityProjects
+
+
+
+Creating Branch In Eclipse
+----------------------------------------
+1. Clone current git in eclipse
+ssh://kvenkat1@nyxsvlalb015/opt/was/git/NYSOHRulesRepository
+kvenkat1
+Sep@2017
+
+2. Create branch in eclise
+In eclipse go to:
+Git Repositories->subranch->Branches
+- Open Local and Remote Tracking and see master as the current branch
+- subbranch is my repo name from cloning
+Right click Branches->Switch To->New Branch
+Branch name: executable_workflows_v1
+
+Expand Branches->Local and Branches->Remote Tracking
+- See executable_workflows_v1 branch
+Double Click this branch->"Do you really want to checkout this branch"->Ok
+- Note this branch is now the working branch (See check mark on branch)
+
+4. View Current branch on command line
+C:\A-DEV\workspace-csra-temp\20170802a
+
+git log --graph --decorate --all --pretty=oneline
+* b7490512696299cea04e4e40c423b92fa13ec7f0 (HEAD -> executable_workflows_v1, origin/master, master) Init
+
+- Note head points to: executable_workflows_v1
+
+5. Add New code to branch
+o Copy code from C:\A-DEV\workspace-csrra-sandbox
+hx-eligibility-dto
+hx-eligibility-workflows
+
+o Commit changes
+git commit -a -m "Checking in barebone executable working branch"
+git push
+
+git log --graph --decorate --all --pretty=oneline
+* 8374eb22e23c1deb8ac5c7f2efc53979a471f7b7 (executable_workflows_v1) Checking in barebone executable working branch
+* 17a5675c89ef176ba3a442d27a3c62a9964cee12 (HEAD -> master) Init
+* fba7173f341c1afcc3fadc249f46745a5f814edd Renamed project
+* f5c35544d2fb6b775d99a430b8ee80a779e15eae Init
+
+8. Merge branch to master (eclipse)-- Maybe
+*** Did not work in eclipse
+Git Repositories->subranch->Branches->executable_workflows_v1
+Right click branch->executable_workflows_v1->Merge
+Next->Select Local->Select origin/master
+Next->Finish
+- Note message: Repository file:///C:\GIT_TEST_REPOS\hx-20170802
+
+9. Merge branch to master (command line)-- Maybe
+git checkout master
+git merge executable_workflows_v1
+git push
+
+- Verify
+git log --graph --decorate --all --pretty=oneline
+* 19085550953709fe811c22248f13aff63ea812d6 (HEAD -> master, origin/master, origin/executable_workflows_v1, executable_workflows_v1) Checked out to recommit
+branch changes to upstream - master?
+* ce0e3118a76fcea2b7603de4c78fc2ae5c61fc31 Checking in barebone executable working branch
+* 268a4f3e5e749b11ad183da0d17ba2168f422638 Checking in barebone executable working branch
+* 078fb558c4adfc0a8067d8ed51af625ae1698ccc Added building with JDK8
+* 9dc740500e9f2aa387ee99149add318a0dafb53b Renaming project, packages and clean up one more time
+* da2e159777bb8824548203c9b014b7fd8284013f Manually renamed eligibility packages, plus other changes outstanding
+* 7d7e05f69fd711dbdb0de20210d8572567d69828 Renaming project, packages and clean up
+* 32ee89392ae42c6ea15e78da7dfd1b65d255a41f Checking in initial projects for drools PoC
+* 2669f5204d24adc85be154ac100cce2d6af770f9 (origin/RulesPoC) Initialize KIE Workbench MedicaidIncome Processes Project
+* cc6c90021028e6e22bb0620c971e65575d0fa213 Initialize KIE Workbench MedicaidIncome Entity Project
+* 6158de6b16016785ff8723e88718be908e9b4b66 Change project name
+* 7a8f39fee79ca3af6930b0f9fa808c356e6a01d8 Initial Kie Workbench POC - Project Medical Income Process
+* 59275faddfc1e24b0b66e1d3bd89d0b67a109f65 Initial Kie Workbench POC - Project Medical Income Domain Entities
+* ba693181ded482f373ce2aa68aeb475457671947 Removed EligibilityRules folder
+* ef880f080a7392c63eafd0d671e112e385efd41a Initial Commit
+
+
+git commit -a -m "Clean up duplicate directories after merging"

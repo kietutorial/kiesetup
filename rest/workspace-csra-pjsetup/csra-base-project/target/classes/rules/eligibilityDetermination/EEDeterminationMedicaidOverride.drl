@@ -1,0 +1,1124 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+import com.hcentive.eligibility.ext.PostEligibilityDates.DateCategoryEnum;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+
+
+rule "MAIN_MEDICAID_OVERRIDE"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_OVERRIDE : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_OVERRIDE");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_OVERRIDE_ACK);
+		drools.setFocus("MAIN_MEDICAID_OVERRIDE_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_OVERRIDE : End");
+end
+
+
+//CR1606
+rule "MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_01"
+salience 95050
+activation-group "MAIN_MEDICAID_OVERRIDE_STALE_1_AT"
+agenda-group "MAIN_MEDICAID_OVERRIDE_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_01");
+		drools.setFocus("Medicaid_OVR_GENERAL_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_01 : End");
+end
+
+rule "MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_02"
+salience 95060
+activation-group "MAIN_MEDICAID_OVERRIDE_STALE_1_AT"
+agenda-group "MAIN_MEDICAID_OVERRIDE_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,!isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_02 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_02");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.STALE_MEM);// set program as Ineligble with reason code
+		$eDeterminationfacts.skipProgramExecution(ProgramCode.MEDICAID, HXConstants.BOLTRUE); // Set Flag to stop further execution of drls for this program
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		//drools.setFocus("Medicaid_Dup_Cov_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_02 : End");
+end
+
+rule "MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_03"
+salience 95070
+activation-group "MAIN_MEDICAID_OVERRIDE_STALE_1_AT"
+agenda-group "MAIN_MEDICAID_OVERRIDE_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_03");
+		$eDeterminationfacts.clearStaleFlag();
+		drools.setFocus("Medicaid_OVR_GENERAL_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_OVERRIDE_STALE_ELG_SEC_03 : End");
+end
+//CR1606 code changes end
+
+//Medicaid Override(1)
+
+
+rule "Medicaid_Override_1_1"
+salience 90000
+activation-group "Medicaid_OVR_GENERAL_1_AT"
+agenda-group "Medicaid_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Override_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Override_1_1");
+		drools.setFocus("Medicaid_OVR_TYPE_1_AG");
+		logger.debug("Rule : Medicaid_Override_1_1 : End");
+end
+
+
+rule "Medicaid_Override_1_2"
+salience 89980
+activation-group "Medicaid_OVR_GENERAL_1_AT"
+agenda-group "Medicaid_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Override_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Override_1_2");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_CHIP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : Medicaid_Override_1_2 : End");
+end
+
+
+rule "Medicaid_Override_1_3"
+salience 89970
+activation-group "Medicaid_OVR_GENERAL_1_AT"
+agenda-group "Medicaid_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Override_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Override_1_3");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_EPP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : Medicaid_Override_1_3 : End");
+end
+
+
+rule "Medicaid_Override_1_4"
+salience 89960
+activation-group "Medicaid_OVR_GENERAL_1_AT"
+agenda-group "Medicaid_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Override_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Override_1_4");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_APTC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : Medicaid_Override_1_4 : End");
+end
+
+
+rule "Medicaid_Override_1_5"
+salience 89950
+activation-group "Medicaid_OVR_GENERAL_1_AT"
+agenda-group "Medicaid_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.QHP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Override_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Override_1_5");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_QHP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : Medicaid_Override_1_5 : End");
+end
+
+
+rule "Medicaid_Override_1_6"
+salience 89940
+activation-group "Medicaid_OVR_GENERAL_1_AT"
+agenda-group "Medicaid_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNoOverrideAvailableForProgram());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Override_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Override_1_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : Medicaid_Override_1_6 : End");
+end
+
+
+//Medicaid Override Type(1)
+
+
+rule "Medicaid_OVR_Types_1_1"
+salience 88000
+activation-group "Medicaid_OVR_TYPE_1_AT"
+agenda-group "Medicaid_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														getMedicaidOverrideBean().getIsFullOverrideRequested());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Types_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Types_1_1");
+		
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.ELIGIBLE, null);
+		
+		drools.setFocus("Medicaid_OVR_FULL_ELG_DATES_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Types_1_1 : End");
+end
+
+
+rule "Medicaid_OVR_Types_1_2"
+salience 87990
+activation-group "Medicaid_OVR_TYPE_1_AT"
+agenda-group "Medicaid_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														getMedicaidOverrideBean().getIsPartialOverrideRequested(), 
+														getMedicaidOverrideBean().getIsPartialOverrideReadyToRunForDrools());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Types_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Types_1_2");
+		
+		drools.setFocus("Medicaid_OVR_PART_ELG_DATES_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Types_1_2 : End");
+end
+
+
+rule "Medicaid_OVR_Types_1_3"
+salience 87980
+activation-group "Medicaid_OVR_TYPE_1_AT"
+agenda-group "Medicaid_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														getMedicaidOverrideBean().getIsPartialOverrideRequested(), 
+														!getMedicaidOverrideBean().getIsPartialOverrideReadyToRunForDrools());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Types_1_3 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Types_1_3");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : Medicaid_OVR_Types_1_3 : End");
+end
+
+
+//Medicaid Override Full Elg Dates(1)
+
+
+rule "Medicaid_OVR_Full_Elg_Dates_1_1"
+salience 86000
+activation-group "Medicaid_OVR_FULL_ELG_DATES_1_AT"
+agenda-group "Medicaid_OVR_FULL_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getOverrideElgEffectiveStartDate()), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getOverrideElgEffectiveEndDate()));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Full_Elg_Dates_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Full_Elg_Dates_1_1");
+		
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.MEDICAID).getOverrideElgEffectiveStartDate());
+		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.MEDICAID).getOverrideElgEffectiveEndDate());
+				
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID, HXUtility.getCurrentDate());
+		
+		drools.setFocus("Medicaid_OVR_FULL_COV_CODES_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Full_Elg_Dates_1_1 : End");
+end
+
+
+//Medicaid Override Part Elg Dates(1)
+
+
+rule "Medicaid_OVR_part_Elg_Dates_1_1"
+salience 85000
+agenda-group "Medicaid_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getOverrideElgEffectiveStartDate()), 
+														HXUtility.isNull(getMedicaidOverrideBean().getOverrideElgEffectiveEndDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_part_Elg_Dates_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_part_Elg_Dates_1_1");
+				
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.MEDICAID).getOverrideElgEffectiveStartDate());
+		
+		logger.debug("Rule : Medicaid_OVR_part_Elg_Dates_1_1 : End");
+end
+
+
+rule "Medicaid_OVR_part_Elg_Dates_1_2"
+salience 84990
+agenda-group "Medicaid_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														HXUtility.isNull(getMedicaidOverrideBean().getOverrideElgEffectiveStartDate()), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getOverrideElgEffectiveEndDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_part_Elg_Dates_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_part_Elg_Dates_1_2");
+		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.MEDICAID).getOverrideElgEffectiveEndDate());
+		
+		logger.debug("Rule : Medicaid_OVR_part_Elg_Dates_1_2 : End");
+end
+
+
+rule "Medicaid_OVR_part_Elg_Dates_1_END"
+salience 84980
+agenda-group "Medicaid_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_part_Elg_Dates_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_part_Elg_Dates_1_END");
+		
+		drools.setFocus("Medicaid_OVR_PART_COV_CODES_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_part_Elg_Dates_1_END : End");
+end
+
+
+//Medicaid Override Full Coverage Codes(1)
+
+
+rule "Medicaid_OVR_Full_Cov_Codes_1_1"
+salience 84000
+activation-group "Medicaid_OVR_FULL_COV_CODES_1_AT"
+agenda-group "Medicaid_OVR_FULL_COV_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getCoverageCode()),
+														!HXUtility.isNull(getMedicaidOverrideBean().getCoverageCodeEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Full_Cov_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Full_Cov_Codes_1_1");
+		
+		$eDeterminationfacts.setCoverageCode(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getCoverageCode());
+		$eDeterminationfacts.setCoverageCodeEffectiveDate(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getCoverageCodeEffectiveDate());
+		
+		drools.setFocus("Medicaid_OVR_FULL_AID_CAT_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Full_Cov_Codes_1_1 : End");
+end
+
+
+//Medicaid Override Part Coverage Codes(1)
+
+
+rule "Medicaid_OVR_Part_Cov_Codes_1_1"
+salience 83000
+agenda-group "Medicaid_OVR_PART_COV_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														HXUtility.isNull(getMedicaidOverrideBean().getCoverageCode()),
+														!HXUtility.isNull(getMedicaidOverrideBean().getCoverageCodeEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Fart_Cov_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Fart_Cov_Codes_1_1");
+		
+		$eDeterminationfacts.setCoverageCode(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getCoverageCode());
+		
+		logger.debug("Rule : Medicaid_OVR_Fart_Cov_Codes_1_1 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Cov_Codes_1_2"
+salience 82990
+agenda-group "Medicaid_OVR_PART_COV_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getCoverageCode()),
+														HXUtility.isNull(getMedicaidOverrideBean().getCoverageCodeEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Cov_Codes_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Cov_Codes_1_2");
+		
+		$eDeterminationfacts.setCoverageCodeEffectiveDate(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getCoverageCodeEffectiveDate());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Cov_Codes_1_2 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Cov_Codes_1_3"
+salience 82980
+agenda-group "Medicaid_OVR_PART_COV_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getCoverageCode()),
+														!HXUtility.isNull(getMedicaidOverrideBean().getCoverageCodeEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Cov_Codes_1_3 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Cov_Codes_1_3");
+		
+		$eDeterminationfacts.setCoverageCode(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getCoverageCode());
+		$eDeterminationfacts.setCoverageCodeEffectiveDate(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getCoverageCodeEffectiveDate());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Cov_Codes_1_3 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Cov_Codes_1_END"
+salience 82970
+agenda-group "Medicaid_OVR_PART_COV_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getCoverageCode()),
+														!HXUtility.isNull(getMedicaidOverrideBean().getCoverageCodeEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Cov_Codes_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Cov_Codes_1_END");
+		
+		drools.setFocus("Medicaid_OVR_PART_AID_CAT_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Cov_Codes_1_END : End");
+end
+
+
+//Medicaid Override Full AidCategory(1)
+
+
+rule "Medicaid_OVR_Full_Aid_Cat_1_1"
+salience 81000
+activation-group "Medicaid_OVR_FULL_AID_CAT_1_AT"
+agenda-group "Medicaid_OVR_FULL_AID_CAT_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getAidCategory()),
+														!HXUtility.isNull(getMedicaidOverrideBean().getAidCategoryEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Full_Aid_Cat_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Full_Aid_Cat_1_1");
+		
+		$eDeterminationfacts.setAidCategory(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getAidCategory());
+		$eDeterminationfacts.setAidCategoryEffectiveDate(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getAidCategoryEffectiveDate());
+		
+		drools.setFocus("Medicaid_OVR_FULL_REASON_CODES_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Full_Aid_Cat_1_1 : End");
+end
+
+
+//Medicaid Override Part Coverage Codes(1)
+
+
+rule "Medicaid_OVR_Part_Aid_Cat_1_1"
+salience 80000
+agenda-group "Medicaid_OVR_PART_AID_CAT_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														HXUtility.isNull(getMedicaidOverrideBean().getAidCategory()),
+														!HXUtility.isNull(getMedicaidOverrideBean().getAidCategoryEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Aid_Cat_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Aid_Cat_1_1");
+		
+		$eDeterminationfacts.setAidCategory(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getAidCategory());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Aid_Cat_1_1 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Aid_Cat_1_2"
+salience 79990
+agenda-group "Medicaid_OVR_PART_AID_CAT_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getAidCategory()),
+														HXUtility.isNull(getMedicaidOverrideBean().getAidCategoryEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Aid_Cat_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Aid_Cat_1_2");
+		
+		$eDeterminationfacts.setAidCategoryEffectiveDate(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getAidCategoryEffectiveDate());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Aid_Cat_1_2 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Aid_Cat_1_3"
+salience 79980
+agenda-group "Medicaid_OVR_PART_AID_CAT_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isNull(getMedicaidOverrideBean().getAidCategory()),
+														!HXUtility.isNull(getMedicaidOverrideBean().getAidCategoryEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Aid_Cat_1_3 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Aid_Cat_1_3");
+		
+		$eDeterminationfacts.setAidCategory(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getAidCategory());
+		$eDeterminationfacts.setAidCategoryEffectiveDate(ProgramCode.MEDICAID, 
+								$eDeterminationfacts.getMedicaidOverrideBean().getAidCategoryEffectiveDate());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Aid_Cat_1_3 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Aid_Cat_1_END"
+salience 79970
+agenda-group "Medicaid_OVR_PART_AID_CAT_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Aid_Cat_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Aid_Cat_1_END");
+								
+		drools.setFocus("Medicaid_OVR_PART_REASON_CODES_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Aid_Cat_1_END : End");
+end
+
+
+//Medicaid Override Full Reason Codes(1)
+
+
+rule "Medicaid_OVR_Full_Reason_Codes_1_1"
+salience 78000
+activation-group "Medicaid_OVR_FULL_REASON_CODES_1_AT"
+agenda-group "Medicaid_OVR_FULL_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isEmpty(getMedicaidOverrideBean().getAllReasonCodes()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Full_Reason_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Full_Reason_Codes_1_1");
+		
+		$eDeterminationfacts.setReasonCodes(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getAllReasonCodes());
+		
+		drools.setFocus("Medicaid_OVR_FULL_INDICATORS_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Full_Reason_Codes_1_1 : End");
+end
+
+
+//Medicaid Override Part Reason Codes(1)
+
+
+rule "Medicaid_OVR_Part_Reason_Codes_1_1"
+salience 77000
+agenda-group "Medicaid_OVR_PART_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID), 
+														!HXUtility.isEmpty(getMedicaidOverrideBean().getAllReasonCodes()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Reason_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Reason_Codes_1_1");
+		
+		$eDeterminationfacts.setReasonCodes(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getAllReasonCodes());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Reason_Codes_1_1 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Reason_Codes_1_END"
+salience 76990
+agenda-group "Medicaid_OVR_PART_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Reason_Codes_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Reason_Codes_1_END");
+		
+		drools.setFocus("Medicaid_OVR_PART_INDICATORS_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Reason_Codes_1_END : End");
+end
+
+
+//Medicaid Override Full Indicators (1)
+
+
+rule "Medicaid_OVR_Full_Indicators_1_1"
+salience 76000
+activation-group "Medicaid_OVR_FULL_INDICATORS_1_AT"
+agenda-group "Medicaid_OVR_FULL_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														getMedicaidOverrideBean().getIsFullOverrideRequested());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Full_Indicators_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Full_Indicators_1_1");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setWaiverInd($eDeterminationfacts.getMedicaidOverrideBean().getWaiverInd());
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setUnder64NotCareTakerInd($eDeterminationfacts.getMedicaidOverrideBean().getUnder64NotCareTakerInd());
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setSpendDownInd($eDeterminationfacts.getMedicaidOverrideBean().getSpendDownInd());
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setRetroPrior_04012014_Ind($eDeterminationfacts.getMedicaidOverrideBean().getRetroPrior_04012014_Ind());
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setRetroAfter_04012014_Ind($eDeterminationfacts.getMedicaidOverrideBean().getRetroAfter_04012014_Ind());
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setParentChildCareTakerInd($eDeterminationfacts.getMedicaidOverrideBean().getParentChildCareTakerInd());
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setOver65NotCareTakerInd($eDeterminationfacts.getMedicaidOverrideBean().getOver65NotCareTakerInd());
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setNursingHomeInd($eDeterminationfacts.getMedicaidOverrideBean().getNursingHomeInd());
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setFosterCareOutsStateIndicator($eDeterminationfacts.getMedicaidOverrideBean().getFosterCareOutsStateIndicator());
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setFosterCareIndicator($eDeterminationfacts.getMedicaidOverrideBean().getFosterCareIndicator());
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setDisabledBlindInd($eDeterminationfacts.getMedicaidOverrideBean().getDisabledBlindInd());
+		$eDeterminationfacts.updateLifeLevelIndForProgram(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getIsLifeLevelIndicator());
+		
+		drools.setFocus("Medicaid_OVR_FULL_POST_ELG_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Full_Indicators_1_1 : End");
+end
+
+
+//Medicaid Override Part Indicators (1)
+
+
+rule "Medicaid_OVR_Part_Indicators_1_1"
+salience 75000
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getWaiverInd()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_1");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setWaiverInd($eDeterminationfacts.getMedicaidOverrideBean().getWaiverInd());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_1 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_2"
+salience 74990
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getUnder64NotCareTakerInd()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_2");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setUnder64NotCareTakerInd($eDeterminationfacts.getMedicaidOverrideBean().getUnder64NotCareTakerInd());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_2 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_3"
+salience 74980
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getSpendDownInd()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_3 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_3");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setSpendDownInd($eDeterminationfacts.getMedicaidOverrideBean().getSpendDownInd());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_3 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_4"
+salience 74970
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getRetroPrior_04012014_Ind()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_4 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_4");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setRetroPrior_04012014_Ind($eDeterminationfacts.getMedicaidOverrideBean().getRetroPrior_04012014_Ind());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_4 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_5"
+salience 74960
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getRetroAfter_04012014_Ind()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_5 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_5");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setRetroAfter_04012014_Ind($eDeterminationfacts.getMedicaidOverrideBean().getRetroAfter_04012014_Ind());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_5 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_6"
+salience 74950
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getParentChildCareTakerInd()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_6 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_6");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setParentChildCareTakerInd($eDeterminationfacts.getMedicaidOverrideBean().getParentChildCareTakerInd());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_6 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_7"
+salience 74940
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getOver65NotCareTakerInd()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_7 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_7");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setOver65NotCareTakerInd($eDeterminationfacts.getMedicaidOverrideBean().getOver65NotCareTakerInd());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_7 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_8"
+salience 74930
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getNursingHomeInd()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_8 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_8");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setNursingHomeInd($eDeterminationfacts.getMedicaidOverrideBean().getNursingHomeInd());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_8 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_9"
+salience 74920
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getFosterCareOutsStateIndicator()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_9 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_9");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setFosterCareOutsStateIndicator($eDeterminationfacts.getMedicaidOverrideBean().getFosterCareOutsStateIndicator());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_9 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_10"
+salience 74910
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getFosterCareIndicator()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_10 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_10");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setFosterCareIndicator($eDeterminationfacts.getMedicaidOverrideBean().getFosterCareIndicator());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_10 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_11"
+salience 74900
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getDisabledBlindInd()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_11 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_11");
+		
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.MEDICAID).setDisabledBlindInd($eDeterminationfacts.getMedicaidOverrideBean().getDisabledBlindInd());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_11 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_12"
+salience 74890
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														HXUtility.isTrue(getMedicaidOverrideBean().getIsLifeLevelIndicator()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_12 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_12");
+		
+		$eDeterminationfacts.updateLifeLevelIndForProgram(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getIsLifeLevelIndicator());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_12 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Indicators_1_END"
+salience 74880
+agenda-group "Medicaid_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Indicators_1_END");
+		
+		drools.setFocus("Medicaid_OVR_PART_POST_ELG_1_AG");	
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Indicators_1_END : End");
+end
+
+
+//Medicaid Override Full Post Eligibility (1)
+
+
+rule "Medicaid_OVR_Full_Post_Elg_1_1"
+salience 74000
+activation-group "Medicaid_OVR_FULL_POST_ELG_1_AT"
+agenda-group "Medicaid_OVR_FULL_POST_ELG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Full_Post_Elg_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Full_Post_Elg_1_1");
+		
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getConSavedate());
+		$eDeterminationfacts.updatePostPartumSaveDate(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getPostPartumDate());
+		$eDeterminationfacts.updateTMADate(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getTmaDate());
+		
+		drools.setFocus("Medicaid_OVR_FULL_CHARGE_CODE_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Full_Post_Elg_1_1 : End");
+end
+
+
+//Medicaid Override Part Post Eligibility (1)
+
+
+rule "Medicaid_OVR_Part_Post_Elg_1_1"
+salience 73000
+agenda-group "Medicaid_OVR_PART_POST_ELG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														!HXUtility.isNull(getMedicaidOverrideBean().getConSavedate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Post_Elg_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Post_Elg_1_1");
+		
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getConSavedate());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Post_Elg_1_1 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Post_Elg_1_2"
+salience 72990
+agenda-group "Medicaid_OVR_PART_POST_ELG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														!HXUtility.isNull(getMedicaidOverrideBean().getPostPartumDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Post_Elg_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Post_Elg_1_2");
+		
+		$eDeterminationfacts.updatePostPartumSaveDate(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getPostPartumDate());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Post_Elg_1_2 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Post_Elg_1_3"
+salience 72980
+agenda-group "Medicaid_OVR_PART_POST_ELG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														!HXUtility.isNull(getMedicaidOverrideBean().getTmaDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Post_Elg_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Post_Elg_1_2");
+		
+		$eDeterminationfacts.updateTMADate(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getTmaDate());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Post_Elg_1_2 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Post_Elg_1_END"
+salience 72970
+agenda-group "Medicaid_OVR_PART_POST_ELG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Post_Elg_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Post_Elg_1_END");
+		
+		drools.setFocus("Medicaid_OVR_PART_CHARGE_CODE_1_AG");
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Post_Elg_1_END : End");
+end
+
+
+//Medicaid Override Full Charge Codes (1)
+
+
+rule "Medicaid_OVR_Full_Charge_Code_1_1"
+salience 71000
+activation-group "Medicaid_OVR_FULL_CHARGE_CODE_1_AT"
+agenda-group "Medicaid_OVR_FULL_CHARGE_CODE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Full_Charge_Code_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Full_Charge_Code_1_1");
+		
+		$eDeterminationfacts.setChargeCode(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getChargeCode());
+		$eDeterminationfacts.setChargeCodeEffectiveDate(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getChargeCodeEffectiveDate());
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : Medicaid_OVR_Full_Charge_Code_1_1 : End");
+end
+
+
+//Medicaid Override Part Charge Codes (1)
+
+
+rule "Medicaid_OVR_Part_Charge_Code_1_1"
+salience 70000
+agenda-group "Medicaid_OVR_PART_CHARGE_CODE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														!HXUtility.isNull(getMedicaidOverrideBean().getChargeCode()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Charge_Code_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Charge_Code_1_1");
+		
+		$eDeterminationfacts.setChargeCode(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getChargeCode());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Charge_Code_1_1 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Charge_Code_1_2"
+salience 69990
+agenda-group "Medicaid_OVR_PART_CHARGE_CODE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID),
+														!HXUtility.isNull(getMedicaidOverrideBean().getChargeCodeEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Charge_Code_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Charge_Code_1_2");
+		
+		$eDeterminationfacts.setChargeCodeEffectiveDate(ProgramCode.MEDICAID, $eDeterminationfacts.getMedicaidOverrideBean().getChargeCodeEffectiveDate());
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Charge_Code_1_2 : End");
+end
+
+
+rule "Medicaid_OVR_Part_Charge_Code_1_END"
+salience 69980
+agenda-group "Medicaid_OVR_PART_CHARGE_CODE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_OVR_Part_Charge_Code_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_OVR_Part_Charge_Code_1_END");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : Medicaid_OVR_Part_Charge_Code_1_END : End");
+end

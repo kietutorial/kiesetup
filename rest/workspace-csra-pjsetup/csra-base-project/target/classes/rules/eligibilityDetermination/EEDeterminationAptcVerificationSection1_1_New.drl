@@ -1,0 +1,191 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.pvc.domain.DeceasedSourceEnum;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+
+global org.slf4j.Logger logger;
+
+
+rule "MAIN_APTC_VERIFY_SEC1_1_NEW"
+
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_APTC_VERIFY_SEC1_1_NEW : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "MAIN_APTC_VERIFY_SEC1_1_NEW");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_INIT_ACK);
+		drools.setFocus("APTC_NC_1_1_STALE_1_AG");
+		logger.debug("Rule : MAIN_APTC_VERIFY_SEC1_1_NEW : End");
+end
+
+//CR1606
+rule "APTC_NC_1_1_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "APTC_NC_1_1_STALE_1_AT"
+agenda-group "APTC_NC_1_1_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : APTC_NC_1_1_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "APTC_NC_1_1_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_SEC1_1_NEW_03);
+		logger.debug("Rule : APTC_NC_1_1_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "APTC_NC_1_1_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "APTC_NC_1_1_STALE_1_AT"
+agenda-group "APTC_NC_1_1_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : APTC_NC_1_1_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "APTC_NC_1_1_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Aptc_NC_1_AG");
+		logger.debug("Rule : APTC_NC_1_1_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//APTC non comformance (1)
+rule "Aptc_NC_1_1"
+salience 81000
+activation-group "Aptc_NC_1_AT"
+agenda-group "Aptc_NC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!medicaidNonCompInd, 
+														!chipNonCompInd,
+														!eppNonCompInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_NC_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_NC_1_1");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Dup_Cov_1_AG");
+		drools.setFocus("Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Aptc_NC_1_1 : End");
+end
+
+
+rule "Aptc_NC_1_2"
+salience 80995
+activation-group "Aptc_NC_1_AT"
+agenda-group "Aptc_NC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!medicaidNonCompInd, 
+														!chipNonCompInd,
+														eppNonCompInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_NC_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_NC_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.FTCER);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Dup_Cov_1_AG");
+		drools.setFocus("Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Aptc_NC_1_2 : End");
+end
+
+rule "Aptc_NC_1_3"
+salience 80990
+activation-group "Aptc_NC_1_AT"
+agenda-group "Aptc_NC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!medicaidNonCompInd, 
+														chipNonCompInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_NC_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_NC_1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.FTCCR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Dup_Cov_1_AG");
+		drools.setFocus("Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Aptc_NC_1_3 : End");
+end
+// Modified for CR1394, defect 65057
+rule "Aptc_NC_1_4"
+salience 80980
+activation-group "Aptc_NC_1_AT"
+agenda-group "Aptc_NC_1_AG"
+	when
+		//<CONDITION>)
+		$eDeterminationfacts : EEDeterminationRuleFacts(medicaidNonCompInd, !isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INCLK_EXP_DS_AT_MA.Value()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_NC_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_NC_1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.FTCMR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Dup_Cov_1_AG");
+		drools.setFocus("Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Aptc_NC_1_4 : End");
+end
+//Added for CR1394, defect 65057
+rule "Aptc_NC_1_5"
+salience 80970
+activation-group "Aptc_NC_1_AT"
+agenda-group "Aptc_NC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(medicaidNonCompInd, isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INCLK_EXP_DS_AT_MA.Value()),!currentlyAPTC);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_NC_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_NC_1_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.FTCMR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Dup_Cov_1_AG");
+		drools.setFocus("Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Aptc_NC_1_5 : End");
+end
+
+//Added for CR1394, defect 65057
+rule "Aptc_NC_1_6"
+salience 80960
+activation-group "Aptc_NC_1_AT"
+agenda-group "Aptc_NC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(medicaidNonCompInd, isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INCLK_EXP_DS_AT_MA.Value()),
+		                                                currentlyAPTC);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_NC_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_NC_1_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.INCLK_EXP_DS_AT_MA);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Dup_Cov_1_AG");
+		drools.setFocus("Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Aptc_NC_1_6 : End");
+end
+
+//Rule completion
+rule "Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_1"
+salience 60000
+activation-group "Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_AT"
+agenda-group "Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_1");
+		$eDeterminationfacts.setPrevSectionACKName("RULE_EXEC_STEP_SEC1_1_NEW_03");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_SEC1_1_NEW_03);
+		logger.debug("Rule : Aptc_VERIF_SEC_1_1_NEW_COMP_STEP_1 : End");
+end
+

@@ -1,0 +1,69 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.rulesengine.domain.OOPCalculatorfact;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean oopConfigBean;
+
+
+//OOP Rules
+rule "OOP_MAIN"
+salience 100000
+	when
+		$oopCalculatorFact : OOPCalculatorfact();
+	then
+		logger.debug("Rule : OOP_MAIN : Begin");
+		drools.setFocus("OOP_1_AG");
+		logger.debug("Rule : OOP_MAIN : End");
+end
+
+//OOP(1)
+
+rule "OOP_1"
+salience 90000
+activation-group "OOP_1_AT"
+agenda-group "OOP_1_AG"
+	when
+		$oopCalculatorFact : OOPCalculatorfact((!isAmericanIndian && hhFPL <= oopConfigBean.getValueFor(RuleKey.OOP_FPL)), 
+												hhFPL > oopConfigBean.getValueFor(RuleKey.OOP_FPL_LVL_1));
+		//eval(true);		
+	then
+		logger.debug("Rule : OOP_1 : Begin");
+		$oopCalculatorFact.setOopCost(oopConfigBean.getValueFor(RuleKey.OOP_AMT_LVL_1));
+		logger.debug("Rule : OOP_1 : End");
+end
+
+rule "OOP_2"
+salience 89990
+activation-group "OOP_1_AT"
+agenda-group "OOP_1_AG"
+	when
+		//<CONDITION>
+		$oopCalculatorFact : OOPCalculatorfact((!isAmericanIndian && hhFPL <= oopConfigBean.getValueFor(RuleKey.OOP_FPL)), 
+												hhFPL > oopConfigBean.getValueFor(RuleKey.OOP_FPL_LVL_2));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : OOP_2 : Begin");		
+		$oopCalculatorFact.setOopCost(oopConfigBean.getValueFor(RuleKey.OOP_AMT_LVL_2));
+		logger.debug("Rule : OOP_2 : End");
+end
+
+rule "OOP_3"
+salience 89980
+activation-group "OOP_1_AT"
+agenda-group "OOP_1_AG"
+	when
+		//<CONDITION>
+		$oopCalculatorFact : OOPCalculatorfact((!isAmericanIndian && hhFPL <= oopConfigBean.getValueFor(RuleKey.OOP_FPL)), 
+												hhFPL > oopConfigBean.getValueFor(RuleKey.OOP_FPL_LVL_3));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : OOP_3 : Begin");
+		$oopCalculatorFact.setOopCost(oopConfigBean.getValueFor(RuleKey.OOP_AMT_LVL_3));
+		logger.debug("Rule : OOP_3 : End");
+end

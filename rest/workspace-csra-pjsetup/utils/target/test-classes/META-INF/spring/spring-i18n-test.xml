@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd 
+http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd">
+
+	<!-- <bean id="jdbcMessageSource" class="com.hcentive.core.utils.JdbcMessageSource">
+		<property name="jdbcTemplate" ref="jdbcTemplate"/>
+		<property name="sqlStatement" value="SELECT message_value FROM messages_i18n WHERE message_key = ? AND locale = ?"/>
+	</bean> -->
+	
+	<bean id="messageSource" class="com.hcentive.core.utils.JdbcMessageSource">
+		<property name="jdbcTemplate" ref="jdbcTemplate"/>
+		<property name="sqlStatement" value="SELECT message_value FROM messages_i18n WHERE message_key = ? AND lang = ? AND country_code = ?"/>
+		<property name="cacheQuery" value="SELECT lang,country_code,message_key,message_value FROM messages_i18n"/>
+		<property name="messageKey" value="message_key"/>
+		<property name="messageValue" value="message_value"/>
+		<property name="languageColumn" value="lang"/>
+		<property name="countryColumn" value="country_code"/>
+	</bean>
+
+
+
+	<bean id="jdbcTemplate" class="org.springframework.jdbc.core.JdbcTemplate">
+   	 <constructor-arg ref="dataSource" />
+	</bean>
+	
+	
+	
+	<!-- <bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource"
+		destroy-method="close" p:driverClassName="oracle.jdbc.driver.OracleDriver"
+		p:url="jdbc:oracle:thin:@localhost:1521:orcl"
+		p:username="ex27sep" p:password="ex27sep" /> -->
+		
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource"
+		destroy-method="close" p:driverClassName="com.mysql.jdbc.Driver"
+		p:url="jdbc:mysql://localhost:3306/prvex"
+		p:username="root" p:password="" />
+	
+	<!-- <bean class="com.hcentive.core.utils.Springi18nUtils" >
+	<property name="jdbcMessageSource" ref="jdbcMessageSource"></property>
+	</bean> -->
+	
+</beans>

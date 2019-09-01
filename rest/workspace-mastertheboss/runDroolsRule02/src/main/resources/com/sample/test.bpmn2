@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<definitions id="Definition"
+             targetNamespace="http://www.jboss.org/drools"
+             typeLanguage="http://www.java.com/javaTypes"
+             expressionLanguage="http://www.mvel.org/2.0"
+             xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd"
+             xmlns:g="http://www.jboss.org/drools/flow/gpd"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:tns="http://www.jboss.org/drools">
+
+  <itemDefinition id="null" />
+  <itemDefinition id="_account" structureRef="com.sample.Account" />
+  <process processType="Private" isExecutable="true" id="demo.test" name="test." tns:packageName="com.sample.process" >
+
+    <extensionElements>
+     <tns:import name="com.sample.Account" />
+    </extensionElements>
+    <!-- process variables -->
+    <property id="account" itemSubjectRef="null"/>
+
+    <!-- nodes -->
+    <startEvent id="47f1c77d-56a7-4b6a-8d03-74f62381bd81" name="Start"  isInterrupting="false">
+    </startEvent>
+    <endEvent id="163d69a7-0fec-4a2a-9738-15148eb5ccc6" name="End" >
+        <terminateEventDefinition />
+    </endEvent>
+    <businessRuleTask id="36ad61d3-079f-4086-a259-e908d22bc175" name="Rule" g:ruleFlowGroup="helloworldgroup" 
+ implementation="http://www.jboss.org/drools/rule" >
+      <ioSpecification>
+        <inputSet>
+        </inputSet>
+        <outputSet>
+        </outputSet>
+      </ioSpecification>
+    </businessRuleTask>
+
+    <!-- connections -->
+    <sequenceFlow id="36ad61d3-079f-4086-a259-e908d22bc175-163d69a7-0fec-4a2a-9738-15148eb5ccc6" sourceRef="36ad61d3-079f-4086-a259-e908d22bc175" targetRef="163d69a7-0fec-4a2a-9738-15148eb5ccc6" />
+    <sequenceFlow id="47f1c77d-56a7-4b6a-8d03-74f62381bd81-36ad61d3-079f-4086-a259-e908d22bc175" sourceRef="47f1c77d-56a7-4b6a-8d03-74f62381bd81" targetRef="36ad61d3-079f-4086-a259-e908d22bc175" />
+
+  </process>
+
+  <bpmndi:BPMNDiagram>
+    <bpmndi:BPMNPlane bpmnElement="demo.test" >
+      <bpmndi:BPMNShape bpmnElement="47f1c77d-56a7-4b6a-8d03-74f62381bd81" >
+        <dc:Bounds x="51" y="93" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="163d69a7-0fec-4a2a-9738-15148eb5ccc6" >
+        <dc:Bounds x="272" y="92" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="36ad61d3-079f-4086-a259-e908d22bc175" >
+        <dc:Bounds x="145" y="136" width="80" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="36ad61d3-079f-4086-a259-e908d22bc175-163d69a7-0fec-4a2a-9738-15148eb5ccc6" >
+        <di:waypoint x="185" y="160" />
+        <di:waypoint x="296" y="116" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="47f1c77d-56a7-4b6a-8d03-74f62381bd81-36ad61d3-079f-4086-a259-e908d22bc175" >
+        <di:waypoint x="75" y="117" />
+        <di:waypoint x="185" y="160" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</definitions>

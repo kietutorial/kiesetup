@@ -1,0 +1,1032 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+
+global org.slf4j.Logger logger;
+
+//Main Rule
+rule "MAIN_FamilyPlanning_VERIFY"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_FamilyPlanning_VERIFY : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "MAIN_FamilyPlanning_VERIFY");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_INIT_ACK);
+		drools.setFocus("FamilyPlanning_STALE_1_AG");
+		logger.debug("Rule : MAIN_FamilyPlanning_VERIFY : End");
+end
+
+
+//CR1606
+rule "FamilyPlanning_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "FamilyPlanning_STALE_1_AT"
+agenda-group "FamilyPlanning_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : FamilyPlanning_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_VERIFY_STALE_ELG_SEC_01");
+		drools.setFocus("FamilyPlanning_SSN_1_AG");
+		logger.debug("Rule : FamilyPlanning_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "FamilyPlanning_VERIFY_STALE_ELG_SEC_02"
+salience 95060
+activation-group "FamilyPlanning_STALE_1_AT"
+agenda-group "FamilyPlanning_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,!isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : FamilyPlanning_VERIFY_STALE_ELG_SEC_02 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_VERIFY_STALE_ELG_SEC_02");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.STALE_MEM);// set program as Ineligble with reason code
+		$eDeterminationfacts.skipProgramExecution(ProgramCode.FAMILYPLANNING, HXConstants.BOLTRUE); // Set Flag to stop further execution of drls for this program
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_03);
+		//drools.setFocus("FamilyPlanning_REL_1_AG");
+		logger.debug("Rule : FamilyPlanning_VERIFY_STALE_ELG_SEC_02 : End");
+end
+
+rule "FamilyPlanning_VERIFY_STALE_ELG_SEC_03"
+salience 95070
+activation-group "FamilyPlanning_STALE_1_AT"
+agenda-group "FamilyPlanning_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : FamilyPlanning_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_VERIFY_STALE_ELG_SEC_03");
+		$eDeterminationfacts.clearStaleFlag();
+		drools.setFocus("FamilyPlanning_SSN_1_AG");
+		logger.debug("Rule : MEDICAID_VERIFY_STALE_ELG_SEC_03 : End");
+end
+//CR1606 code changes end
+
+
+//FamilyPlanning SSN(1)
+
+rule "FamilyPlanning_SSN_1_1"
+salience 80000
+activation-group "FamilyPlanning_SSN_1_AT"
+agenda-group "FamilyPlanning_SSN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(doesSSNExist));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_1_1");
+		drools.setFocus("FamilyPlanning_SSN_2_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_1_1 : End");
+end
+
+rule "FamilyPlanning_SSN_1_2"
+salience 79990
+activation-group "FamilyPlanning_SSN_1_AT"
+agenda-group "FamilyPlanning_SSN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((doesSSNExist),
+														(isSSNVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_1_2");
+		drools.setFocus("FamilyPlanning_CITI_1_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_1_2 : End");
+end
+
+rule "FamilyPlanning_SSN_1_3"
+salience 79980
+activation-group "FamilyPlanning_SSN_1_AT"
+agenda-group "FamilyPlanning_SSN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((doesSSNExist),
+														!(isSSNVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_1_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.SNVS);
+		logger.debug("call to perform ssn(3)");
+		drools.setFocus("FamilyPlanning_SSN_3_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_1_3 : End");
+end
+
+//FamilyPlanning SSN(2)
+
+rule "FamilyPlanning_SSN_2_1"
+salience 78000
+activation-group "FamilyPlanning_SSN_2_AT"
+agenda-group "FamilyPlanning_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.DONOTWANTTOOBTAIN.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_2_1 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.MOS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_2_1");
+		drools.setFocus("FamilyPlanning_CITI_1_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_2_1 : End");
+end
+
+rule "FamilyPlanning_SSN_2_2"
+salience 77990
+activation-group "FamilyPlanning_SSN_2_AT"
+agenda-group "FamilyPlanning_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.NEEDTOAPPLY.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_2_2 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.MOS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_2_2");
+		drools.setFocus("FamilyPlanning_SSN_3_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_2_2 : End");
+end
+
+rule "FamilyPlanning_SSN_2_3"
+salience 77980
+activation-group "FamilyPlanning_SSN_2_AT"
+agenda-group "FamilyPlanning_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.INPROCESS.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_2_3 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.MOS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_2_3");
+		drools.setFocus("FamilyPlanning_SSN_3_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_2_3 : End");
+end
+
+rule "FamilyPlanning_SSN_2_4"
+salience 77970
+activation-group "FamilyPlanning_SSN_2_AT"
+agenda-group "FamilyPlanning_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.NOTELIGIBLE.equals(noSSNReasonCode));									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_2_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_2_4");
+		logger.debug("No-Action Go-On : FamilyPlanning_SSN_2_4");
+		drools.setFocus("FamilyPlanning_CITI_1_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_2_4 : End");
+end
+
+rule "FamilyPlanning_SSN_2_5"
+salience 77960
+activation-group "FamilyPlanning_SSN_2_AT"
+agenda-group "FamilyPlanning_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.DONOTWANTTOPROVIDE.equals(noSSNReasonCode), 
+									"Religious Objection".equals(dontProvideReasonCodeReason));									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_2_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_2_5");
+		drools.setFocus("FamilyPlanning_CITI_1_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_2_5 : End");
+end
+
+rule "FamilyPlanning_SSN_2_6"
+salience 77950
+activation-group "FamilyPlanning_SSN_2_AT"
+agenda-group "FamilyPlanning_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.DONOTWANTTOPROVIDE.equals(noSSNReasonCode), 
+									!("Religious Objection".equals(dontProvideReasonCodeReason)));									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_2_6 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.MOS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_2_6");
+		drools.setFocus("FamilyPlanning_CITI_1_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_2_6 : End");
+end
+
+//FamilyPlanning SSN(3)
+
+rule "FamilyPlanning_SSN_3_1"
+salience 30000
+activation-group "FamilyPlanning_SSN_3_AT"
+agenda-group "FamilyPlanning_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isSSNVerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_3_1 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.SNV);
+		//Set Notice trigger
+		$eDeterminationfacts.setClocks(ProgramCode.FAMILYPLANNING, EligibilityVerificationTypeEnum.SSN, ClockNameEnum.SSN_90);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_3_1");
+		drools.setFocus("FamilyPlanning_CITI_1_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_3_1 : End");
+end
+
+rule "FamilyPlanning_SSN_3_2"
+salience 29990
+activation-group "FamilyPlanning_SSN_3_AT"
+agenda-group "FamilyPlanning_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isSSNVerificationNoticeSent), 
+														!(isSSNClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_3_2 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.SNV);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_3_2");
+		drools.setFocus("FamilyPlanning_CITI_1_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_3_2 : End");
+end
+
+rule "FamilyPlanning_SSN_3_3"
+salience 29980
+activation-group "FamilyPlanning_SSN_3_AT"
+agenda-group "FamilyPlanning_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isSSNVerificationNoticeSent), 
+														(isSSNClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_SSN_3_3 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.SNV_90);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_SSN_3_3");
+		drools.setFocus("FamilyPlanning_CITI_1_AG");
+		logger.debug("Rule : FamilyPlanning_SSN_3_3 : End");
+end
+
+
+//Family Planning Citizenship(1)
+
+rule "FamilyPlanning_Citizenship_1_1"
+salience 70000
+activation-group "FamilyPlanning_CITI_1_AT"
+agenda-group "FamilyPlanning_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														!CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Citizenship_1_1");
+		drools.setFocus("FamilyPlanning_IMIG_1_AG");
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_1 : End");
+end
+
+rule "FamilyPlanning_Citizenship_1_2"
+salience 69990
+activation-group "FamilyPlanning_CITI_1_AT"
+agenda-group "FamilyPlanning_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														(isCitizenshipVerified));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Citizenship_1_2");
+		drools.setFocus("FamilyPlanning_IMIG_1_AG");
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_2 : End");
+end
+
+rule "FamilyPlanning_Citizenship_1_3"
+salience 69980
+activation-group "FamilyPlanning_CITI_1_AT"
+agenda-group "FamilyPlanning_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														!(isCitizenshipVerified),
+														(isLawfullPresenceVerified));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Citizenship_1_3");
+		drools.setFocus("FamilyPlanning_CITI_2_AG");
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_3 : End");
+end
+
+rule "FamilyPlanning_Citizenship_1_4"
+salience 69970
+activation-group "FamilyPlanning_CITI_1_AT"
+agenda-group "FamilyPlanning_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														!(isCitizenshipVerified),
+														!(isLawfullPresenceVerified));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Citizenship_1_4");
+		drools.setFocus("FamilyPlanning_CITI_2_AG");
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_4 : End");
+end
+
+rule "FamilyPlanning_Citizenship_1_5"
+salience 69960
+activation-group "FamilyPlanning_CITI_1_AT"
+agenda-group "FamilyPlanning_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														(isCitizenshipVerified));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Citizenship_1_5");
+		drools.setFocus("FamilyPlanning_IMIG_1_AG");
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_5 : End");
+end
+
+rule "FamilyPlanning_Citizenship_1_6"
+salience 69950
+activation-group "FamilyPlanning_CITI_1_AT"
+agenda-group "FamilyPlanning_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														!(isCitizenshipVerified));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Citizenship_1_6");
+		drools.setFocus("FamilyPlanning_CITI_2_AG");
+		logger.debug("Rule : FamilyPlanning_Citizenship_1_6 : End");
+end
+
+//Family Planning Citizenship(2)
+
+rule "FamilyPlanning_Citizenship_2_1"
+salience 68000
+activation-group "FamilyPlanning_CITI_2_AT"
+agenda-group "FamilyPlanning_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isCitizenshipVerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Citizenship_2_1 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.CNV);
+		//TO DO
+		//Schedule Verification Notice Trigger
+		$eDeterminationfacts.setClocks(ProgramCode.FAMILYPLANNING, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS, ClockNameEnum.CITIZENSHIP_90);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Citizenship_2_1");
+		drools.setFocus("FamilyPlanning_IMIG_1_AG");
+		logger.debug("Rule : FamilyPlanning_Citizenship_2_1 : End");
+end
+
+rule "FamilyPlanning_Citizenship_2_2"
+salience 67990
+activation-group "FamilyPlanning_CITI_2_AT"
+agenda-group "FamilyPlanning_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isCitizenshipVerificationNoticeSent),
+														!(isCitizenshipClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Citizenship_2_2 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.CNV);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Citizenship_2_2");
+		drools.setFocus("FamilyPlanning_IMIG_1_AG");
+		logger.debug("Rule : FamilyPlanning_Citizenship_2_2 : End");
+end
+
+rule "FamilyPlanning_Citizenship_2_3"
+salience 67980
+activation-group "FamilyPlanning_CITI_2_AT"
+agenda-group "FamilyPlanning_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isCitizenshipVerificationNoticeSent),
+														(isCitizenshipClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Citizenship_2_2 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.CNV_90);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Citizenship_2_3");
+		drools.setFocus("FamilyPlanning_IMIG_1_AG");
+		logger.debug("Rule : FamilyPlanning_Citizenship_2_2 : End");
+end
+
+
+//Family Planning immigration(1)
+
+rule "FamilyPlanning_Immigration_1_1"
+salience 60000
+activation-group "FamilyPlanning_IMIG_1_AT"
+agenda-group "FamilyPlanning_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType)));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_1_1");
+		drools.setFocus("FamilyPlanning_INCAR_1_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_1_1 : End");
+end
+
+
+rule "FamilyPlanning_Immigration_1_2"
+salience 59990
+activation-group "FamilyPlanning_IMIG_1_AT"
+agenda-group "FamilyPlanning_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														!HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_1_2");
+		drools.setFocus("FamilyPlanning_IMIG_2_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_1_2 : End");
+end
+
+
+rule "FamilyPlanning_Immigration_1_3"
+salience 59980
+activation-group "FamilyPlanning_IMIG_1_AT"
+agenda-group "FamilyPlanning_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_1_3");
+		drools.setFocus("FamilyPlanning_IMIG_3_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_1_3 : End");
+end
+
+rule "FamilyPlanning_Immigration_1_4"
+salience 59970
+activation-group "FamilyPlanning_IMIG_1_AT"
+agenda-group "FamilyPlanning_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														!HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.CISF);
+		drools.setFocus("FamilyPlanning_INCAR_1_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_1_4 : End");
+end
+
+
+rule "FamilyPlanning_Immigration_1_5"
+salience 59960
+activation-group "FamilyPlanning_IMIG_1_AT"
+agenda-group "FamilyPlanning_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.OTHER.equals(citizenshipType));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_1_5 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.CISF);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_1_5");
+		drools.setFocus("FamilyPlanning_INCAR_1_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_1_5 : End");
+end
+
+
+//Family Planning Immigration(2)
+
+rule "FamilyPlanning_Immigration_2_1"
+salience 58000
+activation-group "FamilyPlanning_IMIG_2_AT"
+agenda-group "FamilyPlanning_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isImigVerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.ISNV);
+		//Schedule Verification Notice Trigger				
+		$eDeterminationfacts.setClocks(ProgramCode.FAMILYPLANNING, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS, ClockNameEnum.IMMIGRATION_90);
+		drools.setFocus("FamilyPlanning_INCAR_1_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_2_1 : End");
+end
+
+rule "FamilyPlanning_Immigration_2_2"
+salience 57990
+activation-group "FamilyPlanning_IMIG_2_AT"
+agenda-group "FamilyPlanning_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isImigVerificationNoticeSent),
+														!(isimigClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_2_2");		
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.ISNV);
+		drools.setFocus("FamilyPlanning_INCAR_1_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_2_2 : End");
+end
+
+
+rule "FamilyPlanning_Immigration_2_3"
+salience 57980
+activation-group "FamilyPlanning_IMIG_2_AT"
+agenda-group "FamilyPlanning_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isImigVerificationNoticeSent),
+														(isimigClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_2_3");		
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.ISNVP_90);
+		drools.setFocus("FamilyPlanning_INCAR_1_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_2_3 : End");
+end
+
+
+//Family Planning Immigration(3)
+
+rule "FamilyPlanning_Immigration_3_1"
+salience 56000
+activation-group "FamilyPlanning_IMIG_3_AT"
+agenda-group "FamilyPlanning_IMIG_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isHIX5YearBanMet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_3_1 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.FYIB);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_3_1");
+		drools.setFocus("FamilyPlanning_INCAR_1_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_3_1 : End");
+end
+
+
+rule "FamilyPlanning_Immigration_3_2"
+salience 55990
+activation-group "FamilyPlanning_IMIG_3_AT"
+agenda-group "FamilyPlanning_IMIG_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isHIX5YearBanMet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_3_2");
+		drools.setFocus("FamilyPlanning_INCAR_1_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_3_2 : End");
+end
+
+/*
+
+rule "FamilyPlanning_Immigration_3_3"
+salience 55980
+activation-group "FamilyPlanning_IMIG_3_AT"
+agenda-group "FamilyPlanning_IMIG_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isHIX5YearBanMet),
+														!(isDateOfEntryEmpty),
+														!is_5_YearOfDtOfEntryLaterCurDt);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_3_3");
+		drools.setFocus("FamilyPlanning_INCAR_1_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_3_3 : End");
+end
+
+
+rule "FamilyPlanning_Immigration_3_4"
+salience 55970
+activation-group "FamilyPlanning_IMIG_3_AT"
+agenda-group "FamilyPlanning_IMIG_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isHIX5YearBanMet),
+														!(isDateOfEntryEmpty),
+														is_5_YearOfDtOfEntryLaterCurDt);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Immigration_3_4 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.FYIB);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Immigration_3_4");
+		drools.setFocus("FamilyPlanning_INCAR_1_AG");
+		logger.debug("Rule : FamilyPlanning_Immigration_3_4 : End");
+end
+*/
+
+
+//Family Planning Incarceration(1)
+
+rule "FamilyPlanning_Incarceration_1_1"
+salience 8000
+activation-group "FamilyPlanning_INCAR_1_AT"
+agenda-group "FamilyPlanning_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isHXIncarcerated));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_1_1");
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_1_1 : End");
+end
+
+rule "FamilyPlanning_Incarceration_1_2"
+salience 7990
+activation-group "FamilyPlanning_INCAR_1_AT"
+agenda-group "FamilyPlanning_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isHXIncarcerated),
+														(doesUserAgreeIncarceration));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.ICUA);
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_1_2 : End");
+end
+
+rule "FamilyPlanning_Incarceration_1_3"
+salience 7980
+activation-group "FamilyPlanning_INCAR_1_AT"
+agenda-group "FamilyPlanning_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isHXIncarcerated),
+														!(doesUserAgreeIncarceration));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_1_3");
+		drools.setFocus("FamilyPlanning_INCAR_2_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_1_3 : End");
+end
+
+
+//Family Planning Incarceration(2)
+
+rule "FamilyPlanning_Incarceration_2_1"
+salience 7000
+activation-group "FamilyPlanning_INCAR_2_AT"
+agenda-group "FamilyPlanning_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((fedIncarcerationStatus),
+														!(isIncarceration_90_NoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.IC);
+		//Schedule Verification Notice Trigger				
+		$eDeterminationfacts.setClocks(ProgramCode.FAMILYPLANNING, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_1 : End");
+end
+
+rule "FamilyPlanning_Incarceration_2_2"
+salience 6990
+activation-group "FamilyPlanning_INCAR_2_AT"
+agenda-group "FamilyPlanning_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((fedIncarcerationStatus),
+														(isIncarceration_90_NoticeSent),
+														!(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_2_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, ProgramReasonCode.IC);
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_2 : End");
+end
+
+rule "FamilyPlanning_Incarceration_2_3"
+salience 6980
+activation-group "FamilyPlanning_INCAR_2_AT"
+agenda-group "FamilyPlanning_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((fedIncarcerationStatus),
+														(isIncarceration_90_NoticeSent),
+														(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING,program_status.INELIGIBLE, ProgramReasonCode.IC_90);
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_3 : End");
+end
+
+rule "FamilyPlanning_Incarceration_2_4"
+salience 6970
+activation-group "FamilyPlanning_INCAR_2_AT"
+agenda-group "FamilyPlanning_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														!(is1DayRerunSet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_2_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING,program_status.PENDING, ProgramReasonCode.IC);
+		//TO DO
+		//Schedule Verification Notice Trigger
+		$eDeterminationfacts.setClocks(ProgramCode.FAMILYPLANNING, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_1);
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_4 : End");
+end
+
+rule "FamilyPlanning_Incarceration_2_5"
+salience 6960
+activation-group "FamilyPlanning_INCAR_2_AT"
+agenda-group "FamilyPlanning_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														(is1DayRerunSet),
+														!(is1DayRerunExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_2_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING,program_status.PENDING, ProgramReasonCode.IC);
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_5 : End");
+end
+
+rule "FamilyPlanning_Incarceration_2_6"
+salience 6950
+activation-group "FamilyPlanning_INCAR_2_AT"
+agenda-group "FamilyPlanning_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														!(isIncarceration_90_NoticeSent),
+														!(isHXIncarcerated));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_2_6");
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_6 : End");
+end
+
+rule "FamilyPlanning_Incarceration_2_7"
+salience 6940
+activation-group "FamilyPlanning_INCAR_2_AT"
+agenda-group "FamilyPlanning_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														!(isIncarceration_90_NoticeSent),
+														(isHXIncarcerated));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_2_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING,ProgramReasonCode.IC);
+		//Schedule Verification Notice Trigger				
+		$eDeterminationfacts.setClocks(ProgramCode.FAMILYPLANNING, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_7 : End");
+end
+
+rule "FamilyPlanning_Incarceration_2_8"
+salience 6930
+activation-group "FamilyPlanning_INCAR_2_AT"
+agenda-group "FamilyPlanning_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														(isIncarceration_90_NoticeSent),
+														!(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_2_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING,ProgramReasonCode.IC);
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_8 : End");
+end
+
+rule "FamilyPlanning_Incarceration_2_9"
+salience 6920
+activation-group "FamilyPlanning_INCAR_2_AT"
+agenda-group "FamilyPlanning_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(fedIncarcerationStatus),
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														(isIncarceration_90_NoticeSent),
+														(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Incarceration_2_9");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING,program_status.INELIGIBLE, ProgramReasonCode.IC_90);
+		drools.setFocus("FamilyPlanning_RESID_1_AG");
+		logger.debug("Rule : FamilyPlanning_Incarceration_2_9 : End");
+end
+
+
+//RESIDENCY AND AIAN STATUS INTEGRATION
+
+rule "FamilyPlanning_Residency_1_1"
+salience 6000
+activation-group "FamilyPlanning_RESID_1_AT"
+agenda-group "FamilyPlanning_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isResidencyVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Residency_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Residency_1_1");		
+		drools.setFocus("FamilyPlanning_AIAN_1_AG");
+		logger.debug("Rule : FamilyPlanning_Residency_1_1 : End");
+end
+
+rule "FamilyPlanning_Residency_1_2"
+salience 5990
+activation-group "FamilyPlanning_RESID_1_AT"
+agenda-group "FamilyPlanning_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isResidencyVerified),
+														!(isMovingToNY));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Residency_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Residency_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.NNYSR);
+		drools.setFocus("FamilyPlanning_AIAN_1_AG");
+		logger.debug("Rule : FamilyPlanning_Residency_1_2 : End");
+end
+
+rule "FamilyPlanning_Residency_1_3"
+salience 5980
+activation-group "FamilyPlanning_RESID_1_AT"
+agenda-group "FamilyPlanning_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isResidencyVerified),
+														(isMovingToNY));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Residency_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Residency_1_3");
+		drools.setFocus("FamilyPlanning_RESID_2_AG");
+		logger.debug("Rule : FamilyPlanning_Residency_1_3 : End");
+end
+
+// Family Planning Residency(2)
+
+rule "FamilyPlanning_Residency_2_1"
+salience 3000
+activation-group "FamilyPlanning_RESID_2_AT"
+agenda-group "FamilyPlanning_RESID_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isResidencyVerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Residency_2_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Residency_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING,program_status.PENDING, ProgramReasonCode.RSNV);
+		//TO DO
+		//Schedule Verification Notice Trigger
+		$eDeterminationfacts.setClocks(ProgramCode.FAMILYPLANNING, EligibilityVerificationTypeEnum.STATE_RESIDENCY, ClockNameEnum.STATE_RESIDENCY_90);
+		drools.setFocus("FamilyPlanning_AIAN_1_AG");
+		logger.debug("Rule : FamilyPlanning_Residency_2_1 : End");
+end
+
+rule "FamilyPlanning_Residency_2_2"
+salience 2990
+activation-group "FamilyPlanning_RESID_2_AT"
+agenda-group "FamilyPlanning_RESID_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isResidencyVerificationNoticeSent),
+														!(isResidencyClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Residency_2_2 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.PENDING, ProgramReasonCode.RSNV);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Residency_2_2");
+		drools.setFocus("FamilyPlanning_AIAN_1_AG");
+		logger.debug("Rule : FamilyPlanning_Residency_2_2 : End");
+end
+
+rule "FamilyPlanning_Residency_2_3"
+salience 2980
+activation-group "FamilyPlanning_RESID_2_AT"
+agenda-group "FamilyPlanning_RESID_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isResidencyVerificationNoticeSent),
+														(isResidencyClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Residency_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Residency_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.RSNV_90);
+		drools.setFocus("FamilyPlanning_AIAN_1_AG");
+		logger.debug("Rule : FamilyPlanning_Residency_2_3 : End");
+end
+
+
+// Family Planning AIAN(1)
+
+rule "FamilyPlanning_AIAN_1_1"
+salience 4000
+activation-group "FamilyPlanning_AIAN_1_AT"
+agenda-group "FamilyPlanning_AIAN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isAIOrAN));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_AIAN_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_AIAN_1_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_03);
+		logger.debug("Rule : FamilyPlanning_AIAN_1_1 : End");
+end
+
+rule "FamilyPlanning_AIAN_1_2"
+salience 3990
+activation-group "FamilyPlanning_AIAN_1_AT"
+agenda-group "FamilyPlanning_AIAN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isAIOrAN));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_AIAN_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_AIAN_1_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_03);
+		logger.debug("Rule : FamilyPlanning_AIAN_1_2 : End");
+end

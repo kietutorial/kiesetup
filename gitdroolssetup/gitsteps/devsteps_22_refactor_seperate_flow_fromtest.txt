@@ -1,0 +1,37 @@
+1. Clone current git in eclipse
+ssh://kvenkat1@nyxsvlalb015/opt/was/git/NYSOHRulesRepository
+kvenkat1
+Sep@2017
+
+
+Refactor - Seperation of workflow from test code - KIE Workbench does not like Junit Test
+------------------------------------------------
+o Work With branch
+git checkout executable_workflows_v1
+
+o Delete all projects in branch
+rm -fr hx*
+
+o Copy new project workflow and test to branch
+hx-eligibility-dto
+hx-eligibility-dto-test
+hx-eligibility-workflows
+hx-eligibility-workflows-test
+
+git add
+gitcommit "Refactor - Seperation of workflow from test code - KIE Workbench does not like Junit Test - Clean from KIE"
+git push 
+
+o Rebase master with new branch code
+* Did not work completely, git complined:
+git checkout master
+git rebase executable_workflows_v1
+git push
+
+* This worked!
+- Copied four projects
+- added, commited and pushed to master
+
+
+
+git push /cygdrive/c/GITSANDBOX_TEMP/gitcrttest/ master:master

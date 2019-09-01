@@ -1,0 +1,1184 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.IncomeTypeUsed;
+import com.hcentive.rulesengine.domain.ElgRulesIndicatorBean.IncomeRunMode;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+//Main Rule
+rule "MAIN_CHIP_INCOME"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_CHIP_INCOME : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_INCOME");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_02_ACK);
+		drools.setFocus("CHIP_INCOME_STALE_1_AG");
+		logger.debug("Rule : MAIN_CHIP_INCOME : End");
+end
+
+
+//CR1606
+rule "CHIP_INCOME_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "CHIP_INCOME_STALE_1_AT"
+agenda-group "CHIP_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CHIP_INCOME_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "CHIP_INCOME_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : CHIP_INCOME_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "CHIP_INCOME_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "CHIP_INCOME_STALE_1_AT"
+agenda-group "CHIP_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CHIP_INCOME_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "CHIP_INCOME_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Chip_FPL_Band_1_AG");
+		logger.debug("Rule : CHIP_INCOME_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+rule "Chip_FPL_Band_1_1"
+salience 85700
+activation-group "Chip_FPL_Band_1_AT"
+agenda-group "Chip_FPL_Band_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_FPL_Band_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_FPL_Band_1_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setFplMin(configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setFplMax(configGroupBean.getValueFor(RuleKey.CHIP_FPL_MAX));
+		drools.setFocus("Chip_Income_1_AG");
+		logger.debug("Rule : Chip_FPL_Band_1_1 : End");
+end
+
+//Chip Income(1)
+
+rule "Chip_Income_1_1"
+salience 90000
+activation-group "Chip_Income_1_AT"
+agenda-group "Chip_Income_1_AG"
+	when
+		//<CONDITION>	
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isInEligibleForProgram(ProgramCode.MEDICAID)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_1_1");		
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.MED_ELG);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_1_1 : End");
+end
+
+rule "Chip_Income_1_2"
+salience 89990
+activation-group "Chip_Income_1_AT"
+agenda-group "Chip_Income_1_AG"
+	when
+		//<CONDITION>	
+		$eDeterminationfacts : EEDeterminationRuleFacts((isInEligibleForProgram(ProgramCode.MEDICAID)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_1_2");
+		drools.setFocus("Chip_Income_2_AG");
+		logger.debug("Rule : Chip_Income_1_2 : End");
+end
+
+
+//Chip Income(2)
+
+rule "Chip_Income_2_1"
+salience 88000
+activation-group "Chip_Income_2_AT"
+agenda-group "Chip_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isFinancialAssistanceRequired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_2_1 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.NRFA);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_2_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_2_1 : End");
+end
+rule "Chip_Income_2_2"
+salience 87995
+activation-group "Chip_Income_2_AT"
+agenda-group "Chip_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														!(isRunModeNoIncomeDataSource), 
+														!(isIncomeFromDataSource));									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_2_2");
+		// Use standard income calculation		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setRunMode(IncomeRunMode.STANDARDINCOME);
+		drools.setFocus("Chip_Income_3_AG");	
+		logger.debug("Rule : Chip_Income_2_2 : End");
+end
+
+
+rule "Chip_Income_2_3"
+salience 87990
+activation-group "Chip_Income_2_AT"
+agenda-group "Chip_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														!(isRunModeNoIncomeDataSource),
+														(isIncomeFromDataSource));									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_2_3");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setRunMode(IncomeRunMode.DATASOURCEINCOME);
+		drools.setFocus("Chip_Income_3_AG");
+		logger.debug("Rule : Chip_Income_2_3 : End");
+end
+
+rule "Chip_Income_2_4"
+salience 87985
+activation-group "Chip_Income_2_AT"
+agenda-group "Chip_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isRunModeNoIncomeDataSource),
+														getRenewalPeriodForMemberHasPast())
+																						
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_2_4");		
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.RPIDNA);	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setRunMode(IncomeRunMode.NOINCOME);	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_2_4 : End");
+end
+
+rule "Chip_Income_2_5"
+salience 87980
+activation-group "Chip_Income_2_AT"
+agenda-group "Chip_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isRunModeNoIncomeDataSource),
+														!isCurrentlyEnrolledInChip,
+														!getRenewalPeriodForMemberHasPast(),														
+														!isIncomeFromDataSource);									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_2_5");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setRunMode(IncomeRunMode.STANDARDINCOME);
+		drools.setFocus("Chip_Income_3_AG");
+		logger.debug("Rule : Chip_Income_2_5 : End");
+end
+
+rule "Chip_Income_2_6"
+salience 87978
+activation-group "Chip_Income_2_AT"
+agenda-group "Chip_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isRunModeNoIncomeDataSource),
+														!isCurrentlyEnrolledInChip,
+														!getRenewalPeriodForMemberHasPast(),														
+														isIncomeFromDataSource);									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_2_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_2_6");	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setRunMode(IncomeRunMode.DATASOURCEINCOME);
+		drools.setFocus("Chip_Income_3_AG");
+		logger.debug("Rule : Chip_Income_2_6 : End");
+end
+
+rule "Chip_Income_2_7"
+salience 87977
+activation-group "Chip_Income_2_AT"
+agenda-group "Chip_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isRunModeNoIncomeDataSource),
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInChip,
+														getMemberIsNowMandatoryForUpComingMonth(),
+														!isIncomeFromDataSource);									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_2_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_2_7");	
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.RPRIR);		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setRunMode(IncomeRunMode.STANDARDINCOME);
+		drools.setFocus("Chip_Income_3_AG");
+		logger.debug("Rule : Chip_Income_2_7 : End");
+end
+
+rule "Chip_Income_2_8"
+salience 87975
+activation-group "Chip_Income_2_AT"
+agenda-group "Chip_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isRunModeNoIncomeDataSource),
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInChip,
+														getMemberIsNowMandatoryForUpComingMonth(),
+														isIncomeFromDataSource);									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_2_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_2_8");	
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.RPRIR);		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setRunMode(IncomeRunMode.DATASOURCEINCOME);
+		drools.setFocus("Chip_Income_3_AG");
+		logger.debug("Rule : Chip_Income_2_8 : End");
+end
+
+rule "Chip_Income_2_9"
+salience 87970
+activation-group "Chip_Income_2_AT"
+agenda-group "Chip_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isRunModeNoIncomeDataSource),
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInChip,
+														!getMemberIsNowMandatoryForUpComingMonth(),
+														!isIncomeFromDataSource);									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_2_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_2_9");	
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.RPRISO);		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setRunMode(IncomeRunMode.STANDARDINCOME);
+		drools.setFocus("Chip_Income_3_AG");
+		logger.debug("Rule : Chip_Income_2_9 : End");
+end
+
+
+rule "Chip_Income_2_10"
+salience 87965
+activation-group "Chip_Income_2_AT"
+agenda-group "Chip_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isRunModeNoIncomeDataSource),
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInChip,
+														!getMemberIsNowMandatoryForUpComingMonth(),
+														isIncomeFromDataSource);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_2_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_2_10");
+		//$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.CDIL);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.RPRISO);	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setRunMode(IncomeRunMode.DATASOURCEINCOME);
+		drools.setFocus("Chip_Income_3_AG");
+		logger.debug("Rule : Chip_Income_2_10 : End");
+end
+
+
+//Chip Income(3)
+
+rule "Chip_Income_3_1"
+salience 87000
+activation-group "Chip_Income_3_AT"
+agenda-group "Chip_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_3_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.AI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_3_1 : End");
+end
+
+rule "Chip_Income_3_2"
+salience 86950
+activation-group "Chip_Income_3_AT"
+agenda-group "Chip_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)), 
+										!(hhFpl > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+										!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()),
+										(hhFpl <= configGroupBean.getValueFor(RuleKey.CHIP_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_3_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.UI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_3_2 : End");
+end
+
+rule "Chip_Income_3_3"
+salience 86945
+activation-group "Chip_Income_3_AT"
+agenda-group "Chip_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)), 
+										!(hhFpl > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+										HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()),
+										(hhFpl <= configGroupBean.getValueFor(RuleKey.CHIP_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_3_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H3, null);
+		drools.setFocus("Chip_Income_5_AG");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_3_3 : End");
+end
+
+rule "Chip_Income_3_4"
+salience 86940
+activation-group "Chip_Income_3_AT"
+agenda-group "Chip_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)), 
+														CitizenshipStatusEnum.OTHER.equals(citizenshipType),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.CHIP_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_3_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_3_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H3, null);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_3_4 : End");
+end
+
+rule "Chip_Income_3_5"
+salience 86935
+activation-group "Chip_Income_3_AT"
+agenda-group "Chip_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)), 
+														CitizenshipStatusEnum.OTHER.equals(citizenshipType),
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.CHIP_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_3_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_3_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.OIFCC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_3_5 : End");
+end
+
+
+rule "Chip_Income_3_6"
+salience 86930
+activation-group "Chip_Income_3_AT"
+agenda-group "Chip_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)), 
+										(hhFpl > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+										!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()),
+										(hhFpl <= configGroupBean.getValueFor(RuleKey.CHIP_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_3_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_3_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H4, null);
+		drools.setFocus("Chip_Income_5_AG");
+		logger.debug("Rule : Chip_Income_3_6 : End");
+end
+
+
+rule "Chip_Income_3_7"
+salience 86925
+activation-group "Chip_Income_3_AT"
+agenda-group "Chip_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)), 
+										(hhFpl > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+										!(hhFpl <= configGroupBean.getValueFor(RuleKey.CHIP_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_3_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_3_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.OIFCC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_3_7 : End");
+end
+
+rule "Chip_Income_3_8"
+salience 86920
+activation-group "Chip_Income_3_AT"
+agenda-group "Chip_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)), 
+										(hhFpl > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+										HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()),
+										(hhFpl <= configGroupBean.getValueFor(RuleKey.CHIP_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_3_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_3_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H3, null);
+		drools.setFocus("Chip_Income_5_AG");
+		logger.debug("Rule : Chip_Income_3_8 : End");
+end
+
+//Chip Income(4)
+
+rule "Chip_Income_4_1"
+salience 85000
+activation-group "Chip_Income_4_AT"
+agenda-group "Chip_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(income_60_Day_VerificationNoticeSent),
+														!isUsingCurrentIncome);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVO);
+		//Schedule Verification Notice
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.CHIP_INCOME_60);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_4_1 : End");
+end
+
+rule "Chip_Income_4_2"
+salience 84990
+activation-group "Chip_Income_4_AT"
+agenda-group "Chip_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(currentIncome_60_Day_VerificationNoticeSent),
+														isUsingCurrentIncome);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVO_CURR);
+		//Schedule Verification Notice
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.CHIP_CURRENT_INCOME_60);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_4_2 : End");
+end
+
+rule "Chip_Income_4_3"
+salience 84980
+activation-group "Chip_Income_4_AT"
+agenda-group "Chip_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_60_Day_VerificationNoticeSent),
+														!isUsingCurrentIncome,
+														!(income_60_DayClockExpired));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.CHIP_INCOME_60);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_4_3 : End");
+end
+
+rule "Chip_Income_4_4"
+salience 84970
+activation-group "Chip_Income_4_AT"
+agenda-group "Chip_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((currentIncome_60_Day_VerificationNoticeSent),
+														isUsingCurrentIncome,
+														!(currentIncome_60_DayClockExpired));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVO_CURR);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.CHIP_CURRENT_INCOME_60);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_4_4 : End");
+end
+
+rule "Chip_Income_4_5"
+salience 84960
+activation-group "Chip_Income_4_AT"
+agenda-group "Chip_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_60_Day_VerificationNoticeSent),
+														!isUsingCurrentIncome,
+														(income_60_DayClockExpired));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4_5");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.IVOP_60);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_4_5 : End");
+end
+
+rule "Chip_Income_4_6"
+salience 84950
+activation-group "Chip_Income_4_AT"
+agenda-group "Chip_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((currentIncome_60_Day_VerificationNoticeSent),
+														isUsingCurrentIncome,
+														(currentIncome_60_DayClockExpired));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4_6");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.IVOP_60_CURR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_4_6 : End");
+end
+
+
+//Chip Income(4b)
+
+rule "Chip_Income_4b_1"
+salience 30000
+activation-group "Chip_Income_4b_AT"
+agenda-group "Chip_Income_4b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!income_60_Day_VerificationNoticeSent,
+														!isUsingCurrentIncome);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4b_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVO);
+		//Schedule Verification Notice
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.CHIP_INCOME_60);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_4b_1 : End");
+end
+
+rule "Chip_Income_4b_2"
+salience 29990
+activation-group "Chip_Income_4b_AT"
+agenda-group "Chip_Income_4b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!currentIncome_60_Day_VerificationNoticeSent,
+														isUsingCurrentIncome);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4b_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVO_CURR);
+		//Schedule Verification Notice
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.CHIP_CURRENT_INCOME_60);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_4b_2 : End");
+end
+
+
+rule "Chip_Income_4b_3"
+salience 29980
+activation-group "Chip_Income_4b_AT"
+agenda-group "Chip_Income_4b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(income_60_Day_VerificationNoticeSent,
+														!isUsingCurrentIncome,
+														!income_60_DayClockExpired);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4b_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.CHIP_INCOME_60);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_4b_3 : End");
+end
+
+rule "Chip_Income_4b_4"
+salience 29970
+activation-group "Chip_Income_4b_AT"
+agenda-group "Chip_Income_4b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(currentIncome_60_Day_VerificationNoticeSent,
+														isUsingCurrentIncome,
+														!currentIncome_60_DayClockExpired);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4b_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4b_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVO_CURR);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.CHIP_CURRENT_INCOME_60);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_4b_4 : End");
+end
+
+rule "Chip_Income_4b_5"
+salience 29960
+activation-group "Chip_Income_4b_AT"
+agenda-group "Chip_Income_4b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(income_60_Day_VerificationNoticeSent,
+														!isUsingCurrentIncome,
+														income_60_DayClockExpired,
+														isDSIncomeExists);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4b_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4b_5");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVOP_60);
+		drools.setFocus("Chip_Income_6_AG");
+		logger.debug("Rule : Chip_Income_4b_5 : End");
+end
+
+rule "Chip_Income_4b_5A"
+salience 29955
+activation-group "Chip_Income_4b_AT"
+agenda-group "Chip_Income_4b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(income_60_Day_VerificationNoticeSent,
+														!isUsingCurrentIncome,
+														income_60_DayClockExpired,
+														!isDSIncomeExists,
+														isIrsDataExists);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4b_5A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4b_5A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVOP_60);
+		drools.setFocus("Chip_Income_6b_AG");
+		logger.debug("Rule : Chip_Income_4b_5A : End");
+end
+
+
+rule "Chip_Income_4b_6"
+salience 29950
+activation-group "Chip_Income_4b_AT"
+agenda-group "Chip_Income_4b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(currentIncome_60_Day_VerificationNoticeSent,
+														isUsingCurrentIncome,
+														currentIncome_60_DayClockExpired,
+														isDSIncomeExists);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4b_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4b_6");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVOP_60_CURR);
+		drools.setFocus("Chip_Income_6_AG");
+		logger.debug("Rule : Chip_Income_4b_6 : End");
+end
+
+rule "Chip_Income_4b_6A"
+salience 29945
+activation-group "Chip_Income_4b_AT"
+agenda-group "Chip_Income_4b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(currentIncome_60_Day_VerificationNoticeSent,
+														isUsingCurrentIncome,
+														currentIncome_60_DayClockExpired,
+														!isDSIncomeExists,
+														isIrsDataExists);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_4b_6A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_4b_6A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IVOP_60_CURR);
+		drools.setFocus("Chip_Income_6b_AG");
+		logger.debug("Rule : Chip_Income_4b_6A : End");
+end
+
+//Chip Income(5)
+
+rule "Chip_Income_5_2"
+salience 84995
+activation-group "Chip_Income_5_AT"
+agenda-group "Chip_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isIncomeFromDataSource);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_5_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_5_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_5_2 : End");
+end
+
+rule "Chip_Income_5_3"
+salience 84990
+activation-group "Chip_Income_5_AT"
+agenda-group "Chip_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isIncomeFromDataSource),
+														(isIncomeVerificationComplete));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_5_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_5_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_5_3 : End");
+end
+
+rule "Chip_Income_5_4"
+salience 84980
+activation-group "Chip_Income_5_AT"
+agenda-group "Chip_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isIncomeFromDataSource),
+														!(isIncomeVerificationComplete),
+														!(isReasonablyCompatableSources || isIrsDataExists),
+														(attestedNoIncome));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_5_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_5_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_5_4 : End");
+end
+
+rule "Chip_Income_5_5"
+salience 84980
+activation-group "Chip_Income_5_AT"
+agenda-group "Chip_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isIncomeFromDataSource),
+														!(isIncomeVerificationComplete),
+														!(isReasonablyCompatableSources || isIrsDataExists),
+														!(attestedNoIncome));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_5_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_5_5");
+		drools.setFocus("Chip_Income_4_AG");
+		logger.debug("Rule : Chip_Income_5_5 : End");
+end
+
+rule "Chip_Income_5_6"
+salience 84980
+activation-group "Chip_Income_5_AT"
+agenda-group "Chip_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isIncomeFromDataSource),
+														!(isIncomeVerificationComplete),
+														(isReasonablyCompatableSources || isIrsDataExists),
+														(attestedUIBOnlyWithDSAvailableForUIBAndOrWage));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_5_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_5_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_5_6 : End");
+end
+
+rule "Chip_Income_5_7"
+salience 84980
+activation-group "Chip_Income_5_AT"
+agenda-group "Chip_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isIncomeFromDataSource),
+														!(isIncomeVerificationComplete),
+														(isReasonablyCompatableSources || isIrsDataExists),
+														!(attestedUIBOnlyWithDSAvailableForUIBAndOrWage),
+														(isIncomeResonablyCompatable));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_5_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_5_7");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_5_7 : End");
+end
+
+rule "Chip_Income_5_8"
+salience 84980
+activation-group "Chip_Income_5_AT"
+agenda-group "Chip_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isIncomeFromDataSource),
+														!(isIncomeVerificationComplete),
+														(isReasonablyCompatableSources || isIrsDataExists),
+														!(attestedUIBOnlyWithDSAvailableForUIBAndOrWage),
+														!(isIncomeResonablyCompatable),
+														(hhDSIncome > hhIncome));												
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_5_8: Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_5_8");
+		$eDeterminationfacts.setChipIncomeToUse(IncomeTypeUsed.DS_INCOME);
+		drools.setFocus("Chip_Income_4b_AG");
+		logger.debug("Rule : Chip_Income_5_8 : End");
+end
+rule "Chip_Income_5_8A"
+salience 84975
+activation-group "Chip_Income_5_AT"
+agenda-group "Chip_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isIncomeFromDataSource),
+														!(isIncomeVerificationComplete),
+														(isReasonablyCompatableSources || isIrsDataExists),
+														!(attestedUIBOnlyWithDSAvailableForUIBAndOrWage),
+														!(isIncomeResonablyCompatable),
+														!(hhDSIncome > hhIncome),
+														(!isDSIncomeExists && (hhIRSDSIncome > hhIncome )) 
+														);												
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_5_8A: Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_5_8A");
+		drools.setFocus("Chip_Income_4b_AG");
+		logger.debug("Rule : Chip_Income_5_8A : End");
+end
+
+rule "Chip_Income_5_9"
+salience 84980
+activation-group "Chip_Income_5_AT"
+agenda-group "Chip_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isIncomeFromDataSource),
+														!(isIncomeVerificationComplete),
+														(isReasonablyCompatableSources || isIrsDataExists),
+														!(attestedUIBOnlyWithDSAvailableForUIBAndOrWage),
+														!(isIncomeResonablyCompatable),
+														!(hhDSIncome > hhIncome),
+														!(!isDSIncomeExists && (hhIRSDSIncome > hhIncome ))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_5_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_5_9");
+		$eDeterminationfacts.setChipIncomeToUse(IncomeTypeUsed.DS_INCOME);
+		//Defect Number 9874
+		//drools.setFocus("Chip_Income_4_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_5_9 : End");
+end
+
+//Chip Income(6)
+
+rule "Chip_Income_6_1"
+salience 85000
+activation-group "Chip_Income_6_AT"
+agenda-group "Chip_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(hhDSVerifiedFPL > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_6_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_6_1");
+		//--Adding this to make sure that the Full pay chip decision has been made using DS income
+		$eDeterminationfacts.getProgram(ProgramCode.CHIP).setDsLevelInd(Boolean.TRUE);
+		//--Adding this to clear AidCategory in case of FullPay Chip for defect fix 73686
+		$eDeterminationfacts.clearAidCategoryForProgram(ProgramCode.CHIP);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.OIFCC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_6_1 : End");
+end
+
+rule "Chip_Income_6_1A"
+salience 84995
+activation-group "Chip_Income_6_AT"
+agenda-group "Chip_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(hhDSVerifiedFPL > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_6_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_6_1A");
+		$eDeterminationfacts.getProgram(ProgramCode.CHIP).setDsLevelInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H3, null);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_6_1A : End");
+end
+
+rule "Chip_Income_6_2"
+salience 84990
+activation-group "Chip_Income_6_AT"
+agenda-group "Chip_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhDSVerifiedFPL > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()),
+														(hhDSVerifiedFPL <= configGroupBean.getValueFor(RuleKey.CHIP_DSFPL_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_6_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_6_2");
+		//TODO Put up USING DS LEVEL
+		$eDeterminationfacts.getProgram(ProgramCode.CHIP).setDsLevelInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H4, null);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_6_2 : End");
+end
+
+rule "Chip_Income_6_3"
+salience 84980
+activation-group "Chip_Income_6_AT"
+agenda-group "Chip_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhDSVerifiedFPL > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()),
+														(hhDSVerifiedFPL <= configGroupBean.getValueFor(RuleKey.CHIP_DSFPL_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_6_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_6_3");
+		//TODO Put up USING DS LEVEL
+		$eDeterminationfacts.getProgram(ProgramCode.CHIP).setDsLevelInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H3, null);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_6_3 : End");
+end
+
+
+
+rule "Chip_Income_6_4"
+salience 84970
+activation-group "Chip_Income_6_AT"
+agenda-group "Chip_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhDSVerifiedFPL > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+														!(hhDSVerifiedFPL <= configGroupBean.getValueFor(RuleKey.CHIP_DSFPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_6_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_6_4");
+		//--Adding this to make sure that the Full pay chip decision has been made using DS income
+		$eDeterminationfacts.getProgram(ProgramCode.CHIP).setDsLevelInd(Boolean.TRUE);
+		//--Adding this to clear AidCategory in case of FullPay Chip for defect fix 73686
+		$eDeterminationfacts.clearAidCategoryForProgram(ProgramCode.CHIP);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.OIFCC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_6_4 : End");
+end
+
+//Chip Income(6b)
+
+rule "Chip_Income_6b_1"
+salience 86030
+activation-group "Chip_Income_6b_AT"
+agenda-group "Chip_Income_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(irsDSFpl > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_6b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_6b_1");
+		//--Adding this to make sure that the Full pay chip decision has been made using IRS DS income
+		$eDeterminationfacts.getProgram(ProgramCode.CHIP).setDsLevelInd(Boolean.TRUE);		
+		$eDeterminationfacts.setChipIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		//--Adding this to clear AidCategory in case of FullPay Chip for defect fix 73686
+		$eDeterminationfacts.clearAidCategoryForProgram(ProgramCode.CHIP);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.OIFCC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_6b_1 : End");
+end
+
+rule "Chip_Income_6b_1A"
+salience 86025
+activation-group "Chip_Income_6b_AT"
+agenda-group "Chip_Income_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(irsDSFpl > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_6b_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_6b_1A");
+		$eDeterminationfacts.getProgram(ProgramCode.CHIP).setDsLevelInd(Boolean.TRUE);
+		$eDeterminationfacts.setChipIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H3, null);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_6b_1A : End");
+end
+
+
+rule "Chip_Income_6b_2"
+salience 86020
+activation-group "Chip_Income_6b_AT"
+agenda-group "Chip_Income_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.CHIP_DSFPL_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_6b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_6b_2");
+		$eDeterminationfacts.getProgram(ProgramCode.CHIP).setDsLevelInd(Boolean.TRUE);		
+		$eDeterminationfacts.setChipIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H4, null);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_6b_2 : End");
+end
+
+rule "Chip_Income_6b_3"
+salience 86010
+activation-group "Chip_Income_6b_AT"
+agenda-group "Chip_Income_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getChipUndocumentInd()),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.CHIP_DSFPL_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_6b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_6b_3");
+		$eDeterminationfacts.getProgram(ProgramCode.CHIP).setDsLevelInd(Boolean.TRUE);		
+		$eDeterminationfacts.setChipIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, AidCategory.H3, null);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_6b_3 : End");
+end
+
+
+
+rule "Chip_Income_6b_4"
+salience 86000
+activation-group "Chip_Income_6b_AT"
+agenda-group "Chip_Income_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl > configGroupBean.getValueFor(RuleKey.CHIP_FPL_MIN)),
+														!(irsDSFpl <= configGroupBean.getValueFor(RuleKey.CHIP_DSFPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_6b_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_6b_4");
+		//--Adding this to make sure that the Full pay chip decision has been made using DS income
+		$eDeterminationfacts.getProgram(ProgramCode.CHIP).setDsLevelInd(Boolean.TRUE);		
+		$eDeterminationfacts.setChipIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		//--Adding this to clear AidCategory in case of FullPay Chip for defect fix 73686
+		$eDeterminationfacts.clearAidCategoryForProgram(ProgramCode.CHIP);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.OIFCC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_6b_4 : End");
+end
+
+//Chip Income(7)
+
+rule "Chip_Income_7_1"
+salience 82000
+activation-group "Chip_Income_7_AT"
+agenda-group "Chip_Income_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(income_60_Day_VerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_7_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_7_1");
+		//Schedule Verification Notice
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.CHIP_INCOME_60);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_7_1 : End");
+end
+
+
+rule "Chip_Income_7_2"
+salience 81990
+activation-group "Chip_Income_7_AT"
+agenda-group "Chip_Income_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_60_Day_VerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Income_7_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Income_7_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Chip_Income_7_2 : End");
+end

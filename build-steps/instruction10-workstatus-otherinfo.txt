@@ -1,0 +1,39 @@
+Assumptions
+----------------------------
+o We are usin defect: 75354 as our sample defect.
+  Please the current defect #### for specific changes.
+
+Verify Email On When Build to DIT was Done (Development)
+-------------------------------------------------------------
+o Look for email from Civil, Patric
+- Search for "stream"
+- See email "Daily Status - Streams, Environments, Folders, Calendars" on 04/18/2017
+- This information will appeari:
+R13.1.1	O&M	DIT2	URT2	NY-HX (CM) CommonDev-13.1.1
+(5/11)				<share>\NY-HX\Development\build\2017\R13_1_1__5_11
+
+- DIT2 meas change R13.1.1 was deploy to DIT2
+
+
+Verify Change in DIT (Development)
+------------------------------------
+After verification add: 
+"Verified and tested in DT1" in Z:\build\2017\R13_2_1__6_8\20170428\DI_75354_508Compliances.doc
+- Then it will go to SIT
+Four STEPS to promote a defect/CR to SIT, please do in order - 
+1.	Check in code to Dev Stream
+2.	DIT test sign-off
+3.	Place deployment instructions in folder
+4.	Set RTC Work Item status to Fixed, or CRs to "Ready for SIT"
+
+
+Verifying If Change Is In Current Build
+-----------------------------------------------
+o Choose Jazz [Team A] Tab
+o Select desired Source: NY-HX (CM) CommonDev-13.1.1
+- Right click,  Open Latest Build Details
+o Show Changes
+- My name and defect should show
+NY-HX (CM) CommonDev-13.2.1 JBE auto-build_20170517-1339
+
+  

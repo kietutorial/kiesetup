@@ -1,0 +1,3456 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.utils.ext.HXMECTypeEnum;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+rule "MAIN_MEDICAID_MEC"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_MEDICAID_MEC : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_MEC");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_03_ACK);
+		drools.setFocus("MEDICAID_MEC_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_MEC : End");
+end
+
+//CR1606
+rule "MEDICAID_MEC_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "MEDICAID_MEC_STALE_1_AT"
+agenda-group "MEDICAID_MEC_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_MEC_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_MEC_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : MEDICAID_MEC_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "MEDICAID_MEC_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "MEDICAID_MEC_STALE_1_AT"
+agenda-group "MEDICAID_MEC_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_MEC_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_MEC_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Medicaid_MEC_0_AG");
+		logger.debug("Rule : MEDICAID_MEC_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+//Medicaid WMS MEC(0)
+// This is not available in the FDD but has been implemented to satisfy WMS requirement [01/06/2014]
+rule "Medicaid_MEC_0_1"
+salience 80000
+activation-group "Medicaid_MEC_0_AT"
+agenda-group "Medicaid_MEC_0_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isWMSEnrolled());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_0_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_0_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RAWMS);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_0_1 : End");
+end
+
+rule "Medicaid_MEC_0_2"
+salience 79990
+activation-group "Medicaid_MEC_0_AT"
+agenda-group "Medicaid_MEC_0_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isWMSEnrolled());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_0_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_0_2");
+		drools.setFocus("Medicaid_MEC_1b_AG");
+		logger.debug("Rule : Medicaid_MEC_0_2 : End");
+end
+
+//Medicaid Public MEC(1)
+//Implementation not required
+
+
+//Medicaid Public MEC(1b)
+//It has been Implemented to satisfy eMedNY FC requirement CR #1186
+
+
+rule "Medicaid_MEC_1b_1"
+salience 79980
+activation-group "Medicaid_MEC_1b_AT"
+agenda-group "Medicaid_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!iseMednyEnrolled());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_1b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_1b_1");
+		drools.setFocus("Medicaid_MEC_2_AG");
+		logger.debug("Rule : Medicaid_MEC_1b_1 : End");
+	end
+
+rule "Medicaid_MEC_1b_2"
+salience 79970
+activation-group "Medicaid_MEC_1b_AT"
+agenda-group "Medicaid_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((iseMednyEnrolled()),
+														!(isMemberPregnant),
+														(HXConstants.FFS.equals(currentCovaragebydate)  || HXConstants.FFS_QHP.equals(currentCovaragebydate)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_1b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_1b_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RAEMEDNY);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCM);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setForceCloseDuetoInd(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_1b_2 : End");
+	end
+
+
+rule "Medicaid_MEC_1b_3"
+salience 79960
+activation-group "Medicaid_MEC_1b_AT"
+agenda-group "Medicaid_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((iseMednyEnrolled()),
+														!(isMemberPregnant),
+														!(HXConstants.FFS.equals(currentCovaragebydate)  || HXConstants.FFS_QHP.equals(currentCovaragebydate)),
+														(HXConstants.MMC.equals(currentCovaragebydate)  || HXConstants.MMC_QHP.equals(currentCovaragebydate)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_1b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_1b_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RAEMEDNY);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EONM);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setForceCloseDuetoInd(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_1b_3 : End");
+	end
+
+rule "Medicaid_MEC_1b_4"
+salience 79950
+activation-group "Medicaid_MEC_1b_AT"
+agenda-group "Medicaid_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((iseMednyEnrolled()),
+														(isMemberPregnant),
+														(HXConstants.FFS.equals(currentCovaragebydate)  || HXConstants.FFS_QHP.equals(currentCovaragebydate)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_1b_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_1b_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RAEMEDNY);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRemoveUnbornInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCM);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setForceCloseDuetoInd(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_1b_4 : End");
+	end
+
+
+rule "Medicaid_MEC_1b_5"
+salience 79940
+activation-group "Medicaid_MEC_1b_AT"
+agenda-group "Medicaid_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((iseMednyEnrolled()),
+														(isMemberPregnant),
+														!(HXConstants.FFS.equals(currentCovaragebydate)  || HXConstants.FFS_QHP.equals(currentCovaragebydate)),
+														(HXConstants.MMC.equals(currentCovaragebydate)  || HXConstants.MMC_QHP.equals(currentCovaragebydate)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_1b_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_1b_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RAEMEDNY);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRemoveUnbornInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EONM);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setForceCloseDuetoInd(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_1b_5 : End");
+	end
+
+rule "Medicaid_MEC_1b_6"
+salience 79930
+activation-group "Medicaid_MEC_1b_AT"
+agenda-group "Medicaid_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((iseMednyEnrolled()),
+														!(HXConstants.FFS.equals(currentCovaragebydate)  || HXConstants.FFS_QHP.equals(currentCovaragebydate)),
+														!(HXConstants.MMC.equals(currentCovaragebydate)  || HXConstants.MMC_QHP.equals(currentCovaragebydate)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_1b_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_1b_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RAEMEDNY);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);		
+		logger.debug("Rule : Medicaid_MEC_1b_6 : End");
+	end
+
+
+
+//------------------------------------
+
+
+
+//Medicaid Public MEC(2)
+
+rule "Medicaid_MEC_2_1"
+salience 70000
+activation-group "Medicaid_MEC_2_AT"
+agenda-group "Medicaid_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isFinancialAssistanceRequired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_2_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_2_1 : End");
+end
+
+rule "Medicaid_MEC_2_2"
+salience 69990
+activation-group "Medicaid_MEC_2_AT"
+agenda-group "Medicaid_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														!(isSeekingCoverage));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_2_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_2_2 : End");
+end
+
+rule "Medicaid_MEC_2_2A"
+salience 69987
+activation-group "Medicaid_MEC_2_AT"
+agenda-group "Medicaid_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isSeekingCoverage),
+														!(isMemberOnAssistanceByFed), 
+														!(isMemberOnAssistanceByState),
+														!(isRRECodeExists || getHasCoverageFromTplService()),
+														(HXConstants.CHIP.equals(currentEnrolledProg)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_2_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_2_2A");
+		drools.setFocus("Medicaid_MEC_3_AG");
+		logger.debug("Rule : Medicaid_MEC_2_2A : End");
+end
+
+rule "Medicaid_MEC_2_3"
+salience 69985
+activation-group "Medicaid_MEC_2_AT"
+agenda-group "Medicaid_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isSeekingCoverage),
+														!(isMemberOnAssistanceByFed), 
+														!(isMemberOnAssistanceByState),
+														!(isRRECodeExists || getHasCoverageFromTplService()),
+														!(HXConstants.CHIP.equals(currentEnrolledProg)),
+														 isDataErrorExists()
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPL_RRE_DATA_ERROR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_2_3 : End");
+end
+
+
+rule "Medicaid_MEC_2_3A"
+salience 69980
+activation-group "Medicaid_MEC_2_AT"
+agenda-group "Medicaid_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isSeekingCoverage),
+														!(isMemberOnAssistanceByFed), 
+														!(isMemberOnAssistanceByState),
+														!(getIsRRECodeExists() || getHasCoverageFromTplService()),
+														!(isDataErrorExists()),
+														!(getIsEnrolledInMedicaidESIMEC()) 
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_2_3A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_2_3A");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_2_3A : End");
+end
+
+rule "Medicaid_MEC_2_3B"
+salience 69975
+activation-group "Medicaid_MEC_2_AT"
+agenda-group "Medicaid_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isSeekingCoverage),
+														!(isMemberOnAssistanceByFed), 
+														!(isMemberOnAssistanceByState),
+														!(getIsRRECodeExists() || getHasCoverageFromTplService()),
+														!(isDataErrorExists()),
+														 getIsEnrolledInMedicaidESIMEC() 
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_2_3B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_2_3B");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setTplrreDescrInd(Boolean.TRUE);
+	 	$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPHI_DESCRPNC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_2_3B : End");
+end
+
+rule "Medicaid_MEC_2_4"
+salience 69970
+activation-group "Medicaid_MEC_2_AT"
+agenda-group "Medicaid_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isSeekingCoverage),
+														!(isMemberOnAssistanceByFed), 
+														(isMemberOnAssistanceByState));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_2_4");
+		drools.setFocus("Medicaid_MEC_3_AG");
+		logger.debug("Rule : Medicaid_MEC_2_4 : End");
+end
+
+rule "Medicaid_MEC_2_5"
+salience 69960
+activation-group "Medicaid_MEC_2_AT"
+agenda-group "Medicaid_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isFinancialAssistanceRequired),
+														(isSeekingCoverage),
+														(isMemberOnAssistanceByFed));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_2_5");
+		drools.setFocus("Medicaid_MEC_3_AG");
+		logger.debug("Rule : Medicaid_MEC_2_5 : End");
+end
+
+rule "Medicaid_MEC_2_6"
+salience 69950
+activation-group "Medicaid_MEC_2_AT"
+agenda-group "Medicaid_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isSeekingCoverage,
+														(getIsRRECodeExists() || getHasCoverageFromTplService()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_2_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_2_6");
+		drools.setFocus("Medicaid_MEC_3_AG");
+		logger.debug("Rule : Medicaid_MEC_2_6 : End");
+end
+
+
+
+//Medicaid Public MEC(3)
+
+rule "Medicaid_MEC_3_1"
+salience 68000
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECMedicaidORChipORRefugee),
+														!(HXConstants.CHIP.equals(currentEnrolledProg)),
+														!(isReceivingChpFromKIDS)
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_1");
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3_1 : End");
+end
+
+//CR1132
+rule "Medicaid_MEC_3_2"
+salience 67995
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidORChipORRefugee, isLatestPreviousEligibilityIsMedicaid,
+														!(isMemberEnrolledinMMC),!(isMemberEnrolledinFFS), 
+														!(isMCRCoverageEndingWithinAllowableLimits), !getIsProposedElgForRenewal());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPM_MCR);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3_2 : End");
+end
+
+//CR1132
+rule "Medicaid_MEC_3_3"
+salience 67990
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidORChipORRefugee, isLatestPreviousEligibilityIsMedicaid,
+														!(isMemberEnrolledinMMC),(isMemberEnrolledinFFS), 
+														!(isMCRCoverageEndingWithinAllowableLimits), !getIsProposedElgForRenewal());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPM_MCR);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3_3 : End");
+end
+
+//CR1132
+rule "Medicaid_MEC_3_4"
+salience 67985
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidORChipORRefugee, isLatestPreviousEligibilityIsMedicaid,
+														(isMemberEnrolledinMMC),!(isMemberEnrolledinFFS), 
+														!(isMCRCoverageEndingWithinAllowableLimits), !getIsProposedElgForRenewal());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPM_MCR);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3_4 : End");
+end
+
+//EHN# 51615
+rule "Medicaid_MEC_3_5"
+salience 67980
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECMedicaidORChipORRefugee),
+														HXConstants.CHIP.equals(currentEnrolledProg),
+														!(isReceivingChpFromKIDS));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_5");
+		$eDeterminationfacts.calculateAndSetEligibilityMEDStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.CHIP_CURRENT_DELAY_MED_START);
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3_5 : End");
+end
+
+//EHN# 51615
+rule "Medicaid_MEC_3_6"
+salience 67975
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidORChipORRefugee,
+														!(HXConstants.CHIP.equals(currentEnrolledProg)),
+														isReceivingChpFromKIDS);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_6");
+		$eDeterminationfacts.calculateAndSetEligibilityMEDStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.CHIP_CURRENT_DELAY_MED_START);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCurrentChipFromKIDSSystemInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3_6 : End");
+end
+
+//EHN# 51615
+rule "Medicaid_MEC_3_7"
+salience 67970
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECMedicaidORChipORRefugee),
+														HXConstants.CHIP.equals(currentEnrolledProg),
+														isReceivingChpFromKIDS);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_7");
+		$eDeterminationfacts.calculateAndSetEligibilityMEDStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.CHIP_CURRENT_DELAY_MED_START);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCurrentChipFromKIDSSystemInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3_7 : End");
+end
+
+
+rule "Medicaid_MEC_3_8"
+salience 67965
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidORChipORRefugee,
+														isMCRCoverageEndingWithinAllowableLimits);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_8");
+		$eDeterminationfacts.setEligibilityStartAfterMCRAllowableEndingDate (ProgramCode.MEDICAID);
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3_8 : End");
+end
+
+rule "Medicaid_MEC_3_9"
+salience 67960
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidORChipORRefugee),
+														!isMCRCoverageEndingWithinAllowableLimits,
+														isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_9");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPM_MCR);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_3_9 : End");
+end
+
+rule "Medicaid_MEC_3_10"
+salience 67955
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidORChipORRefugee),
+														!isMCRCoverageEndingWithinAllowableLimits,
+														!(doesUserAgreesWithMECMedicaidORChipORRefugee),
+														!(isMECMedicaidORChipORRefugeeStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_10");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPM_MCR);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_3_10 : End");
+end
+
+rule "Medicaid_MEC_3_11"
+salience 67950
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidORChipORRefugee),
+														!isMCRCoverageEndingWithinAllowableLimits,
+														!(doesUserAgreesWithMECMedicaidORChipORRefugee),
+														(isMECMedicaidORChipORRefugeeStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_11");
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3_11 : End");
+end
+
+rule "Medicaid_MEC_3_12"
+salience 67945
+activation-group "Medicaid_MEC_3_AT"
+agenda-group "Medicaid_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidORChipORRefugee),
+														!isMCRCoverageEndingWithinAllowableLimits,
+														(doesUserAgreesWithMECMedicaidORChipORRefugee));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3_12");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPM_MCR);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_3_12 : End");
+end
+
+//Medicaid Public MEC(3V)
+
+rule "Medicaid_MEC_3V_1"
+salience 60000
+activation-group "Medicaid_MEC_3V_AT"
+agenda-group "Medicaid_MEC_3V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECMedicaidORChipORRefugeeNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3V_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3V_1");
+		//TO DO
+		//Set Notice trigger
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.MEC_MCR, ClockNameEnum.MEC_MCR_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.VNPMR);
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3V_1 : End");
+end
+
+rule "Medicaid_MEC_3V_2"
+salience 59990
+activation-group "Medicaid_MEC_3V_AT"
+agenda-group "Medicaid_MEC_3V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECMedicaidORChipORRefugeeNoticeSent),
+														!(isMECMedicaidORChipORRefugee_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3V_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3V_2");
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.MEC_MCR, ClockNameEnum.MEC_MCR_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.VNPMR);
+		drools.setFocus("Medicaid_MEC_3b_AG");
+		logger.debug("Rule : Medicaid_MEC_3V_2 : End");
+end
+
+rule "Medicaid_MEC_3V_3"
+salience 59985
+activation-group "Medicaid_MEC_3V_AT"
+agenda-group "Medicaid_MEC_3V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECMedicaidORChipORRefugeeNoticeSent),
+														(isMECMedicaidORChipORRefugee_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3V_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3V_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_45);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_3V_3 : End");
+end
+
+/*
+//Medicaid Public MEC(3b)
+rule "Medicaid_MEC_3b_1"
+salience 59900
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getMedicaidAliessaInd(),
+														getHasCoverageFromTplService());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_1 : End");
+end
+*/
+
+//CR577
+
+rule "Medicaid_MEC_3b_1a"
+salience 59895
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getIsTplRreReturned());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_1a : Begin");
+ 		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_1a : End");
+end
+
+
+rule "Medicaid_MEC_3b_2"
+salience 59890
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getIsTplRreReturned(),
+		                                          		!getMedicaidAliessaInd(),
+														!getIsRRECodeExists());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_2");
+		
+		drools.setFocus("Medicaid_MEC_3c_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_2 : End");
+end
+
+rule "Medicaid_MEC_3b_3"
+salience 59880
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getIsTplRreReturned(),
+		                                                !getMedicaidAliessaInd(),
+														getIsRRECodeExists(),
+														!getIsMedicaidExclusionCodeExists());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_3");
+	  	drools.setFocus("Medicaid_MEC_3c_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_3 : End");
+end
+
+rule "Medicaid_MEC_3b_4"
+salience 59870
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getIsTplRreReturned(),
+		                                                !getMedicaidAliessaInd(),
+														getIsRRECodeExists(),
+														!getIsMAExemptRreEndingWithinAllowableLimits(),
+														getIsMedicaidExclusionCodeExists());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+ 		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RMAEXRRE);
+		drools.setFocus("Medicaid_MEC_3c_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_4 : End");
+end
+
+
+//cr577
+
+
+/* has been removed as part of CR577
+rule "Medicaid_MEC_3b_5"
+salience 59860
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getMedicaidAliessaInd(),
+													getHasCoverageFromTplService() 	); 
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_5");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.ERCE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_5 : End");
+end
+
+*/
+
+rule "Medicaid_MEC_3b_5"
+salience 59860
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+ when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getIsTplRreReturned(),
+		                                                !getMedicaidAliessaInd(),
+		                                                getIsRRECodeExists(),
+		                                                getIsMAExemptRreEndingWithinAllowableLimits(),
+		                                                getIsMedicaidExclusionCodeExists(),
+		                                                !getIsPersonalCareRREcodeExists());
+then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_5 : Begin");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRreEndingInMALimit(Boolean.TRUE);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_5");
+		drools.setFocus("Medicaid_MEC_3c_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_5 : End");
+end
+
+
+
+
+rule "Medicaid_MEC_3b_6"
+salience 59850
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getIsTplRreReturned(),
+		                                                getMedicaidAliessaInd(),
+														!getIsRRECodeExists());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_6");
+ 		drools.setFocus("Medicaid_MEC_3c_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_6 : End");
+end
+
+rule "Medicaid_MEC_3b_7"
+salience 59840
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getIsTplRreReturned(),
+		                                                getMedicaidAliessaInd(),
+														getIsRRECodeExists(),
+														!getIsEPPExemptRRECodeExists(),
+														!getIsPersonalCareRREcodeExists());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_7");
+	 	drools.setFocus("Medicaid_MEC_3c_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_7 : End");
+end
+
+rule "Medicaid_MEC_3b_8"
+salience 59830
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getIsTplRreReturned(),
+		                                                getMedicaidAliessaInd(),
+														getIsRRECodeExists(),
+														!getIsEPExemptRreEndingWithinAllowableLimits(),
+														getIsEPPExemptRRECodeExists());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_8");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.ERCE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+ 
+		drools.setFocus("Medicaid_MEC_3c_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_8 : End");
+end 
+
+rule "Medicaid_MEC_3b_9"
+salience 59820
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+ when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getIsTplRreReturned(),
+		                                                getMedicaidAliessaInd(),
+		                                                getIsRRECodeExists(),
+		                                                getIsEPPExemptRRECodeExists(),
+		                                                getIsEPExemptRreEndingWithinAllowableLimits(),
+		                                                !getIsPersonalCareRREcodeExists());
+then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_9");
+	 
+		drools.setFocus("Medicaid_MEC_3c_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_9 : End");
+end
+
+// Added following 2 rules for enh 50655
+rule "Medicaid_MEC_3b_10"
+salience 59819
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getMedicaidAliessaInd(),
+														getIsRRECodeExists(),
+														getIsPersonalCareRREcodeExists(),
+														!getIsPCareRReMecEndingWithinAllowableMedicaidLimits());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_10");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setPersoncalCareRREInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.PRERCE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3b_10 : End");
+end
+
+
+rule "Medicaid_MEC_3b_11"
+salience 59817
+activation-group "Medicaid_MEC_3b_AT"
+agenda-group "Medicaid_MEC_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getMedicaidAliessaInd(),
+														getIsRRECodeExists(),
+														getIsPersonalCareRREcodeExists(),
+														getIsPCareRReMecEndingWithinAllowableMedicaidLimits());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3b_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3b_11");
+	 	drools.setFocus("Medicaid_MEC_3c_AG");
+	 	logger.debug("Rule : Medicaid_MEC_3b_11 : End");
+end
+
+
+//CR577 Start
+
+/*rule "Medicaid_MEC_3c_1A"
+salience 59815
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists()) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_1A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPL_RRE_DATA_ERROR);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+ 		logger.debug("Rule : Medicaid_MEC_3c_1A : End");
+end*/
+
+rule "Medicaid_MEC_3c_1"
+salience 59810
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isDataErrorExists()) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPL_RRE_DATA_ERROR);
+		drools.setFocus("Medicaid_MEC_5_AG");
+ 		logger.debug("Rule : Medicaid_MEC_3c_1 : End");
+end
+
+rule "Medicaid_MEC_3c_2"
+salience 59805
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_N_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),  //Indicators are N by default in DB
+							 							!getIsEnrolledInMedicaidESIMEC());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_2");
+		drools.setFocus("Medicaid_MEC_5_AG");
+  		logger.debug("Rule : Medicaid_MEC_3c_2 : End");
+end
+
+
+rule "Medicaid_MEC_3c_3"
+salience 59800
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_N_IND.equals( getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),														
+														getIsEnrolledInMedicaidESIMEC());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_3");
+		//$eDeterminationfacts.setTplrreDescrInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setTplrreDescrInd(Boolean.TRUE);
+	 	
+	 	$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPHI_DESCRPNC);
+	 	drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_3 : End");
+end
+
+
+
+
+rule "Medicaid_MEC_3c_4"
+salience 59795
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),
+														!isMedicarePartIndReceived(),
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()) ) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_4");
+	 	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+	 	$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.REC_TPHI);
+	 	drools.setFocus("Medicaid_MEC_3d_AG");
+	 	//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_4 : End");
+end
+
+
+rule "Medicaid_MEC_3c_6"
+salience 59790
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(), 
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()), 
+														//isMedicarePartIndReceived() , not required as this will be determined by Override indicator
+														HXConstants.NO_MEDICARE_LEFT_OVERRIDE_Y_IND.equals(getNoMedicareLeftoverrideInd())) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_6");
+	 	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+	 	$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.REC_TPHI);
+	 	drools.setFocus("Medicaid_MEC_3d_AG");
+	 	//drools.setFocus("Medicaid_MEC_5_AG");		
+		logger.debug("Rule : Medicaid_MEC_3c_6 : End");
+end
+
+rule "Medicaid_MEC_3c_7"
+salience 59785
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists() ,
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														getIsProposedElgForRenewal(),
+														isMedicarePartIndReceived() ,
+														!getIsCaretakerRelativeFlag() ,
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent))) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+
+		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_7 : End");
+		
+end
+
+
+rule "Medicaid_MEC_3c_8"
+salience 59780
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														getIsProposedElgForRenewal(),
+														isMedicarePartIndReceived() 
+				 										) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_8");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+	   	$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPL_RPM_MEDAB);
+	  	drools.setFocus("Medicaid_MEC_3d_AG");
+	  	//drools.setFocus("Medicaid_MEC_5_AG");
+	 	logger.debug("Rule : Medicaid_MEC_3c_8 : End");
+end
+
+rule "Medicaid_MEC_3c_9"
+salience 59777
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														getIsProposedElgForRenewal(),
+														!isMedicarePartIndReceived() 
+				 										) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_9");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+	   	$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.REC_TPHI);
+	  	drools.setFocus("Medicaid_MEC_3d_AG");
+	  	//drools.setFocus("Medicaid_MEC_5_AG");
+	 	logger.debug("Rule : Medicaid_MEC_3c_9 : End");
+end
+
+
+rule "Medicaid_MEC_3c_10A"
+salience 59776
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal() ,
+														isMedicarePartIndReceived(),
+														!getIsCaretakerRelativeFlag(),
+													 	!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)) ,
+														isCurrentlyEnrolledInMedicaid,
+														isDateBeforeRunForDate(getPreviousMedicaidEnrollmentEndDate())
+														) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_10A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_10A");
+	 	$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_10A : End");
+end
+
+
+rule "Medicaid_MEC_3c_10"
+salience 59775
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal() ,
+														isMedicarePartIndReceived(),
+														!getIsCaretakerRelativeFlag(),
+													 	!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)) ,
+														isCurrentlyEnrolledInMedicaid,
+														(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_10");
+	 	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_10 : End");
+end
+
+rule "Medicaid_MEC_3c_11"
+salience 59770
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														!isMedicarePartIndReceived(),
+														HXConstants.EPP.equals(getCurrentEnrolledProg())  
+														 ) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_11");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE); 
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCM);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setEocmByPassInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.REC_TPHI);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_11 : End");
+				
+end
+
+rule "Medicaid_MEC_3c_12"
+salience 59767
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														!isBatchModeElgEndDateEONM(),
+														!isBatchModeElgEndDateEqualEONM(),
+														isMedicarePartIndReceived(),
+														HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag() ,
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) )
+				     									) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_12");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+	   	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EONM);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+	 	//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_12 : End");
+				
+end
+
+
+rule "Medicaid_MEC_3c_12_A"
+salience 59766
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														!isBatchModeElgEndDateEONM(),
+														isBatchModeElgEndDateEqualEONM(),
+														isMedicarePartIndReceived(),
+														HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag() ,
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) )
+				     									) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_12_A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_12_A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidbyPassInd(Boolean.TRUE);
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+	   //	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EONM);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+	 	//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_12_A : End");
+				
+end
+
+rule "Medicaid_MEC_3c_13"
+salience 59765
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														isBatchModeElgEndDateEONM(),
+														isMedicarePartIndReceived(),
+														HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag() ,
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) )
+				     									) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_13");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+	 	drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_13 : End");
+				
+end
+ 
+rule "Medicaid_MEC_3c_14"
+salience 59763
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(), 
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()) ,
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal()  ,
+														isMedicarePartIndReceived() ,
+														HXConstants.EPP.equals(getCurrentEnrolledProg()) ,
+														getIsCaretakerRelativeFlag()  ) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_14");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE); 
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCM);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_14 : End");
+		 
+end
+
+rule "Medicaid_MEC_3c_15"
+salience 59760
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														isMedicarePartIndReceived() ,
+														HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag(),
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) )) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_15 : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_15");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE); 
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCM);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_15 : End");
+		 
+end
+
+rule "Medicaid_MEC_3c_16"
+salience 59757
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														!isBatchModeElgEndDateEO45D(),
+														!isBatchModeElgEndDateEqualEO45D(),
+														isMedicarePartIndReceived() ,
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag() ,
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) ),
+														getIsCurrentlyEnrolledInMedicaid() ,
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_16 : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_16");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE); 
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_16 : End");
+		 
+end
+
+
+rule "Medicaid_MEC_3c_16_A"
+salience 59755
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														!isBatchModeElgEndDateEO45D(),
+														isBatchModeElgEndDateEqualEO45D(),
+														isMedicarePartIndReceived() ,
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag() ,
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) ),
+														getIsCurrentlyEnrolledInMedicaid() ,
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_16_A : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_16_A");
+	 	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidbyPassInd(Boolean.TRUE);
+	 	$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+		
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_16_A : End");
+		 
+end
+
+rule "Medicaid_MEC_3c_17"
+salience 59753
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														isBatchModeElgEndDateEO45D(),
+														isMedicarePartIndReceived() ,
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag() ,
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) ),
+														getIsCurrentlyEnrolledInMedicaid() ,
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_17 : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_17");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_17 : End");
+		 
+end
+
+
+rule "Medicaid_MEC_3c_18"
+salience 59750
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														isMedicarePartIndReceived() ,
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														getIsCaretakerRelativeFlag(),
+														getIsCurrentlyEnrolledInMedicaid(),
+														(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()))
+														) ;
+
+			then
+			//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_18 : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_18");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);  
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_18 : End");
+		 
+end
+
+
+
+rule "Medicaid_MEC_3c_19"
+salience 59747
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts (!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														!isBatchModeElgEndDateEO45D(),
+														!isBatchModeElgEndDateEqualEO45D(),
+														isMedicarePartIndReceived() ,
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														getIsCaretakerRelativeFlag() ,
+														getIsCurrentlyEnrolledInMedicaid() ,
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+		
+			then
+			//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_19 : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_19");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);  
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_19 : End");
+		 
+end
+
+rule "Medicaid_MEC_3c_19_A"
+salience 59745
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts (!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														!isBatchModeElgEndDateEO45D(),
+														isBatchModeElgEndDateEqualEO45D(),
+														isMedicarePartIndReceived() ,
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														getIsCaretakerRelativeFlag() ,
+														getIsCurrentlyEnrolledInMedicaid() ,
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+		
+			then
+			//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_19_A : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_19_A");
+	 	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidbyPassInd(Boolean.TRUE);
+	//	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);  
+	//	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_19_A : End");
+		 
+end
+
+rule "Medicaid_MEC_3c_20"
+salience 59743
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts (!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														isBatchModeElgEndDateEO45D(),
+														isMedicarePartIndReceived() ,
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														getIsCaretakerRelativeFlag() ,
+														getIsCurrentlyEnrolledInMedicaid() ,
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+		
+			then
+			//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_20 : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_20");
+	 	//removed the below as part of defect# 59947
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);  
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_20 : End");
+		 
+end
+
+rule "Medicaid_MEC_3c_21"
+salience 59740
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts (!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														isMedicarePartIndReceived(),
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag() ,
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) ),
+														getIsCurrentlyEnrolledInMedicaid() ,
+														(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+	
+			then
+			//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_21 : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_21");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);  
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_21 : End");
+		 
+end
+
+rule "Medicaid_MEC_3c_22"
+salience 59735
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														!isBatchModeElgEndDateEO45D(),
+														!isBatchModeElgEndDateEqualEO45D(),
+														isMedicarePartIndReceived(),
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag(),
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) ),
+														getIsCurrentlyEnrolledInMedicaid(),
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+	
+			then
+			//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_22 : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_22");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);  
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_22 : End");
+		 
+end
+
+
+rule "Medicaid_MEC_3c_22_A"
+salience 59733
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														!isBatchModeElgEndDateEO45D(),
+														isBatchModeElgEndDateEqualEO45D(),
+														isMedicarePartIndReceived(),
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag(),
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) ),
+														getIsCurrentlyEnrolledInMedicaid(),
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+	
+			then
+			//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_22_A : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_22_A");
+	 	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidbyPassInd(Boolean.TRUE);
+	//	$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+	//	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		//drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_22_A : End");
+		 
+end
+
+
+rule "Medicaid_MEC_3c_23"
+salience 59730
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														isBatchModeElgEndDateEO45D(),
+														isMedicarePartIndReceived(),
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag(),
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) ),
+														getIsCurrentlyEnrolledInMedicaid(),
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+	
+			then
+			//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_23 : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_23");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+		
+		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_23 : End");
+		 
+end
+
+rule "Medicaid_MEC_3c_24"
+salience 59720
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														isMedicarePartIndReceived(),
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCaretakerRelativeFlag(),
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent) ),
+														!getIsCurrentlyEnrolledInMedicaid()  
+														) ;
+ 
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_24 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_24");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);   
+	
+		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_24 : End");
+		 
+end
+		                 
+		  
+rule "Medicaid_MEC_3c_25"
+salience 59715	
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														//HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), not required as its overridden from Y to N
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_Y_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal() 
+														) ;
+ 
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_25 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_25");
+ 		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_25 : End");
+		 
+end
+
+	                  
+//Defect 66972 resequence issue		                 
+rule "Medicaid_MEC_3c_26"
+salience 59714
+activation-group "Medicaid_MEC_3c_AT"
+agenda-group "Medicaid_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()), 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()) ,
+														!getIsProposedElgForRenewal(),
+														//!isBatchModeElgEndDateEO45D(), -- removed As part of Defect 70663.
+														//!isBatchModeElgEndDateEqualEO45D(),
+														isMedicarePartIndReceived(),
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!getIsCurrentlyEnrolledInMedicaid(),
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg()) || HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()) )
+														) ;
+	
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3c_26 : Begin");
+	 	$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3c_26");
+	 	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);  
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,  ProgramReasonCode.TPL_RPM_MEDAB);
+		
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		logger.debug("Rule : Medicaid_MEC_3c_26 : End");
+		 
+end
+
+		                 
+//CR577 3d		             
+		                 
+rule "Medicaid_MEC_3d_1"
+salience 59711
+activation-group "Medicaid_MEC_3d_AT"
+agenda-group "Medicaid_MEC_3d_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getMedicaidAliessaInd()) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3d_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3d_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3d_1 : End");
+		 
+end
+		                 
+		                 
+rule "Medicaid_MEC_3d_2"
+salience 59710
+activation-group "Medicaid_MEC_3d_AT"
+agenda-group "Medicaid_MEC_3d_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getMedicaidAliessaInd()) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_3d_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_3d_2");
+		drools.setFocus("Medicaid_MEC_5_AG");
+		logger.debug("Rule : Medicaid_MEC_3d_2 : End");
+		 
+end		                                                
+		                                                
+		                                                
+		                                                
+
+//Medicaid Public MEC(4)
+//Veterran MEC is not applicable for Medicaid
+
+
+//Medicaid Public MEC(5)
+
+rule "Medicaid_MEC_5_1"
+salience 81500
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECMedicaidAORB));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_1");
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_1 : End");
+end
+
+
+//CR577  Start
+
+rule "Medicaid_MEC_5_1_A"
+salience 81495
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB, 
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_Y_IND.equals(getIsBackOfficeCCOverrideExists()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_1_A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_1_A");
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_1_A : End");
+end
+
+//CR577 End 
+
+//Rule is not in sync with rule sheet
+rule "Medicaid_MEC_5_2"
+salience 81490
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB,
+														isMedicaidAORBCoverageEndingWithinAllowableLimits);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_2");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, HXMECTypeEnum.MEDICARE);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_2 : End");
+end
+
+//Rule is not in sync with rule sheet
+rule "Medicaid_MEC_5_3"
+salience 81480
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( isReceivingMECMedicaidAORB ,
+														isProposedElgForRenewal,
+														!isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														isCaretakerRelativeFlag
+														); 			
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_3 : End");
+end
+
+/*
+//Rule is not in sync with rule sheet
+rule "Medicaid_MEC_5_3A"
+salience 81475
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														isProposedElgForRenewal,
+														isCaretakerRelativeFlag //Removed as part of CR577	!getMedicaidAliessaInd().
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_3A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_3A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE); // removed as per CR577 requierment
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_3A : End");
+end */
+
+
+rule "Medicaid_MEC_5_4"
+salience 81475
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB,
+														isProposedElgForRenewal,
+														!isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														!isCaretakerRelativeFlag,
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)) 
+														 );
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_4 : End");
+end
+
+/*
+//Not in sync with Rule Sheet and duplicate of Medicaid_MEC_5_4
+rule "Medicaid_MEC_5_4A"
+salience 81465
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB,
+														isProposedElgForRenewal,
+														!isCaretakerRelativeFlag,
+														!isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)) 
+														 );
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_4A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_4A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+	//	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);  
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_4A : End");
+end*/
+
+//Rule is not in sync with rule sheet
+rule "Medicaid_MEC_5_5"
+salience 81460
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( isReceivingMECMedicaidAORB ,
+														isProposedElgForRenewal,
+														!isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														!isCaretakerRelativeFlag,
+														!(isMemberPregnant ||isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_5");
+		//Updated for Renewal change
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_5 : End");
+end
+
+/*
+rule "Medicaid_MEC_5_6"
+salience 81450
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB,
+														!isProposedElgForRenewal,
+														!isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														!isMECMedicaidAORBStatusVerified ,
+														!isCaretakerRelativeFlag,
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														!getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_6");
+		//Updated for Renewal change
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_5V_AG");
+		logger.debug("Rule : Medicaid_MEC_5_6 : End");
+end
+
+rule "Medicaid_MEC_5_6A"
+salience 81445
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( isReceivingMECMedicaidAORB,
+														!isProposedElgForRenewal,
+														!isMECMedicaidAORBStatusVerified,
+														!isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														!isCaretakerRelativeFlag,
+														!(isMemberPregnant ||isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_6A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_6A");
+		//Updated for Renewal change
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+	//	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_3d_AG");
+	//	drools.setFocus("Medicaid_MEC_5V_AG");
+		logger.debug("Rule : Medicaid_MEC_5_6A : End");
+end
+
+
+rule "Medicaid_MEC_5_7"
+salience 81440
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														!isProposedElgForRenewal,
+														!(isMECMedicaidAORBStatusVerified),
+														(isCaretakerRelativeFlag),
+														!getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_7");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING,ProgramReasonCode.RPM);
+		//drools.setFocus("Medicaid_MEC_5V_AG");
+		//Updated for Renewal change
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_7 : End");
+end
+
+rule "Medicaid_MEC_5_7A"
+salience 81435
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														!isProposedElgForRenewal,
+														!(isMECMedicaidAORBStatusVerified),
+														(isCaretakerRelativeFlag),
+														getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_7A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_7A");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING,ProgramReasonCode.RPM);
+		//drools.setFocus("Medicaid_MEC_5V_AG");
+		//Updated for Renewal change
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+	//	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+	//	drools.setFocus("Medicaid_MEC_6a_AG");
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		logger.debug("Rule : Medicaid_MEC_5_7A : End");
+end
+
+
+
+
+
+//cr577 start
+
+rule "Medicaid_MEC_5_7B"
+salience 81432
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														HXConstants.EPP.equals(getCurrentCovaragebydate()), 
+														!(isCaretakerRelativeFlag),
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														!isCurrentlyEnrolledInMedicaid
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_7B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_7B");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EONM);
+	 	logger.debug("Rule : Medicaid_MEC_5_7B : End");
+end
+
+
+//cr577 start end
+
+
+rule "Medicaid_MEC_5_8"
+salience 81430
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														!(isMECMedicaidAORBStatusVerified),
+														!(isCaretakerRelativeFlag),
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														!getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_8 : End");
+end
+
+
+
+
+*/
+
+//cr577 end
+
+
+/**
+//  Removed as part of CR577
+//rule "Medicaid_MEC_5_8A"
+//salience 81425
+//activation-group "Medicaid_MEC_5_AT"
+//agenda-group "Medicaid_MEC_5_AG"
+//	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														!isProposedElgForRenewal,
+														!(isMECMedicaidAORBStatusVerified),
+														!(isCaretakerRelativeFlag),
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_8A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_8A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+	//	drools.setFocus("Medicaid_MEC_6a_AG");
+		drools.setFocus("Medicaid_MEC_3d_AG");
+		logger.debug("Rule : Medicaid_MEC_5_8A : End");
+end
+
+*
+
+
+//cr577 START
+
+
+
+
+*/
+
+//cr577 end
+
+rule "Medicaid_MEC_5_9"
+salience 81420
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+														!isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														(isMECMedicaidAORBStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_9");
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_9 : End");
+end
+
+//cr577 start
+
+rule "Medicaid_MEC_5_9_1"
+salience 81418
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														HXConstants.EPP.equals(getCurrentEnrolledProg()), 
+														!(isCaretakerRelativeFlag),
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														!getIsCurrentlyEnrolledInMedicaid() 
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_9_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_9_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);	
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EONM);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_9_1 : End");
+end
+
+rule "Medicaid_MEC_5_9_1A"
+salience 81415
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														HXConstants.EPP.equals(getCurrentEnrolledProg()), 
+														isCaretakerRelativeFlag  														 												 
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_9_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_9_1A");
+	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);	
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_9_1A : End");
+end
+
+
+rule "Medicaid_MEC_5_9_1B"
+salience 81412
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+													 	HXConstants.EPP.equals(getCurrentEnrolledProg()), 
+														!(isCaretakerRelativeFlag),
+														 (isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)) 												 
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_9_1B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_9_1B");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		
+		logger.debug("Rule : Medicaid_MEC_5_9_1B : End");
+end
+
+
+rule "Medicaid_MEC_5_9_1D"
+salience 81411
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()), 
+														!(isCaretakerRelativeFlag),
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														getIsCurrentlyEnrolledInMedicaid(),
+														isDateBeforeRunForDate(getPreviousMedicaidEnrollmentEndDate()) 
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_9_1D : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_9_1D");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.TPL_RPM_MEDAB);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_9_1D : End");
+end
+
+rule "Medicaid_MEC_5_9_1C"
+salience 81409
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()), 
+														!(isCaretakerRelativeFlag),
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														getIsCurrentlyEnrolledInMedicaid(),
+														(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg())) 
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_9_1C : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_9_1C");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		//Defect 67785
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_9_1C : End");
+end
+//cr577 start end
+
+rule "Medicaid_MEC_5_9A"
+salience 81406
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+		                                                !HXConstants.EPP.equals(getCurrentEnrolledProg()), 
+														!(isCaretakerRelativeFlag),
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														getIsCurrentlyEnrolledInMedicaid(),
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_9A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_9A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_9A : End");
+end
+/*
+//Defect 67785 commented this rule as this is duplicate rule of Medicaid_MEC_5_9_1C.
+rule "Medicaid_MEC_5_9B"
+salience 81403
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()), 
+														!(isCaretakerRelativeFlag),
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														getIsCurrentlyEnrolledInMedicaid(),
+														(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_9B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_9B");
+
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+	
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_9B : End");
+end
+*/
+//CR577--updated start
+
+rule "Medicaid_MEC_5_10"
+salience 81400
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,														
+														!HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!(isCaretakerRelativeFlag),
+														!(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														!getIsCurrentlyEnrolledInMedicaid(),
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_10");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_10 : End");
+end
+
+rule "Medicaid_MEC_5_11"
+salience 81390
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+		                                                !HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														isCaretakerRelativeFlag,
+														(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_11");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_11 : End");
+end
+
+rule "Medicaid_MEC_5_11A"
+salience 81380
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+		                                                !HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														isCaretakerRelativeFlag,
+														getIsCurrentlyEnrolledInMedicaid(),
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_11A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_11A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_11A : End");
+end
+
+rule "Medicaid_MEC_5_11B"
+salience 81375
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+		                                                !HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														isCaretakerRelativeFlag,
+														!getIsCurrentlyEnrolledInMedicaid(),
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_11B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_11B");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);		
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_11B : End");
+end
+
+rule "Medicaid_MEC_5_12"
+salience 81370
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+		                                                !HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!(isCaretakerRelativeFlag),
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),
+														(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()))																
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_12");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_12 : End");
+end
+
+rule "Medicaid_MEC_5_12A"
+salience 81360
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+		                                                !HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!(isCaretakerRelativeFlag),
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),														
+														getIsCurrentlyEnrolledInMedicaid(),
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()))														
+														 );
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_12A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_12A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		//drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_12A : End");
+end
+
+rule "Medicaid_MEC_5_13"
+salience 81355
+activation-group "Medicaid_MEC_5_AT"
+agenda-group "Medicaid_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+		                                                !isProposedElgForRenewal,
+		                                                !isMedicaidAORBCoverageEndingWithinAllowableLimits,
+		                                                !HXConstants.EPP.equals(getCurrentEnrolledProg()),
+														!(isCaretakerRelativeFlag),
+														(isMemberPregnant || isMemberParent || (memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN))
+															|| ((memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX))
+																&& isLivingWithparentOrStepParent)),														
+														!getIsCurrentlyEnrolledInMedicaid(),
+														!(HXConstants.FFS.equals(getCurrentEnrolledProg())||HXConstants.FFS_QHP.equals(getCurrentEnrolledProg()))														
+														 );
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5_13");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.MCFFS);
+
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EO45D);
+
+		drools.setFocus("Medicaid_MEC_5a_AG");
+		logger.debug("Rule : Medicaid_MEC_5_13 : End");
+end
+//CR577 updates end
+
+//CR577 3d		             
+		                 
+rule "Medicaid_MEC_5a_1"
+salience 81350
+activation-group "Medicaid_MEC_5a_AT"
+agenda-group "Medicaid_MEC_5a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(getMedicaidAliessaInd()) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5a_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5a_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5a_1 : End");
+		 
+end
+		                 
+		                 
+rule "Medicaid_MEC_5a_2"
+salience 81340
+activation-group "Medicaid_MEC_5a_AT"
+agenda-group "Medicaid_MEC_5a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!getMedicaidAliessaInd()) ;
+		then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5a_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5a_2");
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5a_2 : End");
+		 
+end		
+
+
+//Medicaid Public MEC(5V)
+
+rule "Medicaid_MEC_5V_1"
+salience 58000
+activation-group "Medicaid_MEC_5V_AT"
+agenda-group "Medicaid_MEC_5V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECMedicaidAORBNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5V_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5V_1");
+		//TO DO
+		//Set Notice trigger
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.MEC_MEDAB, ClockNameEnum.MEC_MEDAB_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.VNPMR);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5V_1 : End");
+end
+
+rule "Medicaid_MEC_5V_2"
+salience 57990
+activation-group "Medicaid_MEC_5V_AT"
+agenda-group "Medicaid_MEC_5V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECMedicaidAORBNoticeSent),
+														!(isMECMedicaidAORB_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5V_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5V_2");
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.MEC_MEDAB, ClockNameEnum.MEC_MEDAB_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.VNPMR);
+		drools.setFocus("Medicaid_MEC_6a_AG");
+		logger.debug("Rule : Medicaid_MEC_5V_2 : End");
+end
+
+rule "Medicaid_MEC_5V_3"
+salience 57980
+activation-group "Medicaid_MEC_5V_AT"
+agenda-group "Medicaid_MEC_5V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECMedicaidAORBNoticeSent),
+														(isMECMedicaidAORB_45_DayClockExpired),
+														!isPreviouslyEnrolledInMA);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5V_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5V_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_45);
+		$eDeterminationfacts.setIsMedicaidInEligibleDueTOMEC(true);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_5V_3 : End");
+end
+
+rule "Medicaid_MEC_5V_4"
+salience 57970
+activation-group "Medicaid_MEC_5V_AT"
+agenda-group "Medicaid_MEC_5V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMECMedicaidAORBNoticeSent,
+														isMECMedicaidAORB_45_DayClockExpired,
+														isPreviouslyEnrolledInMA);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_5V_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_5V_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_5V_4 : End");
+end
+
+//Medicaid Public MEC(6a)
+
+rule "Medicaid_MEC_6a_0"
+salience 64000
+activation-group "Medicaid_MEC_6a_AT"
+agenda-group "Medicaid_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_0");
+		drools.setFocus("Medicaid_MEC_6b_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_0 : End");
+end
+
+rule "Medicaid_MEC_6a_1"
+salience 63998
+activation-group "Medicaid_MEC_6a_AT"
+agenda-group "Medicaid_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECTricare));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_1");
+		drools.setFocus("Medicaid_MEC_6b_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_1 : End");
+end
+
+
+rule "Medicaid_MEC_6a_1A"
+salience 63995
+activation-group "Medicaid_MEC_6a_AT"
+agenda-group "Medicaid_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECTricare,
+														isTricareCoverageEndingWithinAllowableLimits);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_1A");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, HXMECTypeEnum.TRICARE);
+		drools.setFocus("Medicaid_MEC_6b_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_1A : End");
+end
+
+
+rule "Medicaid_MEC_6a_2"
+salience 63990
+activation-group "Medicaid_MEC_6a_AT"
+agenda-group "Medicaid_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECTricare),
+														!(doesUserAgreesWithMECTricare),
+														(isMECTricareStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_2");
+		drools.setFocus("Medicaid_MEC_6b_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_2 : End");
+end
+
+rule "Medicaid_MEC_6a_3"
+salience 63980
+activation-group "Medicaid_MEC_6a_AT"
+agenda-group "Medicaid_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECTricare,
+														!doesUserAgreesWithMECTricare,
+														!isMECTricareStatusVerified,
+														!getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_UDA_TRI);
+		drools.setFocus("Medicaid_MEC_6AV_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_3 : End");
+end
+
+rule "Medicaid_MEC_6a_3A"
+salience 63975
+activation-group "Medicaid_MEC_6a_AT"
+agenda-group "Medicaid_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECTricare,
+														!doesUserAgreesWithMECTricare,
+														!isMECTricareStatusVerified,
+														getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_3A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_3A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_UDA_TRI);
+		drools.setFocus("Medicaid_MEC_6AV_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_3A : End");
+end
+
+
+//Medicaid Public MEC(6A_V)
+
+rule "Medicaid_MEC_6a_V1"
+salience 63005
+activation-group "Medicaid_MEC_6AV_AT"
+agenda-group "Medicaid_MEC_6AV_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECTricareNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_V1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_V1");
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.MEC_TRI, ClockNameEnum.MEC_TRI_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.VNPMR);
+		drools.setFocus("Medicaid_MEC_6b_AG");
+		logger.debug("Rule :  Medicaid_MEC_6a_V1 : End");
+end
+
+rule "Medicaid_MEC_6a_V2"
+salience 63010
+activation-group "Medicaid_MEC_6AV_AT"
+agenda-group "Medicaid_MEC_6AV_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECTricareNoticeSent),
+														!(isMECTricare_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_V2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_V2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.VNPMR);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.MEC_TRI, ClockNameEnum.MEC_TRI_45);
+		drools.setFocus("Medicaid_MEC_6b_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_V2 : End");
+end
+
+
+rule "Medicaid_MEC_6a_V3"
+salience 63015
+activation-group "Medicaid_MEC_6AV_AT"
+agenda-group "Medicaid_MEC_6AV_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECTricareNoticeSent),
+														(isMECTricare_45_DayClockExpired),
+														(!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_V3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_V3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_45);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_MEC_6b_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_V3 : End");
+end
+
+rule "Medicaid_MEC_6a_V4"
+salience 63020
+activation-group "Medicaid_MEC_6AV_AT"
+agenda-group "Medicaid_MEC_6AV_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECTricareNoticeSent),
+														(isMECTricare_45_DayClockExpired),
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_V4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_V4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.VNPMR_45);
+		drools.setFocus("Medicaid_MEC_6b_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_V4 : End");
+end
+
+rule "Medicaid_MEC_6a_5"
+salience 63970
+activation-group "Medicaid_MEC_6a_AT"
+agenda-group "Medicaid_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECTricare,
+														doesUserAgreesWithMECTricare,
+														!getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		drools.setFocus("Medicaid_MEC_6b_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_5 : End");
+end
+
+rule "Medicaid_MEC_6a_5A"
+salience 63965
+activation-group "Medicaid_MEC_6a_AT"
+agenda-group "Medicaid_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECTricare,
+														doesUserAgreesWithMECTricare,
+														getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6a_5A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6a_5A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TCFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		drools.setFocus("Medicaid_MEC_6b_AG");
+		logger.debug("Rule : Medicaid_MEC_6a_5A : End");
+end
+
+//Medicaid Public MEC(6b)
+rule "Medicaid_MEC_6b_0"
+salience 63000
+activation-group "Medicaid_MEC_6b_AT"
+agenda-group "Medicaid_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_0");
+		drools.setFocus("Medicaid_MEC_6c_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_0 : End");
+end
+
+rule "Medicaid_MEC_6b_1"
+salience 62998
+activation-group "Medicaid_MEC_6b_AT"
+agenda-group "Medicaid_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECPeaceCorps));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_1");
+		drools.setFocus("Medicaid_MEC_6c_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_1 : End");
+end
+
+
+rule "Medicaid_MEC_6b_2"
+salience 62995
+activation-group "Medicaid_MEC_6b_AT"
+agenda-group "Medicaid_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECPeaceCorps,
+														isPeaceCorpsCoverageEndingWithinAllowableLimits);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_2");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, HXMECTypeEnum.PEACE_CORPS);
+		drools.setFocus("Medicaid_MEC_6c_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_2 : End");
+end
+
+
+rule "Medicaid_MEC_6b_3"
+salience 62990
+activation-group "Medicaid_MEC_6b_AT"
+agenda-group "Medicaid_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECPeaceCorps,
+														!doesUserAgreesWithMECPeaceCorps,
+														isMECPeaceCorpsStatusVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_3");
+		drools.setFocus("Medicaid_MEC_6c_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_3 : End");
+end
+
+rule "Medicaid_MEC_6b_4"
+salience 62985
+activation-group "Medicaid_MEC_6b_AT"
+agenda-group "Medicaid_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECPeaceCorps,
+														!doesUserAgreesWithMECPeaceCorps,
+														!isMECPeaceCorpsStatusVerified,
+														!getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.PEACE_FFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_UDA_PEACE);
+		drools.setFocus("Medicaid_MEC_6BV_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_4 : End");
+end
+
+rule "Medicaid_MEC_6b_4A"
+salience 62980
+activation-group "Medicaid_MEC_6b_AT"
+agenda-group "Medicaid_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECPeaceCorps,
+														!doesUserAgreesWithMECPeaceCorps,
+														!isMECPeaceCorpsStatusVerified,
+														getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_4A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_4A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.PEACE_FFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_UDA_PEACE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		drools.setFocus("Medicaid_MEC_6BV_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_4A : End");
+end
+
+//Medicaid Public MEC(6B_V)
+
+rule "Medicaid_MEC_6b_V1"
+salience 63025
+activation-group "Medicaid_MEC_6BV_AT"
+agenda-group "Medicaid_MEC_6BV_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECPeaceCorpsNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_V1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_V1");
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.MEC_PEACE, ClockNameEnum.MEC_PEACE_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.VNPMR);
+		drools.setFocus("Medicaid_MEC_6c_AG");
+		logger.debug("Rule :  Medicaid_MEC_6b_V1 : End");
+end
+
+rule "Medicaid_MEC_6b_V2"
+salience 63030
+activation-group "Medicaid_MEC_6BV_AT"
+agenda-group "Medicaid_MEC_6BV_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECPeaceCorpsNoticeSent),
+														!(isMECPeaceCorps_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_V2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_V2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.VNPMR);
+		drools.setFocus("Medicaid_MEC_6c_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_V2 : End");
+end
+
+
+rule "Medicaid_MEC_6b_V3"
+salience 63035
+activation-group "Medicaid_MEC_6BV_AT"
+agenda-group "Medicaid_MEC_6BV_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECPeaceCorpsNoticeSent),
+														(isMECPeaceCorps_45_DayClockExpired),
+														(!(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX)))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_V3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_V3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_45);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_MEC_6c_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_V3 : End");
+end
+
+rule "Medicaid_MEC_6b_V4"
+salience 63040
+activation-group "Medicaid_MEC_6BV_AT"
+agenda-group "Medicaid_MEC_6BV_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECPeaceCorpsNoticeSent),
+														(isMECPeaceCorps_45_DayClockExpired),
+														(memberAge < configGroupBean.getValueFor(RuleKey.CHIP_AGE_MAX))
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_V4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_V4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.VNPMR_45);
+		drools.setFocus("Medicaid_MEC_6c_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_V4 : End");
+end
+
+rule "Medicaid_MEC_6b_5"
+salience 62975
+activation-group "Medicaid_MEC_6b_AT"
+agenda-group "Medicaid_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECPeaceCorps,
+														doesUserAgreesWithMECPeaceCorps,
+														!getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.PEACE_FFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		drools.setFocus("Medicaid_MEC_6c_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_5 : End");
+end
+
+rule "Medicaid_MEC_6b_5A"
+salience 62970
+activation-group "Medicaid_MEC_6b_AT"
+agenda-group "Medicaid_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECPeaceCorps,
+														doesUserAgreesWithMECPeaceCorps,
+														getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6b_5A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6b_5A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.PEACE_FFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		drools.setFocus("Medicaid_MEC_6c_AG");
+		logger.debug("Rule : Medicaid_MEC_6b_5A : End");
+end
+
+
+//Medicaid Public MEC(6c)
+
+rule "Medicaid_MEC_6c_0"
+salience 62000
+activation-group "Medicaid_MEC_6c_AT"
+agenda-group "Medicaid_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6c_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6c_0");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_6c_0 : End");
+end
+
+rule "Medicaid_MEC_6c_1"
+salience 61998
+activation-group "Medicaid_MEC_6c_AT"
+agenda-group "Medicaid_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECAmeriCorps));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6c_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6c_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_6c_1 : End");
+end
+
+
+rule "Medicaid_MEC_6c_1A"
+salience 61995
+activation-group "Medicaid_MEC_6c_AT"
+agenda-group "Medicaid_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECAmeriCorps,
+														isAmeriCorpsCoverageEndingWithinAllowableLimits);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6c_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6c_1A");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, HXMECTypeEnum.AMERI_CORPS);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_6c_1A : End");
+end
+
+
+rule "Medicaid_MEC_6c_2"
+salience 61990
+activation-group "Medicaid_MEC_6c_AT"
+agenda-group "Medicaid_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECAmeriCorps,
+														!doesUserAgreesWithMECAmeriCorps,
+														isMECAmeriCorpsStatusVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6c_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6c_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_6c_2 : End");
+end
+
+rule "Medicaid_MEC_6c_3"
+salience 61985
+activation-group "Medicaid_MEC_6c_AT"
+agenda-group "Medicaid_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECAmeriCorps,
+														!doesUserAgreesWithMECAmeriCorps,
+														!isMECAmeriCorpsStatusVerified,
+														!getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6c_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6c_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.AMERI_FFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_UDA_AMERI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_6c_3 : End");
+end
+
+rule "Medicaid_MEC_6c_3A"
+salience 61980
+activation-group "Medicaid_MEC_6c_AT"
+agenda-group "Medicaid_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECAmeriCorps,
+														!doesUserAgreesWithMECAmeriCorps,
+														!isMECAmeriCorpsStatusVerified,
+														getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6c_3A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6c_3A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.AMERI_FFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPM_UDA_AMERI);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_6c_3A : End");
+end
+
+rule "Medicaid_MEC_6c_4"
+salience 61975
+activation-group "Medicaid_MEC_6c_AT"
+agenda-group "Medicaid_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECAmeriCorps,
+														doesUserAgreesWithMECAmeriCorps,
+														!getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6c_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6c_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.AMERI_FFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_6c_4 : End");
+end
+
+rule "Medicaid_MEC_6c_4A"
+salience 61970
+activation-group "Medicaid_MEC_6c_AT"
+agenda-group "Medicaid_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECAmeriCorps,
+														doesUserAgreesWithMECAmeriCorps,
+														getMedicaidAliessaInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_MEC_6c_4A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_MEC_6c_4A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.AMERI_FFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Medicaid_MEC_6c_4A : End");
+end

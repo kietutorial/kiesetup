@@ -1,0 +1,32 @@
+Download KIE jbpm-installer-7.0.0.Final.zip
+-----------------------------------------------------
+Unzip to c:/bin/jbpm-installer-7.0.0.Final
+
+
+Install KIE Artifacts
+--------------------------------------
+cd c:/bin/jbpm-installer-7.0.0.Final
+
+call j_install.cmd
+
+echo off
+rem .
+rem . setant
+rem .
+set CMD=setant
+echo .
+echo CMD=%CMD%
+echo .
+ant install.demo
+%CMD%
+
+
+Add Default Users - use setuser.cmd
+-----------------------------------------------
+C:\bin\jbpm-installer-7.0.0.Final\wildfly-10.1.0.Final/bin/add-user.sh  --user-properties C:\bin\jbpm-installer-7.0.0.Final\wildfly-10.1.0.Final/standalone/configuration/users.properties  --group-properties C:\bin\jbpm-installer-7.0.0.Final\wildfly-10.1.0.Final/standalone/configuration/roles.properties --realm ApplicationRealm
+pause
+
+
+Add A User
+-----------------------------------------------
+add-user -a -u kieserver -p kieserver -ro admin,kie-server,rest-all,kiemgmt

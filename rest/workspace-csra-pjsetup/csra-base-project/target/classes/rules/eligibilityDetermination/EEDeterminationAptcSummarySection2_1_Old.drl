@@ -1,0 +1,473 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.utils.ext.HxDateUtils;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_APTC_SUMMARY_SEC2_1_OLD"
+salience 49610
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_APTC_SUMMARY_SEC2_1_OLD : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "MAIN_APTC_SUMMARY_SEC2_1_OLD");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_SEC1_05_ACK);
+		drools.setFocus("Aptc_SUMMARY_SEC2_FLIP_AG");
+		logger.debug("Rule : MAIN_APTC_SUMMARY_SEC2_1_OLD : End");
+end
+
+
+//////////////////////////////////////////////////////Income////////////////////////////////////////////////
+
+rule "Aptc_SUMMARY_SEC2_1_FLIP_1"
+salience 2002
+activation-group "Aptc_SUMMARY_SEC2_FLIP_AT"
+agenda-group "Aptc_SUMMARY_SEC2_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Aptc_Summary_6_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_SUMMARY_SEC2_1_FLIP_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_SUMMARY_SEC2_1_FLIP_1");
+		drools.setFocus("Aptc_Summary_6_AG");
+		logger.debug("Rule : Aptc_SUMMARY_SEC2_1_FLIP_1 : End");
+end
+
+rule "Aptc_SUMMARY_SEC2_1_FLIP_2"
+salience 2001
+activation-group "Aptc_SUMMARY_SEC2_FLIP_AT"
+agenda-group "Aptc_SUMMARY_SEC2_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!("Aptc_Summary_6_AG".equals(isRunRequiredForSheet)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_SUMMARY_SEC2_1_FLIP_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_SUMMARY_SEC2_1_FLIP_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_SUMMARY_SEC2_1_FLIP_2 : End");
+end
+
+//APTC Summary (6)
+rule "Aptc_Summary_6_0"
+salience 46000
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+													  (isManualRenewal && isAcctInLast45DaysOfRenewal),
+													  isCurrentlyEnrolledInMedicaid,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  !isMemberChild,
+													  (memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_0");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcOver65NotCaretakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_0 : End");
+end
+
+rule "Aptc_Summary_6_1"
+salience 45995
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_1 : End");
+end
+
+rule "Aptc_Summary_6_2"
+salience 45990
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+														!isCurrentlyEnrolledInMedicaid);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_2");	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_2 : End");
+end
+
+rule "Aptc_Summary_6_3"
+salience 45980
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  !isMedicaidOverIncomeReasonSet,
+													  !(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_3");	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_3 : End");
+end
+
+
+rule "Aptc_Summary_6_4"
+salience 45970
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  isMedicaidOverIncomeReasonSet,
+													  isMemberPregnant);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcParentChildCareTakerInd(Boolean.TRUE);	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_4 : End");
+end
+
+rule "Aptc_Summary_6_5"
+salience 45960
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  isMedicaidOverIncomeReasonSet,
+													  !isMemberPregnant,
+													  isMemberParent);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_5");	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_5 : End");
+end
+
+
+rule "Aptc_Summary_6_6"
+salience 45950
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  isMedicaidOverIncomeReasonSet,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  isCaretakerRelativeFlag);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_6");	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_6 : End");
+end
+
+
+rule "Aptc_Summary_6_7"
+salience 45940
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  isMedicaidOverIncomeReasonSet,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  isMemberChild,
+													  !(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_7");	
+		//Fix for defect 30450
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_7 : End");
+end
+
+rule "Aptc_Summary_6_8"
+salience 45930
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  isMedicaidOverIncomeReasonSet,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  isMemberChild,
+													  (memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+													  isLivingWithparentOrStepParent);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_8");	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_8 : End");
+end
+
+rule "Aptc_Summary_6_9"
+salience 45920
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  isMemberChild,
+													  (memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+													  !isLivingWithparentOrStepParent,
+													  isReceivingMECMedicaidAORB);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_9 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_9");	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcUnder64NotCaretakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_9 : End");
+end
+
+rule "Aptc_Summary_6_10"
+salience 45910
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  isMemberChild,
+													  (memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+													  !isLivingWithparentOrStepParent,
+													  !isReceivingMECMedicaidAORB);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_10 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_10");	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_10 : End");
+end
+
+rule "Aptc_Summary_6_11"
+salience 45900
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  !isMemberChild,
+													  (memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_11 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_11");	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcOver65NotCaretakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_11 : End");
+end
+
+rule "Aptc_Summary_6_12"
+salience 45890
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  !isMemberChild,
+													  !(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)),
+													  isReceivingMECMedicaidAORB);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_12 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_12");	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcUnder64NotCaretakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_12 : End");
+end
+
+rule "Aptc_Summary_6_13"
+salience 45880
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  !isMemberChild,
+													  !(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)),
+													  !isDisabledOrBlind,
+													  !isReceivingMECMedicaidAORB);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_13 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_13");	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_13 : End");
+end
+
+rule "Aptc_Summary_6_14"
+salience 45870
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  isMedicaidOverIncomeReasonSet,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  !isMemberChild,
+													  isDisabledOrBlind);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_14 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_14");	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcDisableBlindInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_14 : End");
+end
+
+rule "Aptc_Summary_6_15"
+salience 45860
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  isMedicaidOverIncomeReasonSet,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  !isMemberChild,
+													  !isDisabledOrBlind);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_15 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_15");	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_15 : End");
+end
+
+rule "Aptc_Summary_6_16"
+salience 45850
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  isMedicaidOverIncomeReasonSet,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  isMemberChild,
+													  (memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+													  isDisabledOrBlind);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_16 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_16");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC).setRenewalNotAptcDisableBlindInd(Boolean.TRUE);	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_16 : End");
+end
+
+rule "Aptc_Summary_6_17"
+salience 45840
+activation-group "Aptc_Summary_6_AT"
+agenda-group "Aptc_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+													  isCurrentlyEnrolledInMedicaid,
+													  isMedicaidOverIncomeReasonSet,
+													  !isMemberPregnant,
+													  !isMemberParent,
+													  !isCaretakerRelativeFlag,
+													  isMemberChild,
+													  (memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+													  !isDisabledOrBlind);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_6_17 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_6_17");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Aptc_Summary_6_17 : End");
+end

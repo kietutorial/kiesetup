@@ -1,0 +1,167 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.utils.ext.HXUtility;
+
+global org.slf4j.Logger logger;
+
+
+rule "MAIN_CSR_SUMMARY"
+salience 80000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_CSR_SUMMARY : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "MAIN_CSR_SUMMARY");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_01_ACK);
+		drools.setFocus("CSR_SUMMARY_STALE_1_AG");
+		logger.debug("Rule : MAIN_CSR_SUMMARY : End");
+end
+
+//CR1606
+rule "CSR_SUMMARY_VERIFY_STALE_ELG_SEC_01"
+salience 95060
+activation-group "CSR_SUMMARY_STALE_1_AT"
+agenda-group "CSR_SUMMARY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CSR_SUMMARY_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_SUMMARY_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : CSR_SUMMARY_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "CSR_SUMMARY_VERIFY_STALE_ELG_SEC_03"
+salience 95050
+activation-group "CSR_SUMMARY_STALE_1_AT"
+agenda-group "CSR_SUMMARY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CSR_SUMMARY_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_SUMMARY_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("CSR_Summary_1_AG");
+		logger.debug("Rule : CSR_SUMMARY_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//Aptc Summary(1)
+
+rule "CSR_Summary_1_1"
+salience 78000
+activation-group "CSR_Summary_1_AT"
+agenda-group "CSR_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.CSR));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Summary_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Summary_1_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : CSR_Summary_1_1 : End");
+end
+
+
+rule "CSR_Summary_1_2"
+salience 77090
+activation-group "CSR_Summary_1_AT"
+agenda-group "CSR_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusSuspend(ProgramCode.CSR));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Summary_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Summary_1_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : CSR_Summary_1_2 : End");
+end
+
+rule "CSR_Summary_1_3"
+salience 77080
+activation-group "CSR_Summary_1_AT"
+agenda-group "CSR_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusPending(ProgramCode.CSR));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Summary_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Summary_1_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : CSR_Summary_1_3 : End");
+end
+
+
+rule "CSR_Summary_1_4"
+salience 77070
+activation-group "CSR_Summary_1_AT"
+agenda-group "CSR_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProgramStatusInEligible(ProgramCode.CSR),
+														!isProgramStatusSuspend(ProgramCode.CSR),
+														!isProgramStatusPending(ProgramCode.CSR));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Summary_1_4 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.CSR, program_status.ELIGIBLE, null);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Summary_1_4");
+		drools.setFocus("CSR_Summary_2_AG");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : CSR_Summary_1_4 : End");
+end
+
+
+
+//CSR Summary (5)
+rule "CSR_Summary_2_1"
+salience 47000
+activation-group "CSR_Summary_2_AT"
+agenda-group "CSR_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.CSR));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Summary_2_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Summary_2_1");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CSR);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CSR);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CSR,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : CSR_Summary_2_1 : End");
+end
+
+
+rule "CSR_Summary_2_2"
+salience 46990
+activation-group "CSR_Summary_2_AT"
+agenda-group "CSR_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.CSR));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Summary_2_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Summary_2_2");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CSR);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CSR,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : CSR_Summary_2_2 : End");
+end

@@ -1,0 +1,52 @@
+When we start work we need to reflect work as begun
+------------------------------------------------------
+o Digbijoy Worksheet Defect Planning And Tracking
+Z:\DDas\508_Compliance\508_DefectPlanning.xlsx
+
+o Add Change To Digbijoy Worksheet
+* On start flag work: In Progress
+- Add an entry for state of project:
+75600	CS	508_shop_Tab not moving to expand the address in address history page.	Chauvet P	In Progress	5/2/2017	5/2/2017		
+
+o Use RTC To Provide Status Of Project
+https://clm.emedny.org/ccm/web/projects/NY-HX%20%28CM%29#action=com.ibm.team.workitem.viewWorkItem&id=75354
+- Login
+- Search for defect: 75354
+- Change status to: Working
+
+
+When we finish work we need to reflect work was complete
+---------------------------------------------------------
+o igbijoy Worksheet Defect Planning And Tracking
+Z:\DDas\508_Compliance\508_DefectPlanning.xlsx
+
+* On start flag work: Fixed
+o Add an entry for state of project:
+75354	CS	508_CS_Tab Not going to "Enrollment History & clear dates & Eligibility History"Buttons	Chauvet P	Fixed	4/24/2017	4/28/2017		
+
+
+Use RTC To Provide Status Of Project
+----------------------------------------
+o NEW - Add fix status after Verification on DIT
+
+https://clm.emedny.org/ccm/web/projects/NY-HX%20%28CM%29#action=com.ibm.team.workitem.viewWorkItem&id=75354
+o Login
+o Search for defect
+75354
+
+o On top-mid Right of screen
+1. eMedNY Impact: No
+2. UI Impact:  Yes
+o Near bottom 
+3. Reason Code: Compliance Standards
+4. Defect Iteration: 0
+Maybe Need Comment: ignore for now
+o Change status to: Resolved
+Enter:
+6. Summary: Resolved
+o Add commmment
+7. This is Fixed, apart from 508 standard test, verified  the UI functionality
+8. Save
+
+* Note Summary will change to: Fixed
+	

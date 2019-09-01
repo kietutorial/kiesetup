@@ -1,0 +1,19 @@
+Assumptions
+----------------------------
+o We are usin defect: 75354 as our sample defect.
+  Please the current defect #### for specific changes.
+
+Start of Work Status
+--------------------------------------------------------------
+https://clm.emedny.org/ccm/web/projects/NY-HX%20%28CM%29#action=com.ibm.team.workitem.viewWorkItem&id=75354
+o Login
+
+o Search for defect
+75354
+- Change status to: Working
+
+Add Status to Defect Planning And Tracking
+--------------------------------------------
+o Digbijoy Worksheet Defect Planning And Tracking
+Z:\DDas\508_Compliance\508_DefectPlanning.xlsx
+  

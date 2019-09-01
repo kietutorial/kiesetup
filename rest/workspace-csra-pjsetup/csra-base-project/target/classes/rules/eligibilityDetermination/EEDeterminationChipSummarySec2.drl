@@ -1,0 +1,607 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.utils.ext.HXUtility;
+
+global org.slf4j.Logger logger;
+
+
+rule "MAIN_CHIP_SUMMARY_SEC2"
+salience 49610
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_CHIP_SUMMARY_SEC2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_SUMMARY_SEC2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05_ACK);
+		drools.setFocus("MAIN_CHIP_SUMMARY_SEC2_STALE_1_AG");
+		logger.debug("Rule : MAIN_CHIP_SUMMARY_SEC2 : End");
+end
+
+
+//CR1606
+rule "MAIN_CHIP_SUMMARY_SEC2_STALE_ELG_SEC_01"
+salience 95060
+activation-group "MAIN_CHIP_SUMMARY_SEC2_STALE_1_AT"
+agenda-group "MAIN_CHIP_SUMMARY_SEC2_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CHIP_SUMMARY_SEC2_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_SUMMARY_SEC2_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : MAIN_CHIP_SUMMARY_SEC2_STALE_ELG_SEC_01 : End");
+end
+
+rule "MAIN_CHIP_SUMMARY_SEC2_STALE_ELG_SEC_03"
+salience 95050
+activation-group "MAIN_CHIP_SUMMARY_SEC2_STALE_1_AT"
+agenda-group "MAIN_CHIP_SUMMARY_SEC2_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CHIP_SUMMARY_SEC2_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_SUMMARY_SEC2_STALE_ELG_SEC_03");
+		drools.setFocus("Chip_SUMMARY_SEC2_FLIP_AG");
+		logger.debug("Rule : MAIN_CHIP_SUMMARY_SEC2_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+rule "Chip_SUMMARY_SEC2_FLIP_1"
+salience 2002
+activation-group "Chip_SUMMARY_SEC2_FLIP_AT"
+agenda-group "Chip_SUMMARY_SEC2_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Chip_Summary_5_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_SUMMARY_SEC2_FLIP_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_SUMMARY_SEC2_FLIP_1");
+		drools.setFocus("Chip_Summary_6_AG");
+		drools.setFocus("Chip_Summary_5_AG");
+		logger.debug("Rule : Chip_SUMMARY_SEC2_FLIP_1 : End");
+end
+
+rule "Chip_SUMMARY_SEC2_FLIP_2"
+salience 2001
+activation-group "Chip_SUMMARY_SEC2_FLIP_AT"
+agenda-group "Chip_SUMMARY_SEC2_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!("Chip_Summary_5_AG".equals(isRunRequiredForSheet)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_SUMMARY_SEC2_FLIP_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_SUMMARY_SEC2_FLIP_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Chip_SUMMARY_SEC2_FLIP_2 : End");
+end
+
+//Chip_Summary_5
+
+//Note: Rule completeion step is done in sheet 4 as ruleset 4 will execute at the end
+
+rule "Chip_Summary_5_1"
+salience 47000
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAllVerificationsVerified,
+														!isChpNewBorn,
+														!isElgStartDateModified(ProgramCode.CHIP),
+														!isLSCThruNonRenewalBatch);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_1");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_1 : End");
+end
+
+rule "Chip_Summary_5_2"
+salience 46995
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAllVerificationsVerified,
+														isChpNewBorn,
+														!isElgStartDateModified(ProgramCode.CHIP),
+														!(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_2");
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.CHIP,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNewBorn(Boolean.TRUE);
+		drools.setFocus("Chip_Summary_7_AG");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_2 : End");
+end
+
+rule "Chip_Summary_5_3"
+salience 46990
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAllVerificationsVerified,
+														isChpNewBorn,
+														!isElgStartDateModified(ProgramCode.CHIP),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_3");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_3 : End");
+end
+
+rule "Chip_Summary_5_4"
+salience 46985
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAllVerificationsVerified,
+														isChpNewBorn,
+														isElgStartDateModified(ProgramCode.CHIP),
+														!(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNewBorn(Boolean.TRUE);
+		drools.setFocus("Chip_Summary_7_AG");
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_4 : End");
+end
+
+rule "Chip_Summary_5_5"
+salience 46980
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAllVerificationsVerified,
+														isChpNewBorn,
+														isElgStartDateModified(ProgramCode.CHIP),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_5");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_5 : End");
+end
+
+rule "Chip_Summary_5_6"
+salience 46975
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAllVerificationsVerified,
+														!isElgStartDateModified(ProgramCode.CHIP),
+														isLSCThruNonRenewalBatch);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_6");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.CHIP,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_6 : End");
+end
+
+rule "Chip_Summary_5_7"
+salience 46970
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														!isElgEndDateAvailable(ProgramCode.CHIP),
+														!isChpNewBorn,
+														!isElgStartDateModified(ProgramCode.CHIP),
+														!isLSCThruNonRenewalBatch);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_7");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_7 : End");
+end
+
+rule "Chip_Summary_5_8"
+salience 46965
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														!isElgEndDateAvailable(ProgramCode.CHIP),
+														isChpNewBorn,
+														!isElgStartDateModified(ProgramCode.CHIP),
+														!(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_8");
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.CHIP,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNewBorn(Boolean.TRUE);
+		drools.setFocus("Chip_Summary_7_AG");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Chip_Summary_5_8 : End");
+end
+
+rule "Chip_Summary_5_9"
+salience 46960
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														!isElgEndDateAvailable(ProgramCode.CHIP),
+														isChpNewBorn,
+														!isElgStartDateModified(ProgramCode.CHIP),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP),
+														!isLSCThruNonRenewalBatch);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_9 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_9");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_9 : End");
+end
+
+rule "Chip_Summary_5_10"
+salience 46955
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														!isElgEndDateAvailable(ProgramCode.CHIP),
+														isChpNewBorn,
+														isElgStartDateModified(ProgramCode.CHIP),
+														!(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP),
+														!isLSCThruNonRenewalBatch);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_10 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_10");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNewBorn(Boolean.TRUE);
+		drools.setFocus("Chip_Summary_7_AG");
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_10 : End");
+end
+
+rule "Chip_Summary_5_11"
+salience 46955
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														!isElgEndDateAvailable(ProgramCode.CHIP),
+														isChpNewBorn,
+														isElgStartDateModified(ProgramCode.CHIP),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP),
+														!isLSCThruNonRenewalBatch);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_11 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_11");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_11 : End");
+end
+
+rule "Chip_Summary_5_12"
+salience 46950
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														!isElgEndDateAvailable(ProgramCode.CHIP),
+														!isElgStartDateModified(ProgramCode.CHIP),
+														isLSCThruNonRenewalBatch);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_12 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_12");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.CHIP,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.CHIP));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_12 : End");
+end
+
+rule "Chip_Summary_5_13"
+salience 46945
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														isElgEndDateAvailable(ProgramCode.CHIP),
+														!isChpNewBorn,
+														!isElgStartDateModified(ProgramCode.CHIP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_13 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_5_13");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_13 : End");
+end
+
+rule "Chip_Summary_5_14"
+salience 46940
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														isElgEndDateAvailable(ProgramCode.CHIP),
+														isChpNewBorn,
+														!isElgStartDateModified(ProgramCode.CHIP),
+														!(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_14 : Begin");		
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.CHIP,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNewBorn(Boolean.TRUE);
+		drools.setFocus("Chip_Summary_7_AG");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_14 : End");
+end
+
+rule "Chip_Summary_5_15"
+salience 46935
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														isElgEndDateAvailable(ProgramCode.CHIP),
+														isChpNewBorn,
+														!isElgStartDateModified(ProgramCode.CHIP),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_15 : Begin");		
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_15 : End");
+end
+
+rule "Chip_Summary_5_16"
+salience 46930
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														isElgEndDateAvailable(ProgramCode.CHIP),
+														isChpNewBorn,
+														isElgStartDateModified(ProgramCode.CHIP),
+														!(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_16 : Begin");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNewBorn(Boolean.TRUE);
+		drools.setFocus("Chip_Summary_7_AG");
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_16 : End");
+end
+
+rule "Chip_Summary_5_17"
+salience 46925
+activation-group "Chip_Summary_5_AT"
+agenda-group "Chip_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAllVerificationsVerified,
+														isElgEndDateAvailable(ProgramCode.CHIP),
+														isChpNewBorn,
+														isElgStartDateModified(ProgramCode.CHIP),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInQHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_5_17 : Begin");		
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.CHIP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.CHIP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP,new java.util.Date());
+		logger.debug("Rule : Chip_Summary_5_17 : End");
+end
+
+
+//Chip Summary(6)
+
+rule "Chip_Summary_6_1"
+salience 43000
+activation-group "Chip_Summary_6_AT"
+agenda-group "Chip_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!deceasedConsumerFoundInhousehold);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_6_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_6_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Chip_Summary_6_1 : End");
+end
+
+rule "Chip_Summary_6_2"
+salience 43290
+activation-group "Chip_Summary_6_AT"
+agenda-group "Chip_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														memberNewlyAddedToHousehold);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_6_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_6_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Chip_Summary_6_2 : End");
+end
+
+rule "Chip_Summary_6_3"
+salience 43280
+activation-group "Chip_Summary_6_AT"
+agenda-group "Chip_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														!memberNewlyAddedToHousehold,
+														alreadyExistingMemberInHousehold,
+														!isUserSatisfyingRenewalLSC);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_6_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_6_3");
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP,($eDeterminationfacts.getPreviousElgEndDate(ProgramCode.CHIP)));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setUserPreviousEndDateDueToDeceasedInfo(true);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.PREV_END_DT_USED_DOD);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Chip_Summary_6_3 : End");
+end
+
+rule "Chip_Summary_6_4"
+salience 43270
+activation-group "Chip_Summary_6_AT"
+agenda-group "Chip_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														!memberNewlyAddedToHousehold,
+														alreadyExistingMemberInHousehold,
+														isUserSatisfyingRenewalLSC);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_6_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_6_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Chip_Summary_6_4 : End");
+end
+
+rule "Chip_Summary_6_5"
+salience 43260
+activation-group "Chip_Summary_6_AT"
+agenda-group "Chip_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														memberNewlyAddedToHousehold,
+														!alreadyExistingMemberInHousehold);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_6_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_6_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Chip_Summary_6_5 : End");
+end
+
+//Chip Summary(7)
+
+rule "Chip_Summary_7_1"
+salience 42200
+activation-group "Chip_Summary_7_AT"
+agenda-group "Chip_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isRequestingRetroCoverage);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_7_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_7_1");
+		logger.debug("Rule : Chip_Summary_7_1 : End");
+end
+
+rule "Chip_Summary_7_2"
+salience 42195
+activation-group "Chip_Summary_7_AT"
+agenda-group "Chip_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isRequestingRetroCoverage,
+														!isChpNewBorn);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_7_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_7_2");
+		logger.debug("Rule : Chip_Summary_7_2 : End");
+end
+
+rule "Chip_Summary_7_3"
+salience 42190
+activation-group "Chip_Summary_7_AT"
+agenda-group "Chip_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isRequestingRetroCoverage,
+														isChpNewBorn);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_7_3: Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_7_3");
+		$eDeterminationfacts.updateMedicaidRetroProgramForAllMonths(program_status.INELIGIBLE, Boolean.TRUE);
+		logger.debug("Rule : Chip_Summary_7_3 : End");
+end

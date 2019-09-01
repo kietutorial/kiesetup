@@ -1,0 +1,1340 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.utils.ext.HxDateUtils;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_APTC_SUMMARY"
+salience 49610
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_APTC_SUMMARY : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "MAIN_APTC_SUMMARY");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04_ACK);
+		drools.setFocus("APTC_SUMMARY_STALE_1_AG");
+		logger.debug("Rule : MAIN_APTC_SUMMARY : End");
+end
+
+
+
+//CR1606
+rule "APTC_SUMMARY_VERIFY_STALE_ELG_SEC_01"
+salience 95060
+activation-group "APTC_SUMMARY_STALE_1_AT"
+agenda-group "APTC_SUMMARY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : APTC_SUMMARY_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "APTC_SUMMARY_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : APTC_SUMMARY_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "APTC_SUMMARY_VERIFY_STALE_ELG_SEC_03"
+salience 95050
+activation-group "APTC_SUMMARY_STALE_1_AT"
+agenda-group "APTC_SUMMARY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : APTC_SUMMARY_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "APTC_SUMMARY_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Aptc_Summary_1_AG");
+		logger.debug("Rule : APTC_SUMMARY_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//////////////////////////////////////////////////////Income////////////////////////////////////////////////
+//Aptc Summary(1)
+
+rule "Aptc_Summary_1_1"
+salience 49600
+activation-group "Aptc_Summary_1_AT"
+agenda-group "Aptc_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_1_1 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.NOFCR);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_1_1");		
+		drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_1_1 : End");
+end
+
+rule "Aptc_Summary_1_2"
+salience 49590
+activation-group "Aptc_Summary_1_AT"
+agenda-group "Aptc_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_1_2");
+		//drools.setFocus("Aptc_Summary_6_AG");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Summary_6_AG");
+		drools.setFocus("Aptc_Summary_3_AG");
+		drools.setFocus("Aptc_Summary_7_AG");
+		logger.debug("Rule : Aptc_Summary_1_2 : End");
+end
+
+
+
+rule "Aptc_Summary_1_3"
+salience 49580
+activation-group "Aptc_Summary_1_AT"
+agenda-group "Aptc_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusSuspend(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_1_3");
+		drools.setFocus("Aptc_Summary_2_AG");
+		logger.debug("Rule : Aptc_Summary_1_3 : End");
+end
+
+rule "Aptc_Summary_1_4"
+salience 49570
+activation-group "Aptc_Summary_1_AT"
+agenda-group "Aptc_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusPending(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_1_4");
+		drools.setFocus("Aptc_Summary_2_AG");
+		logger.debug("Rule : Aptc_Summary_1_4 : End");
+end
+
+
+rule "Aptc_Summary_1_5"
+salience 49560
+activation-group "Aptc_Summary_1_AT"
+agenda-group "Aptc_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														!isProgramStatusInEligible(ProgramCode.APTC),
+														!isProgramStatusSuspend(ProgramCode.APTC),
+														!isProgramStatusPending(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_1_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.ELIGIBLE, null);
+		drools.setFocus("Aptc_Summary_2_AG");
+		drools.setFocus("Aptc_Summary_5_AG");
+		logger.debug("Rule : Aptc_Summary_1_5 : End");
+end
+
+//Aptc Summary(2)
+
+rule "Aptc_Summary_2_1"
+salience 49600
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.SSN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_1 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_1");
+		//drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_2_1 : End");
+end
+
+
+rule "Aptc_Summary_2_2"
+salience 49590
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_2 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_2");
+		//drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_2_2 : End");
+end
+
+rule "Aptc_Summary_2_3"
+salience 49580
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.IMMIGRATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_3 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_3");
+		//drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_2_3 : End");
+end
+
+
+rule "Aptc_Summary_2_4"
+salience 49570
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.INCARCERATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_4 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.INCARCERATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_4");
+		//drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_2_4 : End");
+end
+
+rule "Aptc_Summary_2_5"
+salience 49560
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.STATE_RESIDENCY));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.STATE_RESIDENCY);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_5");
+		//drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_2_5 : End");
+end
+
+rule "Aptc_Summary_2_6"
+salience 49550
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.AMERICAN_INDIAN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_6 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.AMERICAN_INDIAN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_6");
+		//drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_2_6 : End");
+end
+
+rule "Aptc_Summary_2_7"
+salience 49540
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.INCOME));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_7 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_7");
+		//drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_2_7 : End");
+end
+
+rule "Aptc_Summary_2_8"
+salience 49530
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationTypeMEC(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_8 : Begin");
+		$eDeterminationfacts.activateMECClocks(ProgramCode.APTC);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_8");
+		//drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_2_8 : End");
+end
+
+rule "Aptc_Summary_2_9"
+salience 49520
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.ESI));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_9 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.ESI);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_9");
+		//drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_2_9 : End");
+end
+
+rule "Aptc_Summary_2_10"
+salience 49510
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.ESI_WAIT_PERIOD));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_10 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.ESI_WAIT_PERIOD);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_10");
+		//drools.setFocus("Aptc_Summary_3_AG");
+		logger.debug("Rule : Aptc_Summary_2_10 : End");
+end
+/*
+rule "Aptc_Summary_2_11"
+salience 49500
+//activation-group "Aptc_Summary_2_AT"
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC,
+														EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_11 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_11");
+		logger.debug("Rule : Aptc_Summary_2_11 : End");
+end
+
+rule "Aptc_Summary_2_12"
+salience 49490
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC,
+														EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_12 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_12");
+		logger.debug("Rule : Aptc_Summary_2_12 : End");
+end
+
+rule "Aptc_Summary_2_13"
+salience 49480
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC,
+														EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_13 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_13");
+		logger.debug("Rule : Aptc_Summary_2_13 : End");
+end
+
+rule "Aptc_Summary_2_14"
+salience 49470
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC,
+														EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_14 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_14");
+		logger.debug("Rule : Aptc_Summary_2_14 : End");
+end
+
+rule "Aptc_Summary_2_15"
+salience 49460
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.APTC,
+														EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_15 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_15");
+		logger.debug("Rule : Aptc_Summary_2_15 : End");
+end
+*/
+
+rule "Aptc_Summary_2_16"
+salience 49455
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC,
+														EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_16 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_16");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		logger.debug("Rule : Aptc_Summary_2_16 : End");
+end
+
+
+rule "Aptc_Summary_2_17"
+salience 49450
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_17 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_17");
+		logger.debug("Rule : Aptc_Summary_2_17 : End");
+end
+
+rule "Aptc_Summary_2_18"
+salience 49440
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isNonDeterminsiticClockSetForProgramAndClockName(ProgramCode.APTC,
+														getClockName(HXConstants.APTC_DECEASED_CLCOK)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.APTC).getCancelNonDeterministicDeceasedClock()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_18 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_18");
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.APTC, $eDeterminationfacts.getClockName(HXConstants.APTC_DECEASED_CLCOK));
+		logger.debug("Rule : Aptc_Summary_2_18 : End");
+end
+
+rule "Aptc_Summary_2_19"
+salience 49430
+agenda-group "Aptc_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_2_19 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_2_19");
+		drools.setFocus("Aptc_Summary_4_AG");
+		logger.debug("Rule : Aptc_Summary_2_19 : End");
+end
+
+//Aptc Summary(3)
+
+rule "Aptc_Summary_3_1"
+salience 49600
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.SSN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_1 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_1");
+		//drools.setFocus("Aptc_Summary_4_AG");
+		logger.debug("Rule : Aptc_Summary_3_1 : End");
+end
+
+
+rule "Aptc_Summary_3_2"
+salience 49590
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_2 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_2");
+		//drools.setFocus("Aptc_Summary_4_AG");
+		logger.debug("Rule : Aptc_Summary_3_2 : End");
+end
+
+rule "Aptc_Summary_3_3"
+salience 49580
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.IMMIGRATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_3 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_3");
+		//drools.setFocus("Aptc_Summary_4_AG");
+		logger.debug("Rule : Aptc_Summary_3_3 : End");
+end
+
+
+rule "Aptc_Summary_3_4"
+salience 49570
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.INCARCERATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_4 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.INCARCERATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_4");
+		//drools.setFocus("Aptc_Summary_4_AG");
+		logger.debug("Rule : Aptc_Summary_3_4 : End");
+end
+
+rule "Aptc_Summary_3_5"
+salience 49560
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.STATE_RESIDENCY));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_5 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.STATE_RESIDENCY);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_5");
+		//drools.setFocus("Aptc_Summary_4_AG");
+		logger.debug("Rule : Aptc_Summary_3_5 : End");
+end
+
+rule "Aptc_Summary_3_6"
+salience 49550
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.AMERICAN_INDIAN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_6 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.AMERICAN_INDIAN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_6");
+		//drools.setFocus("Aptc_Summary_4_AG");
+		logger.debug("Rule : Aptc_Summary_3_6 : End");
+end
+
+rule "Aptc_Summary_3_7"
+salience 49540
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														EligibilityVerificationTypeEnum.INCOME));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_7 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_7");
+		//drools.setFocus("Aptc_Summary_4_AG");
+		logger.debug("Rule : Aptc_Summary_3_7 : End");
+end
+
+rule "Aptc_Summary_3_8"
+salience 49530
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationTypeMEC(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_8 : Begin");
+		$eDeterminationfacts.inActivateMECClocks(ProgramCode.APTC);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_8");
+		//drools.setFocus("Aptc_Summary_4_AG");
+		logger.debug("Rule : Aptc_Summary_3_8 : End");
+end
+
+rule "Aptc_Summary_3_9"
+salience 49520
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_TRI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_9 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.MEC_TRI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_9");
+		logger.debug("Rule : Aptc_Summary_3_9 : End");
+end
+
+rule "Aptc_Summary_3_10"
+salience 49510
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_10 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.MEC_PEACE_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_10");
+		logger.debug("Rule : Aptc_Summary_3_10 : End");
+end
+
+rule "Aptc_Summary_3_11"
+salience 49500
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_11 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.MEC_AMERI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_11");
+		logger.debug("Rule : Aptc_Summary_3_11 : End");
+end
+
+rule "Aptc_Summary_3_12"
+salience 49490
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.ESI));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_12");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.ESI);
+		logger.debug("Rule : Aptc_Summary_3_12 : End");
+end
+
+rule "Aptc_Summary_3_13"
+salience 49480
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.ESI_WAIT_PERIOD));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_13");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.ESI_WAIT_PERIOD);
+		logger.debug("Rule : Aptc_Summary_3_13 : End");
+end
+/*
+rule "Aptc_Summary_3_14"
+salience 49470
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.RESI_SPL_RULE_LGL_PERMRESI_90));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_14 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_14");
+		logger.debug("Rule : Aptc_Summary_3_14 : End");
+end
+
+rule "Aptc_Summary_3_15"
+salience 49460
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.RESI_SPL_RULE_WORK_DOCS_90));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_15 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_15");
+		logger.debug("Rule : Aptc_Summary_3_15 : End");
+end
+
+rule "Aptc_Summary_3_16"
+salience 49450
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL_90));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_16 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_16");
+		logger.debug("Rule : Aptc_Summary_3_16 : End");
+end
+
+rule "Aptc_Summary_3_17"
+salience 49440
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.RESI_SPL_RULE_HOME_OWNERSHIP_90));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_17 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_17");
+		logger.debug("Rule : Aptc_Summary_3_17 : End");
+end
+
+rule "Aptc_Summary_3_18"
+salience 49430
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.RESI_SPL_RULE_HOME_RENTAL_90));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_18 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_18");
+		logger.debug("Rule : Aptc_Summary_3_18 : End");
+end
+
+*/
+rule "Aptc_Summary_3_19"
+salience 49420
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC,
+														EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_19 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_19");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		logger.debug("Rule : Aptc_Summary_3_19 : End");
+end
+
+rule "Aptc_Summary_3_20"
+salience 49410
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonDeterminsiticClockSetForProgramAndClockName(ProgramCode.APTC,
+														getClockName(HXConstants.APTC_DECEASED_CLCOK)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_20 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_20");
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.APTC, $eDeterminationfacts.getClockName(HXConstants.APTC_DECEASED_CLCOK));
+		logger.debug("Rule : Aptc_Summary_3_20 : End");
+end
+
+rule "Aptc_Summary_3_21"
+salience 49400
+agenda-group "Aptc_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_3_21 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_3_21");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_3_21 : End");
+end
+
+//Aptc Summary(4)
+
+rule "Aptc_Summary_4_1"
+salience 49600
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.INCARCERATION_1),
+														is1DayRerunScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4_1");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4_1 : End");
+end
+
+
+rule "Aptc_Summary_4_2"
+salience 49590
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.INCARCERATION_1),
+														!is1DayRerunScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4_2 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, ClockNameEnum.INCARCERATION_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4_2");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4_2 : End");
+end
+
+rule "Aptc_Summary_4_3"
+salience 49580
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.INCARCERATION_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4_3 : Begin");
+		//$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4_3");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4_3 : End");
+end
+
+//Summary_4v1_4 TRICARE
+rule "Aptc_Summary_4v1_4"
+salience 49575
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_TRI_TERMIN_1),
+														isTricareTerminationClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4v1_4 : Begin");
+		logger.debug("No action..");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4v1_4");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4v1_4 : End");
+end
+
+
+
+rule "Aptc_Summary_4v1_5"
+salience 49570
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_TRI_TERMIN_1),
+														!isTricareTerminationClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4v1_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, ClockNameEnum.MEC_TRI_TERMIN_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4v1_5");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4v1_5 : End");
+end
+
+
+rule "Aptc_Summary_4v1_6"
+salience 49565
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_TRI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4v1_6 : Begin");
+		//$eDeterminationfacts.activateClock(ProgramCode.APTC, ClockNameEnum.INCARCERATION_1);
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.MEC_TRI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4v1_6");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4v1_6 : End");
+end
+
+
+//Summary_4v2_4 PeaceCorps
+rule "Aptc_Summary_4v2_4"
+salience 49560
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1),
+														isPeaceCorpsTerminationClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4v2_4 : Begin");
+		logger.debug("No action..");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4v2_4");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4v2_4 : End");
+end
+
+
+
+rule "Aptc_Summary_4v2_5"
+salience 49555
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1),
+														!isPeaceCorpsTerminationClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4v2_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, ClockNameEnum.MEC_PEACE_TERMIN_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4v2_5");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4v2_5 : End");
+end
+
+
+rule "Aptc_Summary_4v2_6"
+salience 49550
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4v2_6 : Begin");
+		//$eDeterminationfacts.activateClock(ProgramCode.APTC, ClockNameEnum.INCARCERATION_1);
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.MEC_PEACE_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4v2_6");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4v2_6 : End");
+end
+
+//Summary_4v3_4 AmeriCorps
+rule "Aptc_Summary_4v3_4"
+salience 49545
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1),
+														isAmeriCorpsTerminationClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4v3_4 : Begin");
+		logger.debug("No action..");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4v3_4");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4v3_4 : End");
+end
+
+
+
+rule "Aptc_Summary_4v3_5"
+salience 49540
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1),
+														!isAmeriCorpsTerminationClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4v3_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.APTC, ClockNameEnum.MEC_AMERI_TERMIN_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4v3_5");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4v3_5 : End");
+end
+
+
+rule "Aptc_Summary_4v3_6"
+salience 49535
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4v3_6 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.APTC, EligibilityVerificationTypeEnum.MEC_AMERI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4v3_6");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4v3_6 : End");
+end
+
+
+//Aptc Summary(4) Cont...
+
+rule "Aptc_Summary_4_7"
+salience 49530
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.SPL_WAIT_PRD_END_1),
+														isSpecialWaitingPeriod_1_DayClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4_7");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4_7 : End");
+end
+
+
+
+rule "Aptc_Summary_4_8"
+salience 49525
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.SPL_WAIT_PRD_END_1),
+														!isSpecialWaitingPeriod_1_DayClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4_8");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4_8 : End");
+end
+
+
+rule "Aptc_Summary_4_9"
+salience 49520
+activation-group "Aptc_Summary_4_AT"
+agenda-group "Aptc_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.APTC, 
+														ClockNameEnum.SPL_WAIT_PRD_END_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_4_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_4_9");
+		drools.setFocus("Aptc_Summary_END_AG");
+		logger.debug("Rule : Aptc_Summary_4_9 : End");
+end
+
+//APTC Summary (5)
+//Note: Rule completeion step is done in sheet 4 as ruleset 4 will execute at the end
+
+rule "Aptc_Summary_5_1"
+salience 47000
+activation-group "Aptc_Summary_5_AT"
+agenda-group "Aptc_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.APTC));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_5_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_5_1");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.APTC);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.APTC);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.APTC,new java.util.Date());
+		logger.debug("Rule : Aptc_Summary_5_1 : End");
+end
+
+
+rule "Aptc_Summary_5_2"
+salience 46990
+activation-group "Aptc_Summary_5_AT"
+agenda-group "Aptc_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.APTC));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_5_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_5_2");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.APTC);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.APTC,new java.util.Date());
+		logger.debug("Rule : Aptc_Summary_5_2 : End");
+end
+
+
+//APTC Summary (6)  is moved to Section2_1 old and New files based on CR1140 date based logic
+
+//APTC Summary(7)
+
+rule "Aptc_Summary_7_0"
+salience 44000
+activation-group "Aptc_Summary_7_AT"
+agenda-group "Aptc_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.APTC),
+														madeIneligibleDueToBeingDeceased,
+														isMemberMarkedDeceasedInPrevRun);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_7_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_7_0");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.APTC, $eDeterminationfacts.getPrevElgStartDateForDeceasedMember(ProgramCode.APTC));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.APTC, $eDeterminationfacts.getPrevElgEndDateForDeceasedMember(ProgramCode.APTC));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED_IN_PRV_RUN, "1");
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getPrevElgEndDateForDeceasedMember(ProgramCode.APTC)));
+		logger.debug("Rule : Aptc_Summary_7_0 : End");
+end
+
+rule "Aptc_Summary_7_1"
+salience 43999
+activation-group "Aptc_Summary_7_AT"
+agenda-group "Aptc_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.APTC),
+														!isEligibleForProgram(ProgramCode.APTC),														
+														madeIneligibleDueToBeingDeceased,
+														isMemberTheSubscriberForPlan,
+														!isMemberSubscribedInMultiMemberPlan,
+														HXUtility.isDate2GreaterThanDate1(getPreviousElgStartDate(ProgramCode.APTC), HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased())));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_7_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_7_1");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.APTC, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.APTC));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.APTC, $eDeterminationfacts.getLogicalDateOfDeceased());
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		logger.debug("Rule : Aptc_Summary_7_1 : End");
+end
+
+rule "Aptc_Summary_7_1_AA"
+salience 43998
+activation-group "Aptc_Summary_7_AT"
+agenda-group "Aptc_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.APTC),
+														!isEligibleForProgram(ProgramCode.APTC),														
+														madeIneligibleDueToBeingDeceased,
+														isMemberTheSubscriberForPlan,
+														isMemberSubscribedInMultiMemberPlan,
+														HXUtility.isDate2GreaterThanDate1(getPreviousElgStartDate(ProgramCode.APTC), HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased())));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_7_1_AA : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_7_1_AA");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.APTC, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.APTC));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.APTC, HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased()));
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString(HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased())));
+		logger.debug("Rule : Aptc_Summary_7_1_AA : End");
+end
+
+rule "Aptc_Summary_7_1A"
+salience 43995
+activation-group "Aptc_Summary_7_AT"
+agenda-group "Aptc_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.APTC),
+														!isEligibleForProgram(ProgramCode.APTC),														
+														madeIneligibleDueToBeingDeceased,
+														isMemberTheSubscriberForPlan,
+														HXUtility.isDate2GreaterThanOrEqualToDate1(HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased()),getPreviousElgStartDate(ProgramCode.APTC)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_7_1A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_7_1A");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.APTC, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.APTC));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.APTC, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.APTC));
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getPreviousElgStartDate(ProgramCode.APTC)));
+		logger.debug("Rule : Aptc_Summary_7_1A : End");
+end
+
+rule "Aptc_Summary_7_2"
+salience 43990
+activation-group "Aptc_Summary_7_AT"
+agenda-group "Aptc_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.APTC),
+														!isEligibleForProgram(ProgramCode.APTC),														
+														madeIneligibleDueToBeingDeceased,
+														!isMemberTheSubscriberForPlan,
+														HXUtility.isDate2GreaterThanDate1(getPreviousElgStartDate(ProgramCode.APTC), getLogicalDateOfDeceased()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_7_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_7_2");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.APTC, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.APTC));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.APTC, $eDeterminationfacts.getLogicalDateOfDeceased());
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		logger.debug("Rule : Aptc_Summary_7_2 : End");
+end
+
+rule "Aptc_Summary_7_2A"
+salience 43985
+activation-group "Aptc_Summary_7_AT"
+agenda-group "Aptc_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.APTC),
+														!isEligibleForProgram(ProgramCode.APTC),														
+														madeIneligibleDueToBeingDeceased,
+														!isMemberTheSubscriberForPlan,
+														HXUtility.isDate2GreaterThanOrEqualToDate1(getLogicalDateOfDeceased(), getPreviousElgStartDate(ProgramCode.APTC)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_7_2A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_7_2A");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.APTC, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.APTC));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.APTC, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.APTC));
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getPreviousElgStartDate(ProgramCode.APTC)));
+		logger.debug("Rule : Aptc_Summary_7_2A : End");
+end
+
+rule "Aptc_Summary_7_3"
+salience 43980
+activation-group "Aptc_Summary_7_AT"
+agenda-group "Aptc_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.APTC),
+														!isEligibleForProgram(ProgramCode.APTC),														
+														madeIneligibleDueToBeingDeceased);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_7_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_7_3");
+		logger.debug("Rule : Aptc_Summary_7_3 : End");
+end
+
+
+//SUMMARY END
+
+rule "Aptc_Summary_END"
+salience 45000
+activation-group "Aptc_Summary_END_AT"
+agenda-group "Aptc_Summary_END_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Summary_END : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Summary_END");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Aptc_Summary_END : End");
+end

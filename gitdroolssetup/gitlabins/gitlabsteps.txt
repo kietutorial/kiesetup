@@ -1,0 +1,39 @@
+csra-workflow 
+Eligibility-MA-Income-DecisionFlow
+
+Git global setup
+-------------------------------------------
+git config --global user.name "Philip Chauvet"
+git config --global user.email "philip.chauvet@csra.com"
+
+Create a new repository
+-------------------------------------------
+git clone http://nyxsvlalb344/pchauvet/csra-work-flow-test.git
+cd csra-work-flow-test
+touch README.md
+git add README.md
+git commit -m "add README"
+git push -u origin master
+
+
+Existing folder
+-------------------------------------------
+cd existing_folder
+git init
+git remote add origin http://nyxsvlalb344/pchauvet/csra-work-flow-test.git
+git add .
+git commit -m "Initial commit"
+git push -u origin master
+
+
+Existing Git repository
+-------------------------------------------
+cd existing_repo
+git remote add origin http://nyxsvlalb344/pchauvet/csra-work-flow-test.git
+git push -u origin --all
+git push -u origin --tags
+
+
+Rama I imported the latest code at:
+http://nyxsvlalb344/pchauvet/csra-work-flow-test.git
+You can get the code there.

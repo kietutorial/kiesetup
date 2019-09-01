@@ -1,0 +1,26 @@
+package com.hcentive.eligibility.notice;
+ 
+import com.hcentive.rulesengine.domain.notice.EmployerEligibilityDetailsFact;
+import com.hcentive.shop.domain.EmployerEligibility;
+import com.hcentive.shop.domain.EnrollmentSetup;
+
+/* Rule Notice 1005a :
+ * Employer did not submit complete information on employees that would facilitate open
+ * enrollment within 30 days of target enrollment date 
+ */
+ 
+rule "Notice1005a"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+		String eligibilityStatus = eligibility.getEligibilityStatus().name();
+		String eligibilityVerificationStatus = eligibility.getEligibilityVerificationStatus().name();
+		
+		if(eligibility != null && eligibilityStatus.equalsIgnoreCase("SUBMITTED") && eligibilityVerificationStatus.equalsIgnoreCase("Eligible")){
+			if(enrollmentSetup != null && enrollmentSetup.getStatus() != "COMPLETED")
+		    	n.getTemplateNameList().add("Notice1005a.ftl");
+	   	} 
+	end

@@ -1,0 +1,530 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+import com.hcentive.eligibility.ext.PostEligibilityDates.DateCategoryEnum;
+import com.hcentive.override.eligibility.dataobject.OverrideToCHIPEligibilityBean;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+
+
+rule "MAIN_CSR_OVERRIDE"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CSR_OVERRIDE : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "MAIN_CSR_OVERRIDE");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_ACK);
+		drools.setFocus("CSR_OVERRIDE_VERIFY_STALE_1_AG");
+		logger.debug("Rule : MAIN_CSR_OVERRIDE : End");
+end
+
+
+//CR1606
+rule "CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_01"
+salience 95070
+activation-group "CSR_OVERRIDE_VERIFY_STALE_1_AT"
+agenda-group "CSR_OVERRIDE_VERIFY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_01");
+		drools.setFocus("CSR_OVR_GENERAL_1_AG");
+		logger.debug("Rule : CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_02"
+salience 95060
+activation-group "CSR_OVERRIDE_VERIFY_STALE_1_AT"
+agenda-group "CSR_OVERRIDE_VERIFY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,!isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_02 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_02");
+		$eDeterminationfacts.updateProgram(ProgramCode.CSR, program_status.INELIGIBLE, ProgramReasonCode.STALE_MEM);// set program as Ineligble with reason code
+		$eDeterminationfacts.skipProgramExecution(ProgramCode.CSR, HXConstants.BOLTRUE); // Set Flag to stop further execution of drls for this program
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_02 : End");
+end
+
+rule "CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_03"
+salience 95050
+activation-group "CSR_OVERRIDE_VERIFY_STALE_1_AT"
+agenda-group "CSR_OVERRIDE_VERIFY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_03");
+		$eDeterminationfacts.clearStaleFlag();
+		drools.setFocus("CSR_OVR_GENERAL_1_AG");
+		logger.debug("Rule : CSR_OVERRIDE_VERIFY_STALE_ELG_SEC_03 : End");
+end
+//CR1606 code changes end
+
+
+//Csr Premium Override(1)
+
+
+rule "CSR_Override_1_0"
+salience 90000
+activation-group "CSR_OVR_GENERAL_1_AT"
+agenda-group "CSR_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Override_1_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Override_1_0");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CSR, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_MED);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : CSR_Override_1_0 : End");
+end
+
+
+rule "CSR_Override_1_1"
+salience 89990
+activation-group "CSR_OVR_GENERAL_1_AT"
+agenda-group "CSR_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Override_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Override_1_1");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CSR, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_CHIP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : CSR_Override_1_1 : End");
+end
+
+
+rule "CSR_Override_1_2"
+salience 89980
+activation-group "CSR_OVR_GENERAL_1_AT"
+agenda-group "CSR_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Override_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Override_1_2");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CSR, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_EPP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : CSR_Override_1_2 : End");
+end
+
+
+rule "CSR_Override_1_3"
+salience 89970
+activation-group "CSR_OVR_GENERAL_1_AT"
+agenda-group "CSR_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Override_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Override_1_3");
+		drools.setFocus("CSR_OVR_TYPE_1_AG");
+		logger.debug("Rule : CSR_Override_1_3 : End");
+end
+
+
+rule "CSR_Override_1_4"
+salience 89960
+activation-group "CSR_OVR_GENERAL_1_AT"
+agenda-group "CSR_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														!getAptcOverrideBean().getIsCSREligible());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Override_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Override_1_4");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CSR, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_APTC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : CSR_Override_1_4 : End");
+end
+
+
+rule "CSR_Override_1_5"
+salience 89950
+activation-group "CSR_OVR_GENERAL_1_AT"
+agenda-group "CSR_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.QHP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Override_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Override_1_5");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CSR, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_QHP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : CSR_Override_1_5 : End");
+end
+
+
+rule "CSR_Override_1_6"
+salience 89940
+activation-group "CSR_OVR_GENERAL_1_AT"
+agenda-group "CSR_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNoOverrideAvailableForProgram());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Override_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Override_1_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : CSR_Override_1_6 : End");
+end
+
+
+rule "CSR_Override_1_7"
+salience 89930
+activation-group "CSR_OVR_GENERAL_1_AT"
+agenda-group "CSR_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoOverrideAvailableForProgram());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_Override_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_Override_1_7");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : CSR_Override_1_7 : End");
+end
+
+
+//Csr Premium Override Type(1)
+
+
+rule "CSR_OVR_Types_1_1"
+salience 88000
+activation-group "CSR_OVR_TYPE_1_AT"
+agenda-group "CSR_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible(),
+														getAptcOverrideBean().getIsFullOverrideRequested());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_Types_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_Types_1_1");
+		
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CSR, program_status.ELIGIBLE, null);
+		
+		drools.setFocus("CSR_OVR_FULL_ELG_DATES_1_AG");
+		
+		logger.debug("Rule : CSR_OVR_Types_1_1 : End");
+end
+
+
+rule "CSR_OVR_Types_1_2"
+salience 87990
+activation-group "CSR_OVR_TYPE_1_AT"
+agenda-group "CSR_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible(),
+														getAptcOverrideBean().getIsPartialOverrideRequested(), 
+														getAptcOverrideBean().getIsPartialOverrideReadyToRunForDrools());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_Types_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_Types_1_2");
+		
+		drools.setFocus("CSR_OVR_PART_ELG_DATES_1_AG");
+		
+		logger.debug("Rule : CSR_OVR_Types_1_2 : End");
+end
+
+
+rule "CSR_OVR_Types_1_3"
+salience 87980
+activation-group "CSR_OVR_TYPE_1_AT"
+agenda-group "CSR_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible(),
+														getAptcOverrideBean().getIsPartialOverrideRequested(), 
+														!getAptcOverrideBean().getIsPartialOverrideReadyToRunForDrools());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_Types_1_3 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_Types_1_3");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : CSR_OVR_Types_1_3 : End");
+end
+
+
+//Csr Premium Override Full Elg Dates(1)
+
+
+rule "CSR_OVR_Full_Elg_Dates_1_1"
+salience 86000
+activation-group "CSR_OVR_FULL_ELG_DATES_1_AT"
+agenda-group "CSR_OVR_FULL_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible(),
+														!HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveStartDate()), 
+														!HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveEndDate()));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_Full_Elg_Dates_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_Full_Elg_Dates_1_1");
+		
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CSR, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.APTC).getOverrideElgEffectiveStartDate());
+		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CSR, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.APTC).getOverrideElgEffectiveEndDate());
+				
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CSR, HXUtility.getCurrentDate());
+		
+		drools.setFocus("CSR_OVR_FULL_REASON_CODES_1_AG");
+		
+		logger.debug("Rule : CSR_OVR_Full_Elg_Dates_1_1 : End");
+end
+
+
+//Csr Premium Override Part Elg Dates(1)
+
+
+rule "CSR_OVR_part_Elg_Dates_1_1"
+salience 85000
+agenda-group "CSR_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible(),
+														!HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveStartDate()), 
+														HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveEndDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_part_Elg_Dates_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_part_Elg_Dates_1_1");
+				
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CSR, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.APTC).getOverrideElgEffectiveStartDate());
+		
+		logger.debug("Rule : CSR_OVR_part_Elg_Dates_1_1 : End");
+end
+
+
+rule "CSR_OVR_part_Elg_Dates_1_2"
+salience 84990
+agenda-group "CSR_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible(),
+														HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveStartDate()), 
+														!HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveEndDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_part_Elg_Dates_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_part_Elg_Dates_1_2");
+		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CSR, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.APTC).getOverrideElgEffectiveEndDate());
+		
+		logger.debug("Rule : CSR_OVR_part_Elg_Dates_1_2 : End");
+end
+
+
+rule "CSR_OVR_part_Elg_Dates_1_END"
+salience 84980
+agenda-group "CSR_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_part_Elg_Dates_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_part_Elg_Dates_1_END");
+		
+		drools.setFocus("CSR_OVR_PART_REASON_CODES_1_AG");
+		
+		logger.debug("Rule : CSR_OVR_part_Elg_Dates_1_END : End");
+end
+
+
+//Csr Premium Override Full Reason Codes(1)
+
+
+rule "CSR_OVR_Full_Reason_Codes_1_1"
+salience 78000
+activation-group "CSR_OVR_FULL_REASON_CODES_1_AT"
+agenda-group "CSR_OVR_FULL_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible(), 
+														!HXUtility.isEmpty(getAptcOverrideBean().getAllReasonCodes()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_Full_Reason_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_Full_Reason_Codes_1_1");
+		
+		$eDeterminationfacts.setReasonCodes(ProgramCode.CSR, $eDeterminationfacts.getAptcOverrideBean().getAllReasonCodes());
+		
+		drools.setFocus("CSR_OVR_FULL_APTC_FPL_1_AG");
+		
+		logger.debug("Rule : CSR_OVR_Full_Reason_Codes_1_1 : End");
+end
+
+
+//Csr Premium Override Part Reason Codes(1)
+
+
+rule "CSR_OVR_Part_Reason_Codes_1_1"
+salience 77000
+agenda-group "CSR_OVR_PART_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible(), 
+														!HXUtility.isEmpty(getAptcOverrideBean().getAllReasonCodes()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_Part_Reason_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_Part_Reason_Codes_1_1");
+		
+		$eDeterminationfacts.setReasonCodes(ProgramCode.CSR, $eDeterminationfacts.getAptcOverrideBean().getAllReasonCodes());
+		
+		logger.debug("Rule : CSR_OVR_Part_Reason_Codes_1_1 : End");
+end
+
+
+rule "CSR_OVR_Part_Reason_Codes_1_END"
+salience 76990
+agenda-group "CSR_OVR_PART_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsCSREligible());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_Part_Reason_Codes_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_Part_Reason_Codes_1_END");
+		
+		drools.setFocus("CSR_OVR_PART_APTC_FPL_1_AG");
+		
+		logger.debug("Rule : CSR_OVR_Part_Reason_Codes_1_END : End");
+end
+
+
+//CSR Override Full APTC FPL (1)
+
+
+rule "CSR_OVR_Full_APTC_FPL_1_1"
+salience 73000
+activation-group "CSR_OVR_FULL_APTC_FPL_1_AT"
+agenda-group "CSR_OVR_FULL_APTC_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														!HXUtility.isNull(getAptcOverrideBean().getAptcFPL()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_Full_APTC_FPL_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_Full_APTC_FPL_1_1");
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.FULL_OVR_FPL, $eDeterminationfacts.getAptcOverrideBean().getAptcFPL() +"");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : CSR_OVR_Full_APTC_FPL_1_1 : End");
+end
+
+
+//Chip Override Part Post Eligibility (1)
+
+
+rule "CSR_OVR_Part_APTC_Fpl_1_1"
+salience 73000
+agenda-group "CSR_OVR_PART_APTC_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														!HXUtility.isNull(getAptcOverrideBean().getAptcFPL()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_Part_APTC_Fpl_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_Part_APTC_Fpl_1_1");
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.PART_OVR_FPL, $eDeterminationfacts.getAptcOverrideBean().getAptcFPL() +"");
+		
+		logger.debug("Rule : CSR_OVR_Part_APTC_Fpl_1_1 : End");
+end
+
+
+rule "CSR_OVR_Part_APTC_Fpl_1_END"
+salience 72970
+agenda-group "CSR_OVR_PART_APTC_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : CSR_OVR_Part_APTC_Fpl_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "CSR_OVR_Part_APTC_Fpl_1_END");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : CSR_OVR_Part_APTC_Fpl_1_END : End");
+end

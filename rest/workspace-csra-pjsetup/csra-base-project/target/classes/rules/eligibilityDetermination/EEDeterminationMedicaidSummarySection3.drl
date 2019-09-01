@@ -1,0 +1,1876 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.IncarcerationReleaseEnum;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.eligibility.ext.NoticeNameEnum;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;	
+import com.hcentive.rulesengine.domain.RuleKey;	
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.RetroMonthEnum;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import java.util.Calendar;
+import com.hcentive.utils.ext.HxDateUtils;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+import com.hcentive.incarceration.domain.DoccsType;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_MEDICAID_SUMMARY_SEC3"
+salience 49620
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_MEDICAID_SUMMARY_SEC3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_SUMMARY_SEC3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_05_ACK);
+		drools.setFocus("MEDICAID_SUMMARY_SEC3_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_SUMMARY_SEC3 : End");
+end
+
+//CR1606
+rule "MEDICAID_SUMMARY_SEC3_STALE_ELG_SEC_01"
+salience 95050
+activation-group "MEDICAID_SUMMARY_SEC3_STALE_1_AT"
+agenda-group "MEDICAID_SUMMARY_SEC3_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_SUMMARY_SEC3_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_SUMMARY_SEC3_STALE_ELG_SEC_01");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_05);		
+		drools.setFocus("Medicaid_Summary3_END_AG");
+		logger.debug("Rule : MEDICAID_SUMMARY_SEC3_STALE_ELG_SEC_01 : End");
+end
+
+rule "MEDICAID_SUMMARY_SEC3_STALE_ELG_SEC_03"
+salience 95060
+activation-group "MEDICAID_SUMMARY_SEC3_STALE_1_AT"
+agenda-group "MEDICAID_SUMMARY_SEC3_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_SUMMARY_SEC3_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_SUMMARY_SEC3_STALE_ELG_SEC_03");
+		drools.setFocus("Medicaid_SUM_SEC3_RULE_FLIP_AG");
+		logger.debug("Rule : MEDICAID_SUMMARY_SEC3_STALE_ELG_SEC_03 : End");
+end
+
+rule "Medicaid_SUM_SEC3_RULE_FLIP_1"
+salience 2002
+activation-group "Medicaid_SUM_SEC3_RULE_FLIP_AT"
+agenda-group "Medicaid_SUM_SEC3_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_Summary_9_AG".equals(isRunRequiredForSheet)
+														|| "Medicaid_Summary_6A_9_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_SUM_SEC3_RULE_FLIP_1");
+		drools.setFocus("Medicaid_Summary3_END_AG");
+		drools.setFocus("Medicaid_Summary_9_AG");
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_1 : End");
+end
+
+
+
+rule "Medicaid_SUM_SEC3_RULE_FLIP_2"
+salience 1990
+activation-group "Medicaid_SUM_SEC3_RULE_FLIP_AT"
+agenda-group "Medicaid_SUM_SEC3_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_Summary_9_1_AG".equals(isRunRequiredForSheet)
+														|| "Medicaid_Summary_6A_9_1_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_SUM_SEC3_RULE_FLIP_2");
+		drools.setFocus("Medicaid_Summary3_END_AG");
+		drools.setFocus("Medicaid_Summary_9_1_AG");
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_2 : End");
+end
+
+rule "Medicaid_SUM_SEC3_RULE_FLIP_3"
+salience 1980
+activation-group "Medicaid_SUM_SEC3_RULE_FLIP_AT"
+agenda-group "Medicaid_SUM_SEC3_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_Summary_6A_9_11_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_SUM_SEC3_RULE_FLIP_3");
+		drools.setFocus("Medicaid_Summary3_END_AG");
+		drools.setFocus("Medicaid_Summary_11_AG");
+		drools.setFocus("Medicaid_Summary_9_AG");
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_3 : End");
+end
+
+rule "Medicaid_SUM_SEC3_RULE_FLIP_4"
+salience 1970
+activation-group "Medicaid_SUM_SEC3_RULE_FLIP_AT"
+agenda-group "Medicaid_SUM_SEC3_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_Summary_6A_9_10_11_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_SUM_SEC3_RULE_FLIP_4");
+		drools.setFocus("Medicaid_Summary3_END_AG");
+		drools.setFocus("Medicaid_Summary_11_AG");
+		drools.setFocus("Medicaid_Summary_10_AG");
+		drools.setFocus("Medicaid_Summary_9_AG");
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_4 : End");
+end
+
+rule "Medicaid_SUM_SEC3_RULE_FLIP_5"
+salience 1960
+activation-group "Medicaid_SUM_SEC3_RULE_FLIP_AT"
+agenda-group "Medicaid_SUM_SEC3_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_Summary_6A_9_10_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_SUM_SEC3_RULE_FLIP_5");
+		drools.setFocus("Medicaid_Summary3_END_AG");
+		drools.setFocus("Medicaid_Summary_10_AG");
+		drools.setFocus("Medicaid_Summary_9_AG");
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_5 : End");
+end
+
+rule "Medicaid_SUM_SEC3_RULE_FLIP_6"
+salience 1950
+activation-group "Medicaid_SUM_SEC3_RULE_FLIP_AT"
+agenda-group "Medicaid_SUM_SEC3_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!("Medicaid_Summary_9_AG".equals(isRunRequiredForSheet)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_SUM_SEC3_RULE_FLIP_6");
+		drools.setFocus("Medicaid_Summary3_END_AG");
+		logger.debug("Rule : Medicaid_SUM_SEC3_RULE_FLIP_6 : End");
+end
+
+
+// Summary 9 to 11 sheets are in this file
+//Medicaid_Summary_9
+
+//--------------------------------------------------------------------------------------------------------------------
+//DELETED redundant rules --  Medicaid_Summary_9_1, Medicaid_Summary_9_1A, Medicaid_Summary_9_1B, Medicaid_Summary_9_1C
+//  ------------------------  Medicaid_Summary_9_3, Medicaid_Summary_9_3A, Medicaid_Summary_9_3B, Medicaid_Summary_9_3C
+
+
+rule "Medicaid_Summary_9_1"
+salience 99800
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnPresumptiveOnDob,
+		                                                CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+		                                                isMedicaidNewbornExistsInPrevElg(),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_1");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.MEDICAID,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		drools.setFocus("Medicaid_Summary_9B_AG");
+		drools.setFocus("Medicaid_Summary_9C_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewBorn(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidDeemedCitizenship(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_1 : End");
+end
+
+rule "Medicaid_Summary_9_2"
+salience 99790
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnPresumptiveOnDob,
+		                                                CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+		                                                !isMedicaidNewbornExistsInPrevElg(),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));	
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_2");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.MEDICAID,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		drools.setFocus("Medicaid_Summary_9B_AG");
+		drools.setFocus("Medicaid_Summary_9C_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewBorn(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidDeemedCitizenship(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewbornFirstTime(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_2 : End");
+end
+
+rule "Medicaid_Summary_9_3"
+salience 99780
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnPresumptiveOnDob,
+		                                                !CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+		                                                isMedicaidNewbornExistsInPrevElg(),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_3");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.MEDICAID,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		drools.setFocus("Medicaid_Summary_9B_AG");
+		drools.setFocus("Medicaid_Summary_9C_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewBorn(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_3 : End");
+end
+
+rule "Medicaid_Summary_9_4"
+salience 99770
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnPresumptiveOnDob,
+		                                                !CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+		                                                !isMedicaidNewbornExistsInPrevElg(),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_4");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.MEDICAID,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		drools.setFocus("Medicaid_Summary_9B_AG");
+		drools.setFocus("Medicaid_Summary_9C_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewBorn(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewbornFirstTime(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_4 : End");
+end
+
+rule "Medicaid_Summary_9_5"
+salience 99600
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                !isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnPresumptiveOnDob,
+		                                                isMotherOnMedicaidOrFBPB3MonthsPriorDob,
+		                                                !CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+		                                                isMedicaidNewbornExistsInPrevElg(),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+		                                                		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_5");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.MEDICAID,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		drools.setFocus("Medicaid_Summary_9B_AG");
+		drools.setFocus("Medicaid_Summary_9C_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewBorn(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_5 : End");
+end
+
+rule "Medicaid_Summary_9_6"
+salience 99590
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                !isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnPresumptiveOnDob,
+		                                                isMotherOnMedicaidOrFBPB3MonthsPriorDob,
+		                                                !CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+		                                                !isMedicaidNewbornExistsInPrevElg(),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+		                                                		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_6");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.MEDICAID,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		drools.setFocus("Medicaid_Summary_9B_AG");
+		drools.setFocus("Medicaid_Summary_9C_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewBorn(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewbornFirstTime(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_6 : End");
+end
+
+rule "Medicaid_Summary_9_7"
+salience 99580
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                !isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnPresumptiveOnDob,
+		                                                isMotherOnMedicaidOrFBPB3MonthsPriorDob,
+		                                                CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+		                                                isMedicaidNewbornExistsInPrevElg(),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_7");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.MEDICAID,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		drools.setFocus("Medicaid_Summary_9B_AG");
+		drools.setFocus("Medicaid_Summary_9C_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewBorn(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidDeemedCitizenship(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_7 : End");
+end
+
+rule "Medicaid_Summary_9_8"
+salience 99570
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                !isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnPresumptiveOnDob,
+		                                                isMotherOnMedicaidOrFBPB3MonthsPriorDob,
+		                                                CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+		                                                !isMedicaidNewbornExistsInPrevElg(),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+		                                                		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_8");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.setEligibilityStartDateAsStartOfDOB(ProgramCode.MEDICAID,$eDeterminationfacts.getMember().getDob(),Boolean.TRUE);
+		drools.setFocus("Medicaid_Summary_9B_AG");
+		drools.setFocus("Medicaid_Summary_9C_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewBorn(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidDeemedCitizenship(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewbornFirstTime(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_8 : End");
+end
+
+rule "Medicaid_Summary_9_9"
+salience 99500
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                !isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnMedicaidOrFBPB3MonthsPriorDob,
+		                                                !isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_9 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_9");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_9 : End");
+end
+
+rule "Medicaid_Summary_9_10"
+salience 99490
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                !isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnMedicaidOrFBPB3MonthsPriorDob,
+		                                                !isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                (isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));	
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_10 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_10");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.MEDICAID));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_10 : End");
+end
+
+
+rule "Medicaid_Summary_9_11"
+salience 99400
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                !isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnMedicaidOrFBPB3MonthsPriorDob,
+		                                                !isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));	
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_11 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_11");
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_11 : End");
+end
+
+rule "Medicaid_Summary_9_12"
+salience 99390
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                !isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnMedicaidOrFBPB3MonthsPriorDob,
+		                                                !isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                (isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_12 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_12");
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.MEDICAID));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_12 : End");
+end
+
+rule "Medicaid_Summary_9_13"
+salience 99300
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                !isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnMedicaidOrFBPB3MonthsPriorDob,
+		                                                isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_13 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_13");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_13 : End");
+end
+
+rule "Medicaid_Summary_9_14"
+salience 99200
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>		
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+		                                                !isMotherOnMedicaidOrFBPBOnDob,
+		                                                !isMotherOnMedicaidOrFBPB3MonthsPriorDob,
+		                                                isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_14 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_14");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_14 : End");
+end
+
+rule "Medicaid_Summary_9_15"
+salience 99197
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                //!isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                !isElgStartDateSetInMECRules(ProgramCode.MEDICAID),
+		                                                (isMemberPregnant || HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd())),
+		                                                (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)),
+														isEnrolledInMA_30_Coverage);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_15 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_15");
+		//$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, HxDateUtils.getFirstDayofTheNextMonth($eDeterminationfacts.getCurrentDate()));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.DOCCS_EOCM);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, HXUtility.convertStringToDate(HXConstants.INCARCERATED_END_DATE)); 
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_15 : End");
+end
+
+rule "Medicaid_Summary_9_15A"
+salience 99195
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                //!isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                !isElgStartDateSetInMECRules(ProgramCode.MEDICAID),
+		                                                (isMemberPregnant || HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd())),
+		                                                (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														 isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														 isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())|| 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)),
+														(!isEnrolledInMA_30_Coverage && !isBrandNewApplication));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_15A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_15A");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, HxDateUtils.addTodate($eDeterminationfacts.getCurrentDate(), Calendar.DATE, 1));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.DOCCS_EOCD);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, HXUtility.convertStringToDate(HXConstants.INCARCERATED_END_DATE)); 
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_15A : End");
+end
+
+rule "Medicaid_Summary_9_15B"
+salience 99190
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                //!isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                !isElgStartDateSetInMECRules(ProgramCode.MEDICAID),
+		                                                (isMemberPregnant || HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd())),
+		                                                (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														 isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														 isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())|| 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)),
+														isBrandNewApplication);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_15B : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_15B");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, HXUtility.firstDayOfMonthForDate($eDeterminationfacts.getCurrentDate()));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.DOCCS_EOCD);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, HXUtility.convertStringToDate(HXConstants.INCARCERATED_END_DATE)); 
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_15B : End");
+end
+
+rule "Medicaid_Summary_9_16"
+salience 99185
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                !isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                (isMemberPregnant || HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd())),
+		                                                (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) || 
+		                                                isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_16 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_16");
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, HXUtility.convertStringToDate(HXConstants.INCARCERATED_END_DATE)); 
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_16 : End");
+end
+
+rule "Medicaid_Summary_9_17"
+salience 99180
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                !isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !getIsPPSDNoCSDExtendInd(),
+		                                                (HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()) 
+		                                                && (isMemberPregnant || isDateAfterElgRunDate(getPostPartumSaveDate(ProgramCode.MEDICAID)))),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_17 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_17");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		if(!HXUtility.isNull($eDeterminationfacts.getPostPartumSaveDate(ProgramCode.MEDICAID))){
+			$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, 
+												$eDeterminationfacts.getPostPartumSaveDate(ProgramCode.MEDICAID));
+		}
+		else {
+			$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID,HxDateUtils.moveDatetoEndOfMonth(HxDateUtils.addTodate($eDeterminationfacts.getExpectedDuedate(), Calendar.MONTH, 2)));
+		}
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_17 : End");
+end
+		
+//CR1398:Modification End
+
+
+rule "Medicaid_Summary_9_18"
+salience 99100
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                !isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_18 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_18");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_18 : End");
+end
+/*
+rule "Medicaid_Summary_9_19"
+salience 99090
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                !isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                (isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !isElgRunThruBatchForMADeemedNBWithExclusion,
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID)
+		                                                );		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_19 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_19");
+		$eDeterminationfacts.calculateAndSetIncarceratedReleasedPersonEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.calculateAndSetIncarceratedReleasedPersonEligibilityEndDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidDeemedCitizenship(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_19 : End");
+end
+*/
+
+rule "Medicaid_Summary_9_19"
+salience 99080
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                !isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                (isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                !isElgRunThruBatchForMADeemedNBWithExclusion,
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_19 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_19");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.MEDICAID));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_19 : End");
+end
+
+rule "Medicaid_Summary_9_20"
+salience 99075
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+														!isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                (isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                isElgRunThruBatchForMADeemedNBWithExclusion,
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_20 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_20");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.FLSCMADNB);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewbornNoShowInd(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_20 : End");
+end
+
+//CR1398:Modification Start
+rule "Medicaid_Summary_9_21"
+salience 99073
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                !isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                !getIsPPSDNoCSDExtendInd(),
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                (HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()) 
+		                                                && (isMemberPregnant || isDateAfterElgRunDate(getPostPartumSaveDate(ProgramCode.MEDICAID)))),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_21 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_21");
+		//$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		if(!HXUtility.isNull($eDeterminationfacts.getPostPartumSaveDate(ProgramCode.MEDICAID))){
+			$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, 
+												$eDeterminationfacts.getPostPartumSaveDate(ProgramCode.MEDICAID));
+		}
+		else {
+			$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID,HxDateUtils.moveDatetoEndOfMonth(HxDateUtils.addTodate($eDeterminationfacts.getExpectedDuedate(), Calendar.MONTH, 2)));
+		}
+		logger.debug("Rule : Medicaid_Summary_9_21 : End");
+end
+//CR1398:Modification End
+
+/*
+rule "Medicaid_Summary_9_22"
+salience 99070
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+														!isElgEndDateAvailable(ProgramCode.MEDICAID),
+														!(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                getIsReleaseCodeValidForReinstatement(),
+		                                                !isCoverageCodeAvailable(CoverageCode.TWENTYSIX));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_22 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_22");
+		$eDeterminationfacts.calculateAndSetIncarceratedReleasedPersonEligibilityEndDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidDeemedCitizenship(Boolean.TRUE);
+		logger.debug("Rule : Medicaid_Summary_9_22 : End");
+end
+*/
+
+rule "Medicaid_Summary_9_22"
+salience 99060
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+														!isElgEndDateAvailable(ProgramCode.MEDICAID),
+														!(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_22 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_22");
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_22 : End");
+end
+
+rule "Medicaid_Summary_9_23"
+salience 99050
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+														!isElgEndDateAvailable(ProgramCode.MEDICAID),
+														(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+														!isElgRunThruBatchForMADeemedNBWithExclusion,
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_23 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_23");
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.MEDICAID));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_23 : End");
+end
+
+rule "Medicaid_Summary_9_24"
+salience 99040
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+														isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_24 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_24");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_24 : End");
+end
+
+rule "Medicaid_Summary_9_25"
+salience 99030
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+														isElgEndDateAvailable(ProgramCode.MEDICAID),
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_25 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_25");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_25 : End");
+end
+
+//CR 620- Start
+rule "Medicaid_Summary_9_26"
+salience 99026
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                !isElgStartDateSetInMECRules(ProgramCode.MEDICAID),
+		                                                //isCoverageCodeAvailable(CoverageCode.TWENTYSIX) || inMemPreReleaseCodeExists,
+		                                                !(isMemberPregnant || HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd())),
+		                                                isEnrolledInMA_30_Coverage,
+		                                                (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_26 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_26");
+		//$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, HxDateUtils.getFirstDayofTheNextMonth($eDeterminationfacts.getCurrentDate()));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.DOCCS_EOCM);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, HXUtility.convertStringToDate(HXConstants.INCARCERATED_END_DATE)); 
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_26 : End");
+end
+
+rule "Medicaid_Summary_9_26A"
+salience 99024
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                !isElgStartDateSetInMECRules(ProgramCode.MEDICAID),
+		                                                //isCoverageCodeAvailable(CoverageCode.TWENTYSIX) || inMemPreReleaseCodeExists,
+		                                                !(isMemberPregnant || HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd())),
+		                                                (!isEnrolledInMA_30_Coverage && !isBrandNewApplication),
+		                                                (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_26A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_26A");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, HxDateUtils.addTodate($eDeterminationfacts.getCurrentDate(), Calendar.DATE, 1));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.DOCCS_EOCD);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, HXUtility.convertStringToDate(HXConstants.INCARCERATED_END_DATE)); 
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_26A : End");
+end
+
+rule "Medicaid_Summary_9_26B"
+salience 99023
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                !isElgStartDateSetInMECRules(ProgramCode.MEDICAID),
+		                                                //isCoverageCodeAvailable(CoverageCode.TWENTYSIX) || inMemPreReleaseCodeExists,
+		                                                !(isMemberPregnant || HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd())),
+		                                                isBrandNewApplication,
+		                                                (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_26B : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_26B");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, HXUtility.firstDayOfMonthForDate($eDeterminationfacts.getCurrentDate()));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.DOCCS_EOCD);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, HXUtility.convertStringToDate(HXConstants.INCARCERATED_END_DATE)); 
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_26B : End");
+end
+
+rule "Medicaid_Summary_9_27"
+salience 99022
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMecNewBorn,
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                isCoverageCodeAvailable(CoverageCode.TWENTYSIX) || inMemPreReleaseCodeExists,
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_27 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_27");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, HXUtility.convertStringToDate(HXConstants.INCARCERATED_END_DATE)); 
+		logger.debug("Rule : Medicaid_Summary_9_27 : End");
+end
+
+// CR 620 - End
+//CR1398:Modification End
+
+rule "Medicaid_Summary_9_29"
+salience 99020
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+														isMotherOnMedicaidOrFBPBOnDob,
+														isMotherOnPresumptiveOnDob,
+														!(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+														!getIsPPSDNoCSDExtendInd(),
+														isElgStartDateAvailable(ProgramCode.MEDICAID),
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_29 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_29");
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_29 : End");
+end
+
+rule "Medicaid_Summary_9_31"
+salience 99010
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+														isMotherOnMedicaidOrFBPBOnDob,
+														isMotherOnPresumptiveOnDob,
+														!(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+														!getIsPPSDNoCSDExtendInd(),
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_31 : Begin");	
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_31");	
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_31 : End");
+end
+
+
+
+rule "Medicaid_Summary_9_32"
+salience 99008
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+														isMotherOnMedicaidOrFBPBOnDob,
+														isMotherOnPresumptiveOnDob,
+														!(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+														getIsPPSDNoCSDExtendInd(),
+		                                                isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_32 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_32");	
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getGreaterOfPPSDAndCSD(ProgramCode.MEDICAID));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_32 : End");
+end
+
+rule "Medicaid_Summary_9_33"
+salience 99006
+activation-group "Medicaid_Summary_9_AT"
+agenda-group "Medicaid_Summary_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMecNewBorn,
+														isMotherOnMedicaidOrFBPBOnDob,
+														isMotherOnPresumptiveOnDob,
+														!(isLSCThruNonRenewalBatch || isSysgenFiveYrBar),
+														getIsPPSDNoCSDExtendInd(),
+		                                                !isElgStartDateAvailable(ProgramCode.MEDICAID),
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value()) ||
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value()) || 
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value()) ||
+						   								(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode) && doesUserAgreeIncarceration)));
+				
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_33 : Begin");	
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_33");	
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getGreaterOfPPSDAndCSD(ProgramCode.MEDICAID));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		logger.debug("Rule : Medicaid_Summary_9_33 : End");
+end
+
+//SUMMARY END
+
+//Medicaid Summary (9_1)
+//CR 1413,1394,1594 rule changes- Start
+rule "Medicaid_Summary_9_1_1"
+salience 99100
+activation-group "Medicaid_Summary_9_1_AT"
+agenda-group "Medicaid_Summary_9_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(inMemPreReleaseCodeExists,
+														!isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														(initialDoccsRelease || isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.MIPR.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_1_1");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, $eDeterminationfacts.getInMemRelSplCalcStartDate());
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, HXUtility.convertStringToDate(HXConstants.INCARCERATED_END_DATE)); 
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator($eDeterminationfacts.getInMemRelSplCovEndDateInd());
+		logger.debug("Rule : Medicaid_Summary_9_1_1 : End");
+end
+
+rule "Medicaid_Summary_9_1_1A"
+salience 99098
+activation-group "Medicaid_Summary_9_1_AT"
+agenda-group "Medicaid_Summary_9_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(inMemPreReleaseCodeExists,
+														!isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														!(initialDoccsRelease || isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.MIPR.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_1_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_1_1A");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, HXUtility.convertStringToDate(HXConstants.INCARCERATED_END_DATE)); 
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator($eDeterminationfacts.getInMemRelSplCovEndDateInd());
+		logger.debug("Rule : Medicaid_Summary_9_1_1A : End");
+end
+
+rule "Medicaid_Summary_9_1_1B"
+salience 99096
+activation-group "Medicaid_Summary_9_1_AT"
+agenda-group "Medicaid_Summary_9_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														(initialDoccsRelease || isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.MIPR.Value())),
+														!isManualRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_1_1B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_1_1B");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, $eDeterminationfacts.getInMemRelSplCalcStartDate());
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, $eDeterminationfacts.getInMemRelSplCalcEndDate());
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator($eDeterminationfacts.getInMemRelSplCovEndDateInd());
+		logger.debug("Rule : Medicaid_Summary_9_1_1B : End");
+end
+
+
+rule "Medicaid_Summary_9_1_2"
+salience 99090
+activation-group "Medicaid_Summary_9_1_AT"
+agenda-group "Medicaid_Summary_9_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														!(initialDoccsRelease || isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.MIPR.Value())),
+														!isManualRenewal,
+														!isElgStartDateAvailable(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_1_2");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, $eDeterminationfacts.getInMemRelSplCalcEndDate());
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator($eDeterminationfacts.getInMemRelSplCovEndDateInd());
+		logger.debug("Rule : Medicaid_Summary_9_1_2 : End");
+end
+
+
+rule "Medicaid_Summary_9_1_3"
+salience 99080
+activation-group "Medicaid_Summary_9_1_AT"
+agenda-group "Medicaid_Summary_9_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														!isManualRenewal,
+														isElgStartDateAvailable(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_1_3");
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, $eDeterminationfacts.getInMemRelSplCalcEndDate());
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator($eDeterminationfacts.getInMemRelSplCovEndDateInd());
+		logger.debug("Rule : Medicaid_Summary_9_1_3 : End");
+end
+
+
+rule "Medicaid_Summary_9_1_4"
+salience 99075
+activation-group "Medicaid_Summary_9_1_AT"
+agenda-group "Medicaid_Summary_9_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														!(initialDoccsRelease || isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.MIPR.Value())),
+														isManualRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_1_4");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, $eDeterminationfacts.getInMemRelSplCalcEndDate());
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator($eDeterminationfacts.getInMemRelSplCovEndDateInd());
+		logger.debug("Rule : Medicaid_Summary_9_1_4 : End");
+end
+
+
+rule "Medicaid_Summary_9_1_5"
+salience 99070
+activation-group "Medicaid_Summary_9_1_AT"
+agenda-group "Medicaid_Summary_9_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														(initialDoccsRelease || isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.MIPR.Value())),
+														isManualRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9_1_5");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.MEDICAID, $eDeterminationfacts.getInMemRelSplCalcStartDate());
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID, $eDeterminationfacts.getInMemRelSplCalcEndDate());
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.MEDICAID,$eDeterminationfacts.getCurrentDate());
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator($eDeterminationfacts.getInMemRelSplCovEndDateInd());
+		logger.debug("Rule : Medicaid_Summary_9_1_5 : End");
+end
+//CR 1413,1394,1594 rule changes- End
+
+//Medicaid Summary(9b)
+
+rule "Medicaid_Summary_9B_1"
+salience 99000
+activation-group "Medicaid_Summary_9B_AT"
+agenda-group "Medicaid_Summary_9B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMedicaidNewbornExistsInPrevElg());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9B_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9B_1");
+		logger.debug("Rule : Medicaid_Summary_9B_1 : End");
+end
+
+rule "Medicaid_Summary_9B_2"
+salience 98990
+activation-group "Medicaid_Summary_9B_AT"
+agenda-group "Medicaid_Summary_9B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMedicaidNewbornExistsInPrevElg(),
+														(!isHXIncarcerated && !selfIdentifiedIncarcerationInCurrentApp),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														!(isProgramStatusPending(ProgramCode.MEDICAID)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9B_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9B_2");
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS_VETERAN);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME_TPL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME);
+		
+		$eDeterminationfacts.removeReasonCodes(ProgramCode.MEDICAID, ProgramReasonCode.SNV, ProgramReasonCode.MOS, ProgramReasonCode.SNVS, ProgramReasonCode.CNV,  
+																	 ProgramReasonCode.AASLPR, ProgramReasonCode.WDNV, ProgramReasonCode.CSENV, ProgramReasonCode.HONCV, 
+																	 ProgramReasonCode.HARNV, ProgramReasonCode.CISF, ProgramReasonCode.ISNV, ProgramReasonCode.CD_IMMIG, 
+																	 ProgramReasonCode.VSNV, ProgramReasonCode.IVO_CURR, ProgramReasonCode.IVO);
+		
+		logger.debug("Rule : Medicaid_Summary_9B_2 : End");
+end
+
+
+rule "Medicaid_Summary_9B_2A"
+salience 98985
+activation-group "Medicaid_Summary_9B_AT"
+agenda-group "Medicaid_Summary_9B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMedicaidNewbornExistsInPrevElg(),
+														(!isHXIncarcerated && !selfIdentifiedIncarcerationInCurrentApp),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														isProgramStatusPending(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9B_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9B_2A");
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS_VETERAN);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME_TPL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME);
+		
+		$eDeterminationfacts.removeReasonCodes(ProgramCode.MEDICAID, ProgramReasonCode.SNV, ProgramReasonCode.MOS, ProgramReasonCode.SNVS,ProgramReasonCode.CNV,
+																	 ProgramReasonCode.AASLPR, ProgramReasonCode.WDNV, ProgramReasonCode.CSENV, ProgramReasonCode.HONCV, 
+																	 ProgramReasonCode.HARNV,ProgramReasonCode.CISF, ProgramReasonCode.ISNV, ProgramReasonCode.CD_IMMIG, 
+																	 ProgramReasonCode.VSNV, ProgramReasonCode.IVO_CURR, ProgramReasonCode.IVO);
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.ELIGIBLE, null);																	 
+		logger.debug("Rule : Medicaid_Summary_9B_2A : End");
+end
+
+
+rule "Medicaid_Summary_9B_3"
+salience 98980
+activation-group "Medicaid_Summary_9B_AT"
+agenda-group "Medicaid_Summary_9B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMedicaidNewbornExistsInPrevElg(),
+														(!isHXIncarcerated && !selfIdentifiedIncarcerationInCurrentApp),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														!isProgramStatusPending(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9B_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9B_3");
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS_VETERAN);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME_TPL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME);
+		
+		$eDeterminationfacts.removeReasonCodes(ProgramCode.MEDICAID, ProgramReasonCode.SNV, ProgramReasonCode.MOS, ProgramReasonCode.SNVS, ProgramReasonCode.AASLPR, 
+																	 ProgramReasonCode.WDNV, ProgramReasonCode.CSENV, ProgramReasonCode.HONCV, ProgramReasonCode.HARNV, 
+																	 ProgramReasonCode.CISF, ProgramReasonCode.ISNV, ProgramReasonCode.CD_IMMIG, ProgramReasonCode.VSNV, 
+																	 ProgramReasonCode.IVO_CURR, ProgramReasonCode.IVO);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.THIRTY);
+		logger.debug("Rule : Medicaid_Summary_9B_3 : End");
+end
+
+rule "Medicaid_Summary_9B_3A"
+salience 98975
+activation-group "Medicaid_Summary_9B_AT"
+agenda-group "Medicaid_Summary_9B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMedicaidNewbornExistsInPrevElg(),
+														(!isHXIncarcerated && !selfIdentifiedIncarcerationInCurrentApp),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														isProgramStatusPending(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9B_3A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9B_3A");
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS_VETERAN);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME_TPL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME);
+		
+		$eDeterminationfacts.removeReasonCodes(ProgramCode.MEDICAID, ProgramReasonCode.SNV, ProgramReasonCode.MOS, ProgramReasonCode.SNVS, ProgramReasonCode.AASLPR, 
+																	 ProgramReasonCode.WDNV, ProgramReasonCode.CSENV, ProgramReasonCode.HONCV, ProgramReasonCode.HARNV, 
+																	 ProgramReasonCode.CISF, ProgramReasonCode.ISNV, ProgramReasonCode.CD_IMMIG, ProgramReasonCode.VSNV, 
+																	 ProgramReasonCode.IVO_CURR, ProgramReasonCode.IVO);
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.ELIGIBLE, null);																		 
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.THIRTY);
+		logger.debug("Rule : Medicaid_Summary_9B_3A : End");
+end
+
+
+rule "Medicaid_Summary_9B_4"
+salience 98970
+activation-group "Medicaid_Summary_9B_AT"
+agenda-group "Medicaid_Summary_9B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMedicaidNewbornExistsInPrevElg(),
+														(isHXIncarcerated || selfIdentifiedIncarcerationInCurrentApp));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9B_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9B_4");
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCARCERATION_STATUS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS_VETERAN);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME_TPL);
+		$eDeterminationfacts.inActivateMADeemedNewbornClock(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME);
+		
+		$eDeterminationfacts.removeReasonCodes(ProgramCode.MEDICAID, ProgramReasonCode.SNV, ProgramReasonCode.MOS, ProgramReasonCode.SNVS, ProgramReasonCode.CNV, 
+																	 ProgramReasonCode.INC_CON_NOT_RES, ProgramReasonCode.ICUA, ProgramReasonCode.AASLPR, ProgramReasonCode.WDNV, 
+																	 ProgramReasonCode.CSENV, ProgramReasonCode.HONCV, ProgramReasonCode.HARNV, ProgramReasonCode.CISF, 
+																	 ProgramReasonCode.ISNV, ProgramReasonCode.CD_IMMIG, ProgramReasonCode.VSNV,  
+																	 ProgramReasonCode.IVO_CURR, ProgramReasonCode.IVO);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.THIRTY);
+		logger.debug("Rule : Medicaid_Summary_9B_4 : End");
+end
+
+//End of Medicaid Summary(9b)
+
+
+//Medicaid Summary(9c)
+
+rule "Medicaid_Summary_9C_1"
+salience 98965
+activation-group "Medicaid_Summary_9C_AT"
+agenda-group "Medicaid_Summary_9C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNewBornEnrolledInMedicaidESIMEC());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9C_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9C_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		logger.debug("Rule : Medicaid_Summary_9C_1 : End");
+end
+
+rule "Medicaid_Summary_9C_2"
+salience 98960
+activation-group "Medicaid_Summary_9C_AT"
+agenda-group "Medicaid_Summary_9C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNewBornEnrolledInMedicaidESIMEC(),
+														getAccessToNYSHIP());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9C_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9C_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		logger.debug("Rule : Medicaid_Summary_9C_2 : End");
+end
+
+rule "Medicaid_Summary_9C_3"
+salience 98955
+activation-group "Medicaid_Summary_9C_AT"
+agenda-group "Medicaid_Summary_9C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNewBornEnrolledInMedicaidESIMEC(),
+														!getAccessToNYSHIP());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_9C_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_9C_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.THIRTY);
+		logger.debug("Rule : Medicaid_Summary_9C_3 : End");
+end
+
+//End of Medicaid Summary(9c)
+
+
+
+//Medicaid Summary(10)
+
+rule "Medicaid_Summary_10_1"
+salience 43000
+activation-group "Medicaid_Summary_10_AT"
+agenda-group "Medicaid_Summary_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!deceasedConsumerFoundInhousehold);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_10_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_10_1");
+		logger.debug("Rule : Medicaid_Summary_10_1 : End");
+end
+
+rule "Medicaid_Summary_10_2"
+salience 43290
+activation-group "Medicaid_Summary_10_AT"
+agenda-group "Medicaid_Summary_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														memberNewlyAddedToHousehold);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_10_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_10_2");
+		
+		logger.debug("Rule : Medicaid_Summary_10_2 : End");
+end
+
+rule "Medicaid_Summary_10_3"
+salience 43280
+activation-group "Medicaid_Summary_10_AT"
+agenda-group "Medicaid_Summary_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														!memberNewlyAddedToHousehold,
+														alreadyExistingMemberInHousehold,
+														!isUserSatisfyingRenewalLSC);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_10_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_10_3");
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID,($eDeterminationfacts.getPreviousElgEndDate(ProgramCode.MEDICAID)));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setUserPreviousEndDateDueToDeceasedInfo(true);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.PREV_END_DT_USED_DOD);
+		logger.debug("Rule : Medicaid_Summary_10_3 : End");
+end
+
+rule "Medicaid_Summary_10_4"
+salience 43270
+activation-group "Medicaid_Summary_10_AT"
+agenda-group "Medicaid_Summary_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														!memberNewlyAddedToHousehold,
+														alreadyExistingMemberInHousehold,
+														isUserSatisfyingRenewalLSC);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_10_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_10_4");
+		logger.debug("Rule : Medicaid_Summary_10_4 : End");
+end
+
+rule "Medicaid_Summary_10_5"
+salience 43260
+activation-group "Medicaid_Summary_10_AT"
+agenda-group "Medicaid_Summary_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														memberNewlyAddedToHousehold,
+														!alreadyExistingMemberInHousehold);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_10_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_10_5");
+		logger.debug("Rule : Medicaid_Summary_10_5 : End");
+end
+
+
+
+//End of Medicaid Summary(10)
+
+
+//Medicaid Summary(11)
+
+rule "Medicaid_Summary_11_1"
+salience 44270
+activation-group "Medicaid_Summary_11_AT"
+agenda-group "Medicaid_Summary_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isProgramStatusSuspend(ProgramCode.MEDICAID),
+														!isProgramStatusPending(ProgramCode.MEDICAID),
+														!(isLSCThruNonRenewalBatch && !isSysgenFiveYrBar));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_11_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_11_1");
+		logger.debug("Rule : Medicaid_Summary_11_1 : End");
+end
+
+
+rule "Medicaid_Summary_11_2"
+salience 44260
+activation-group "Medicaid_Summary_11_AT"
+agenda-group "Medicaid_Summary_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isProgramStatusSuspend(ProgramCode.MEDICAID),
+														!isProgramStatusPending(ProgramCode.MEDICAID),
+														(isLSCThruNonRenewalBatch && !isSysgenFiveYrBar),
+														!isUnPendEligiblityEndDateAvailable(ProgramCode.MEDICAID));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_11_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_11_2");
+		logger.debug("Rule : Medicaid_Summary_11_2 : End");
+end
+
+rule "Medicaid_Summary_11_3"
+salience 44250
+activation-group "Medicaid_Summary_11_AT"
+agenda-group "Medicaid_Summary_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isProgramStatusSuspend(ProgramCode.MEDICAID),
+														!isProgramStatusPending(ProgramCode.MEDICAID),
+														(isLSCThruNonRenewalBatch && !isSysgenFiveYrBar),
+														isUnPendEligiblityEndDateAvailable(ProgramCode.MEDICAID));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_11_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_11_3");
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getUnPendEligibilityEndDate(ProgramCode.MEDICAID));
+		logger.debug("Rule : Medicaid_Summary_11_3 : End");
+end
+
+rule "Medicaid_Summary_11_4"
+salience 44240
+activation-group "Medicaid_Summary_11_AT"
+agenda-group "Medicaid_Summary_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isProgramStatusSuspend(ProgramCode.MEDICAID),
+														isProgramStatusPending(ProgramCode.MEDICAID),
+														!(isLSCThruNonRenewalBatch && !isSysgenFiveYrBar)
+														);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_11_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_11_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setUnPendEligiblityEndDate($eDeterminationfacts.getEligibilityEndDate(ProgramCode.MEDICAID));	
+		logger.debug("Rule : Medicaid_Summary_11_4 : End");
+end
+
+rule "Medicaid_Summary_11_5"
+salience 44230
+activation-group "Medicaid_Summary_11_AT"
+agenda-group "Medicaid_Summary_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isProgramStatusSuspend(ProgramCode.MEDICAID),
+														isProgramStatusPending(ProgramCode.MEDICAID),
+														(isLSCThruNonRenewalBatch && !isSysgenFiveYrBar),
+														!isUnPendEligiblityEndDateAvailable(ProgramCode.MEDICAID));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_11_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_11_5");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setUnPendEligiblityEndDate($eDeterminationfacts.getEligibilityEndDate(ProgramCode.MEDICAID));	
+		logger.debug("Rule : Medicaid_Summary_11_5 : End");
+end
+
+rule "Medicaid_Summary_11_6"
+salience 44220
+activation-group "Medicaid_Summary_11_AT"
+agenda-group "Medicaid_Summary_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isProgramStatusSuspend(ProgramCode.MEDICAID),
+														isProgramStatusPending(ProgramCode.MEDICAID),
+														(isLSCThruNonRenewalBatch && !isSysgenFiveYrBar),
+														isUnPendEligiblityEndDateAvailable(ProgramCode.MEDICAID));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_11_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_11_6");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setUnPendEligiblityEndDate($eDeterminationfacts.getUnPendEligibilityEndDate(ProgramCode.MEDICAID));
+		logger.debug("Rule : Medicaid_Summary_11_6 : End");
+end
+
+rule "Medicaid_Summary_11_7"
+salience 44210
+activation-group "Medicaid_Summary_11_AT"
+agenda-group "Medicaid_Summary_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.MEDICAID));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_11_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_11_7");
+		logger.debug("Rule : Medicaid_Summary_11_7 : End");
+end
+
+rule "Medicaid_Summary_11_8"
+salience 44205
+activation-group "Medicaid_Summary_11_AT"
+agenda-group "Medicaid_Summary_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isProgramStatusSuspend(ProgramCode.MEDICAID));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary_11_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary_11_8");
+		logger.debug("Rule : Medicaid_Summary_11_8 : End");
+end
+
+//End of Medicaid Summary(11)
+
+//SUMMARY END
+
+rule "Medicaid_Summary3_END"
+salience 45000
+activation-group "Medicaid_Summary3_END_AT"
+agenda-group "Medicaid_Summary3_END_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Summary3_END : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Summary3_END");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC3_05);
+		logger.debug("Rule : Medicaid_Summary3_END : End");
+end
+
+

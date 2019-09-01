@@ -1,0 +1,152 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.ext.NoticeNameEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_QHP_ESI"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_QHP_ESI : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "MAIN_QHP_ESI");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_01_ACK);
+		drools.setFocus("QHP_ESI_STALE_1_AG");
+		logger.debug("Rule : MAIN_QHP_ESI : End");
+end
+
+
+//CR1606
+rule "QHP_ESI_VERIFY_STALE_ELG_SEC_01"
+salience 95060
+activation-group "QHP_ESI_STALE_1_AT"
+agenda-group "QHP_ESI_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_ESI_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_ESI_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : QHP_ESI_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "QHP_ESI_VERIFY_STALE_ELG_SEC_03"
+salience 95050
+activation-group "QHP_ESI_STALE_1_AT"
+agenda-group "QHP_ESI_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_ESI_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_ESI_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Qhp_Undeliverable_1_AG");
+		logger.debug("Rule : QHP_ESI_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+rule "Qhp_Undeliverable_1_1"
+salience 90000
+activation-group "Qhp_Undeliverable_1_AT"
+agenda-group "Qhp_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isCSUndeliverableAddInd,
+														(isFinancialAssistanceRequired && isIncomeEligibleForMedicaid && !medicaidNonCompInd) );
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Undeliverable_1_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Undeliverable_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.PSIUA);
+		drools.setFocus("Qhp_ESI_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Undeliverable_1_1 : End");
+end
+
+
+rule "Qhp_Undeliverable_1_2"
+salience 89990
+activation-group "Qhp_Undeliverable_1_AT"
+agenda-group "Qhp_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isCSUndeliverableAddInd,
+														!(isFinancialAssistanceRequired && isIncomeEligibleForMedicaid && !medicaidNonCompInd),
+														(isFinancialAssistanceRequired && isIncomeEligibleForChip && !chipNonCompInd));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Undeliverable_1_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Undeliverable_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.PSIUA);
+		drools.setFocus("Qhp_ESI_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Undeliverable_1_2 : End");
+end
+
+rule "Qhp_Undeliverable_1_3"
+salience 89980
+activation-group "Qhp_Undeliverable_1_AT"
+agenda-group "Qhp_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isCSUndeliverableAddInd,
+														!(isFinancialAssistanceRequired && isIncomeEligibleForMedicaid && !medicaidNonCompInd),
+														!(isFinancialAssistanceRequired && isIncomeEligibleForChip && !chipNonCompInd));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Undeliverable_1_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Undeliverable_1_3");
+		drools.setFocus("Qhp_ESI_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Undeliverable_1_3 : End");
+end
+
+
+rule "Qhp_Undeliverable_1_4"
+salience 89970
+activation-group "Qhp_Undeliverable_1_AT"
+agenda-group "Qhp_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isCSUndeliverableAddInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Undeliverable_1_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Undeliverable_1_4");
+		drools.setFocus("Qhp_ESI_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Undeliverable_1_4 : End");
+end
+
+
+//Rule completion
+rule "Qhp_ESI_COMP_STEP_1"
+salience 60000
+activation-group "Qhp_ESI_COMP_STEP_AT"
+agenda-group "Qhp_ESI_COMP_STEP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ESI_COMP_STEP_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ESI_COMP_STEP_1");
+		$eDeterminationfacts.setPrevSectionACKName("RULE_EXEC_STEP_04");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Qhp_ESI_COMP_STEP_1 : End");
+end

@@ -1,0 +1,22 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+
+global org.slf4j.Logger logger;
+
+rule "MAIN_CSR_MEC"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_CSR_MEC : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CSR, "MAIN_CSR_MEC");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CSR, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : MAIN_CSR_MEC : End");
+end

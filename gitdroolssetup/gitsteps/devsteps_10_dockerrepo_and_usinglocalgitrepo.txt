@@ -1,0 +1,116 @@
+My Local Repo
+-----------------------------
+c:/GITREPOS
+
+o Create 1st Project
+mkdir sanboxkie
+cd sanboxkie
+
+o My new git repository is now:
+C:/GITREPOS/sanboxkie/
+
+- See no repo yet
+git status
+fatal: Not a git repository (or any of the parent directories): .git
+
+- Init repo
+git init
+Initialized empty Git repository in /cygdrive/c/GITREPOS/sanboxkie/.git/
+
+- See new repo
+git status
+On branch master
+Initial commit
+
+
+Create New User In KIE Workbench
+-----------------------------------------------
+o Create user: pchauvet / pchauvet
+Home->Admin->New User
+pchauvet 
+->Create
+password: pchauvet
+
+o Create Group
+->Add Groups
+kiemgmt
+rest-all
+kie-server
+->Add to selected groups
+->Save
+
+o Add Roles:
+->Add roles
+process-admin
+manager	
+admin
+user
+->Add to selected roles
+->Save
+
+o Login using this user
+
+
+Create New Organizational Unit Manager: Domain
+-----------------------------------------------
+Authoring -> Administration
+Name: csra-poc-domains
+Default Group ID: com.csra.hcentive.eligibility.poc.domain
+Owner: pchauvet
+
+
+Create New KIE Workbench Repository
+-------------------------------------
+Authoring -> Repositories->New Repository
+Repository Name: csra-poc-domains
+Organization Unit: csra-poc-domains
+
+
+Associate Organizational Unit To Repository
+----------------------------------------------------------------
+Select Organizational Units: csra-poc-domains
+Associate Repositories: csra-poc-domains
+
+
+Create A New Team: 
+----------------------------------------------------------------
+Authoring -> Teams -> Create Team
+Name: csra-poc-domains
+Default Group Id: com.csra.hcentive.eligibility.poc.domain
+Owner: pchauvet
+
+
+
+Import Lastest Local Git Repository Project Into Kie Workbench
+----------------------------------------------------------------
+o Select latest repository to work with
+Authoring
+Teams->a1a1a1
+Import->Custom
+
+Repository URL:
+file:///C:/GITREPOS/sanboxkie/.git
+
+->Next
+- Select project medicaidlocaldev02
+
+- Import Example:
+Target Repository: MedicalIncome
+Organization Units: medical_income
+
+
+Import Latest From Remmote --xxxxxx - Not complete
+----------------------------------------------------------------
+Repository Name: csra-poc-domains
+Organizational Unit: csra-poc-domains
+Git Url: file:///C:/GITREPOS/sanboxkie/.git
+User name:
+Password: 
+
+
+
+
+
+
+
+

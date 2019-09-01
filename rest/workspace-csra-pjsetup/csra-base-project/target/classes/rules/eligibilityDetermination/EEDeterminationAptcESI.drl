@@ -1,0 +1,385 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.ext.NoticeNameEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_APTC_ESI"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_APTC_ESI : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "MAIN_APTC_ESI");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_01_ACK);
+		drools.setFocus("APTC_ESI_STALE_1_AG");
+		logger.debug("Rule : MAIN_APTC_ESI : End");
+end
+
+
+//CR1606
+rule "APTC_ESI_VERIFY_STALE_ELG_SEC_01"
+salience 95060
+activation-group "APTC_ESI_STALE_1_AT"
+agenda-group "APTC_ESI_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : APTC_ESI_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "APTC_ESI_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : APTC_ESI_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "APTC_ESI_VERIFY_STALE_ELG_SEC_03"
+salience 95050
+activation-group "APTC_ESI_STALE_1_AT"
+agenda-group "APTC_ESI_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : APTC_ESI_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "APTC_ESI_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Aptc_Undeliverable_1_AG");
+		logger.debug("Rule : APTC_ESI_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//////////////////////////////////////////////////////ESI////////////////////////////////////////////////
+//APTC Undeliverable (1)
+
+rule "Aptc_Undeliverable_1_1"
+salience 90000
+activation-group "Aptc_Undeliverable_1_AT"
+agenda-group "Aptc_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isCSUndeliverableAddInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Undeliverable_1_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Undeliverable_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.PSIUA);
+		drools.setFocus("Aptc_ESI_1_AG");
+		logger.debug("Rule : Aptc_Undeliverable_1_1 : End");
+end
+
+rule "Aptc_Undeliverable_1_2"
+salience 89990
+activation-group "Aptc_Undeliverable_1_AT"
+agenda-group "Aptc_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isCSUndeliverableAddInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Undeliverable_1_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Undeliverable_1_2");
+		drools.setFocus("Aptc_ESI_1_AG");
+		logger.debug("Rule : Aptc_Undeliverable_1_2 : End");
+end
+
+
+//Aptc ESI(1)
+
+rule "Aptc_ESI_1_1"
+salience 90000
+activation-group "Aptc_ESI_1_AT"
+agenda-group "Aptc_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isEnrolledInESIMECPlan));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.ENRLD_ESI_MEC_PLAN);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_1_1 : End");
+end
+
+//CR1346:Child who has NYSHIP access is not eligible for CHIP,EP,APTC 
+rule "Aptc_ESI_1_1b"
+salience 89995
+activation-group "Aptc_ESI_1_AT"
+agenda-group "Aptc_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInESIMECPlan),
+														accessToNYSHIP);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_1_1b : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_1_1b");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.ACCESS_AFFORDABLE_ESI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_1_1b : End");
+end
+
+rule "Aptc_ESI_1_2"
+salience 89990
+activation-group "Aptc_ESI_1_AT"
+agenda-group "Aptc_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInESIMECPlan), !(isEligibleInESIMECPlan));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_1_2");		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_1_2 : End");
+end
+
+rule "Aptc_ESI_1_3"
+salience 89980
+activation-group "Aptc_ESI_1_AT"
+agenda-group "Aptc_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInESIMECPlan), (isEligibleInESIMECPlan),
+														!(doesPlanMeetsMinValue));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_1_3");
+		$eDeterminationfacts.setNotice(ProgramCode.APTC, NoticeNameEnum.ESI_EMP_MIN_MEC_NOT_AVL);
+		$eDeterminationfacts.setNotice(ProgramCode.APTC, NoticeNameEnum.ESI_IND_MIN_MEC_NOT_AVL);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_1_3 : End");
+end
+
+//Will be added as part of the next release when the customer override flags are implemented
+/*
+rule "Aptc_ESI_1_4"
+salience 89975
+activation-group "Aptc_ESI_1_AT"
+agenda-group "Aptc_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInESIMECPlan), (isEligibleInESIMECPlan),
+														!(doesPlanMeetsMinValue));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_1_4");
+		drools.setFocus("Aptc_ESI_2_AG");
+		logger.debug("Rule : Aptc_ESI_1_4 : End");
+end
+*/
+
+rule "Aptc_ESI_1_5"
+salience 89970
+activation-group "Aptc_ESI_1_AT"
+agenda-group "Aptc_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInESIMECPlan), (isEligibleInESIMECPlan),
+														(doesPlanMeetsMinValue));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_1_5");
+		drools.setFocus("Aptc_ESI_2_AG");
+		logger.debug("Rule : Aptc_ESI_1_5 : End");
+end
+
+rule "Aptc_ESI_1_6"
+salience 89965
+activation-group "Aptc_ESI_1_AT"
+agenda-group "Aptc_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInESIMECPlan), (isEligibleInESIMECPlan),
+														HXUtility.isEmpty(doesPlanMeetsMinValue));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_1_6");
+		$eDeterminationfacts.setNotice(ProgramCode.APTC, NoticeNameEnum.ESI_EMP_MIN_MEC_NOT_AVL);
+		$eDeterminationfacts.setNotice(ProgramCode.APTC, NoticeNameEnum.ESI_IND_MIN_MEC_NOT_AVL);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_1_6 : End");
+end
+
+//Will be added as part of the next release when the customer override flags are implemented
+/*
+rule "Aptc_ESI_1_7"
+salience 89960
+activation-group "Aptc_ESI_1_AT"
+agenda-group "Aptc_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInESIMECPlan), (isEligibleInESIMECPlan),
+														doesPlanMeetsMinValue == null);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_1_7");
+		drools.setFocus("Aptc_ESI_2_AG");
+		logger.debug("Rule : Aptc_ESI_1_7 : End");
+end
+*/
+
+//Aptc ESI(2)
+
+rule "Aptc_ESI_2_0"
+salience 80000
+activation-group "Aptc_ESI_2_AT"
+agenda-group "Aptc_ESI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNoIncomeDataSource);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_2_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_2_0");		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_2_0 : End");
+end
+
+rule "Aptc_ESI_2_0A"
+salience 79998
+activation-group "Aptc_ESI_2_AT"
+agenda-group "Aptc_ESI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoIncomeDataSource,
+														HXUtility.isNull(annualLowCostPremium));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_2_0A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_2_0A");		
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.FPLCPA);		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_2_0A : End");
+end
+
+rule "Aptc_ESI_2_1"
+salience 79996
+activation-group "Aptc_ESI_2_AT"
+agenda-group "Aptc_ESI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoIncomeDataSource,
+														!HXUtility.isNull(annualLowCostPremium),
+														!(annualLowCostPremium < getAPTCIncomeByEsiAffordablePercent()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_2_1");		
+		$eDeterminationfacts.getProgram(ProgramCode.APTC).setIsIndvAffordabilityEmpSponsMEC(Boolean.TRUE);
+		$eDeterminationfacts.setNotice(ProgramCode.APTC, NoticeNameEnum.ESI_EMP_MEC_NOT_AFF);
+		$eDeterminationfacts.setNotice(ProgramCode.APTC, NoticeNameEnum.ESI_IND_MEC_NOT_AFF);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_2_1 : End");
+end
+
+rule "Aptc_ESI_2_2"
+salience 79995
+activation-group "Aptc_ESI_2_AT"
+agenda-group "Aptc_ESI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoIncomeDataSource,
+														!HXUtility.isNull(annualLowCostPremium),
+														(annualLowCostPremium < getAPTCIncomeByEsiAffordablePercent()),
+														(doesWaitingPeriodDateExists));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_2_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_2_2");		
+		$eDeterminationfacts.getProgram(ProgramCode.APTC).setIsIndvAffordabilityEmpSponsMEC(Boolean.FALSE);
+		drools.setFocus("Aptc_ESI_3_AG");
+		logger.debug("Rule : Aptc_ESI_2_2 : End");
+end
+
+rule "Aptc_ESI_2_3"
+salience 79990
+activation-group "Aptc_ESI_2_AT"
+agenda-group "Aptc_ESI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoIncomeDataSource,
+														!HXUtility.isNull(annualLowCostPremium),
+														(annualLowCostPremium < getAPTCIncomeByEsiAffordablePercent()),
+														!(doesWaitingPeriodDateExists));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_2_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.AFDBL_ESI_PLAN_AVL);		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_2_3 : End");
+end
+
+
+//Aptc ESI(3)
+
+rule "Aptc_ESI_3_1"
+salience 70000
+activation-group "Aptc_ESI_3_AT"
+agenda-group "Aptc_ESI_3_AG"
+	when
+		//<CONDITION>
+		// CR1606 changes - Introduced !isStaleEligibility check for this method to avoid NPE during rule runtime while accessing Date related Facts. 
+		// if isStaleEligibility is true we are not building these facts
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility && isWaitingPeriodDateAfterCurrentDate());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_3_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_3_1");
+		$eDeterminationfacts.updateESIMECReRunForProgram(ProgramCode.APTC, Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_3_1 : End");
+end
+
+rule "Aptc_ESI_3_2"
+salience 69990
+activation-group "Aptc_ESI_3_AT"
+agenda-group "Aptc_ESI_3_AG"
+	when
+		//<CONDITION>
+		// CR1606 changes - Introduced !isStaleEligibility check for this method to avoid NPE during rule runtime while accessing Date related Facts. 
+		// if isStaleEligibility is true we are not building these facts
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility && !isWaitingPeriodDateAfterCurrentDate());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_ESI_3_2 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.ESI_WAIT_PRD_OVER);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_ESI_3_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : Aptc_ESI_3_2 : End");
+end

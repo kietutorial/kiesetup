@@ -1,0 +1,23 @@
+Changing Wilfly Port
+----------------------------
+Change in standalone-full.xml this entry:
+jboss.socket.binding.port-offset:0
+- Change 0 to 1000 offset. This will mame the port 9080
+
+
+Plus Change build.xml
+----------------------
+Change  reference to 8080 to 9080
+Specifically:
+  .
+  <target name="start.jboss">
+	.
+      <arg value="-Dorg.kie.server.controller=http://localhost:9080/jbpm-console/rest/controller" />
+      <arg value="-Dorg.kie.server.location=http://localhost:9080/kie-server/services/rest/server" />
+	.
+		    <waitfor maxwait="5" maxwaitunit="minute" checkevery="10"
+             checkeveryunit="second" timeoutproperty="jboss.timeout">
+      <socket server="${jboss.bind.address}" port="9080" />
+    </waitfor>
+
+Restart server to work properly

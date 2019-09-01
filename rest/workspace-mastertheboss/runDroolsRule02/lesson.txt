@@ -1,0 +1,13 @@
+Fire rules by adding facts to script work flow.
+
+//**********************
+//** In test.bpmn2
+//**********************
+System.out.println("Process(" + kcontext.getNodeInstance().getNodeName() + ") ");
+System.out.println("*: " );
+if(account!=null)
+	System.out.println("account: " + account);
+
+kcontext.getKnowledgeRuntime().insert(account);		
+
+

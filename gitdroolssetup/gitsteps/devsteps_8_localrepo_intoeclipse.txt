@@ -1,0 +1,20 @@
+My Local Latest DevRepo
+---------------------
+C:\GITREPOS\sandox\
+- With project: medicaidlocaldev02
+
+Set Eclipse In Git Perspective
+----------------------------------------
+->Clone Git Repository
+->URI: file:///C:/GITREPOS/sandox/.git
+Eclise will fill in:
+Repository path: C:/GITREPOS/sandox/.git
+Protocol: file
+->Next
+->Next
+Local Destination:
+Directory: C:\GITREPOS\sandboxeclipse
+Finish
+
+
+file:///C:/GITREPOS/sandox/.git/medicaidlocaldev02

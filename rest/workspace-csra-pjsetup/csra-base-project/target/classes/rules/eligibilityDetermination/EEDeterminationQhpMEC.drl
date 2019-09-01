@@ -1,0 +1,1790 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+//Main Rule
+rule "MAIN_QHP_MEC"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_QHP_MEC : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "MAIN_QHP_MEC");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_SEC2_03_ACK);
+		drools.setFocus("QHP_MEC_STALE_1_AG");
+		logger.debug("Rule : MAIN_QHP_MEC : End");
+end
+
+
+
+//CR1606
+rule "QHP_MEC_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "QHP_MEC_STALE_1_AT"
+agenda-group "QHP_MEC_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_MEC_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_MEC_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : QHP_MEC_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "QHP_MEC_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "QHP_MEC_STALE_1_AT"
+agenda-group "QHP_MEC_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_MEC_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_MEC_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Qhp_MEC_1b_AG");
+		logger.debug("Rule : QHP_MEC_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//Qhp Public MEC(1)
+//Implementation not required
+
+//---------------------------------------------------
+//QHP Public MEC(1b)
+//It has been Implemented to satisfy eMedNY FC requirement CR #1186
+
+
+rule "Qhp_MEC_1b_1"
+salience 99990
+activation-group "Qhp_MEC_1b_AT"
+agenda-group "Qhp_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!iseMednyEnrolled());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_1b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_1b_1");
+		drools.setFocus("Qhp_MEC_2_AG");
+		logger.debug("Rule : Qhp_MEC_1b_1 : End");		
+end
+
+
+rule "Qhp_MEC_1b_2"
+salience 99980
+activation-group "Qhp_MEC_1b_AT"
+agenda-group "Qhp_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(iseMednyEnrolled(),
+														(HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate)));
+	then												 
+	
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_1b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_1b_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_1b_2 : End");
+end
+
+
+rule "Qhp_MEC_1b_3"
+salience 99970
+activation-group "Qhp_MEC_1b_AT"
+agenda-group "Qhp_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(iseMednyEnrolled(),
+														!(HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate)),
+														(ProgramCode.APTC.equals(getForceCloseDuetoInd(ProgramCode.APTC))));
+	then												 
+	
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_1b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_1b_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_1b_3 : End");
+end
+
+
+rule "Qhp_MEC_1b_4"
+salience 99960
+activation-group "Qhp_MEC_1b_AT"
+agenda-group "Qhp_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(iseMednyEnrolled(),
+														!(HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate)),
+														!(ProgramCode.APTC.equals(getForceCloseDuetoInd(ProgramCode.APTC))),
+														!(subscriberBeingFC));
+	then												 
+	
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_1b_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_1b_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RAEMEDNY);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_1b_4 : End");
+end
+
+rule "Qhp_MEC_1b_5"
+salience 99950
+activation-group "Qhp_MEC_1b_AT"
+agenda-group "Qhp_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(iseMednyEnrolled(),
+														!(HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate)),
+														!(ProgramCode.APTC.equals(getForceCloseDuetoInd(ProgramCode.APTC))),
+														(subscriberBeingFC),
+														!(subscriberRemovedMembersLeftduetoFC));
+	then												 
+	
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_1b_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_1b_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RAEMEDNY);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_1b_5 : End");
+end
+
+rule "Qhp_MEC_1b_6"
+salience 99940
+activation-group "Qhp_MEC_1b_AT"
+agenda-group "Qhp_MEC_1b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(iseMednyEnrolled(),
+														!(HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate)),
+														!(ProgramCode.APTC.equals(getForceCloseDuetoInd(ProgramCode.APTC))),
+														(subscriberBeingFC),
+														(subscriberRemovedMembersLeftduetoFC));
+	then												 
+	
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_1b_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_1b_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RAEMEDNY);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setSubsciberMovedMembersleftInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_1b_6 : End");
+end
+
+
+//------------------------------------------
+
+//Qhp Public MEC(2)
+
+/*
+rule "Qhp_MEC_2_1"
+salience 70000
+activation-group "Qhp_MEC_2_AT"
+agenda-group "Qhp_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isFinancialAssistanceRequired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_2_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_2_1 : End");
+end
+*/
+
+rule "Qhp_MEC_2_2"
+salience 69990
+activation-group "Qhp_MEC_2_AT"
+agenda-group "Qhp_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isSeekingCoverage));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_2_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_2_2 : End");
+end
+
+rule "Qhp_MEC_2_3"
+salience 69985
+activation-group "Qhp_MEC_2_AT"
+agenda-group "Qhp_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isSeekingCoverage),
+														!(isMemberOnAssistanceByFed), 
+														!(isMemberOnAssistanceByState),
+														isDataErrorExists()
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPL_RRE_DATA_ERROR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_2_3 : End");
+end
+
+
+rule "Qhp_MEC_2_3A"
+salience 69980
+activation-group "Qhp_MEC_2_AT"
+agenda-group "Qhp_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isSeekingCoverage),
+														!(isMemberOnAssistanceByFed), 
+														!(isMemberOnAssistanceByState),
+														!(getIsRRECodeExists() || getHasCoverageFromTplService()),
+														!(isDataErrorExists()),
+														!(getIsEnrolledInMedicaidESIMEC())
+														);
+														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_2_3A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_2_3A");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_2_3A : End");
+end
+
+rule "Qhp_MEC_2_3B"
+salience 69975
+activation-group "Qhp_MEC_2_AT"
+agenda-group "Qhp_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isSeekingCoverage),
+														!(isMemberOnAssistanceByFed), 
+														!(isMemberOnAssistanceByState),
+														!(getIsRRECodeExists() || getHasCoverageFromTplService()),
+														!(isDataErrorExists()),
+														 (getIsEnrolledInMedicaidESIMEC())
+														 );
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_2_3B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_2_3B");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setTplrreDescrInd(Boolean.TRUE);
+	 	$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.TPHI_DESCRPNC);	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_2_3B : End");
+end
+
+rule "Qhp_MEC_2_4"
+salience 69970
+activation-group "Qhp_MEC_2_AT"
+agenda-group "Qhp_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isSeekingCoverage),
+														!(isMemberOnAssistanceByFed), 
+														(isMemberOnAssistanceByState));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_2_4");
+		//According to the discussion on 09/26/2013 only Medicare will be run for QHP
+		drools.setFocus("Qhp_MEC_3c_AG");
+		logger.debug("Rule : Qhp_MEC_2_4 : End");
+end
+
+rule "Qhp_MEC_2_5"
+salience 69960
+activation-group "Qhp_MEC_2_AT"
+agenda-group "Qhp_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isSeekingCoverage),
+														(isMemberOnAssistanceByFed));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_2_5");
+		//According to the discussion on 09/26/2013 only Medicare will be run for QHP
+		drools.setFocus("Qhp_MEC_3c_AG");
+		logger.debug("Rule : Qhp_MEC_2_5 : End");
+end
+
+rule "Qhp_MEC_2_6"
+salience 69960
+activation-group "Qhp_MEC_2_AT"
+agenda-group "Qhp_MEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isSeekingCoverage),
+														(getIsRRECodeExists() || getHasCoverageFromTplService()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_2_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_2_6");
+		//According to the discussion on 09/26/2013 only Medicare will be run for QHP
+		drools.setFocus("Qhp_MEC_3c_AG");
+		logger.debug("Rule : Qhp_MEC_2_6 : End");
+end
+
+//Qhp Public MEC(3)
+/*
+
+rule "Qhp_MEC_3_1"
+salience 68000
+activation-group "Qhp_MEC_3_AT"
+agenda-group "Qhp_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECMedicaidORChipORRefugee));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3_1");
+		drools.setFocus("Qhp_MEC_4_AG");
+		logger.debug("Rule : Qhp_MEC_3_1 : End");
+end
+
+rule "Qhp_MEC_3_2"
+salience 67990
+activation-group "Qhp_MEC_3_AT"
+agenda-group "Qhp_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidORChipORRefugee),
+														!(doesUserAgreesWithMECMedicaidORChipORRefugee),
+														!(isMECMedicaidORChipORRefugeeStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.PENDING, ProgramReasonCode.RPM);
+		drools.setFocus("Qhp_MEC_3V_AG");
+		logger.debug("Rule : Qhp_MEC_3_2 : End");
+end
+
+rule "Qhp_MEC_3_3"
+salience 67985
+activation-group "Qhp_MEC_3_AT"
+agenda-group "Qhp_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidORChipORRefugee),
+														!(doesUserAgreesWithMECMedicaidORChipORRefugee),
+														(isMECMedicaidORChipORRefugeeStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3_3");
+		drools.setFocus("Qhp_MEC_4_AG");
+		logger.debug("Rule : Qhp_MEC_3_3 : End");
+end
+
+rule "Qhp_MEC_3_4"
+salience 67980
+activation-group "Qhp_MEC_3_AT"
+agenda-group "Qhp_MEC_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidORChipORRefugee),
+														(doesUserAgreesWithMECMedicaidORChipORRefugee));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPM);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_3_4 : End");
+end
+*/
+//Qhp Public MEC(3V)
+
+rule "Qhp_MEC_3V_1"
+salience 60000
+activation-group "Qhp_MEC_3V_AT"
+agenda-group "Qhp_MEC_3V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECMedicaidORChipORRefugeeNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3V_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3V_1");
+		//TO DO
+		//Set Notice trigger
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.MEC_MCR, ClockNameEnum.MEC_MCR_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		drools.setFocus("Qhp_MEC_4_AG");
+		logger.debug("Rule : Qhp_MEC_3V_1 : End");
+end
+
+rule "Qhp_MEC_3V_2"
+salience 59990
+activation-group "Qhp_MEC_3V_AT"
+agenda-group "Qhp_MEC_3V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECMedicaidORChipORRefugeeNoticeSent),
+														!(isMECMedicaidORChipORRefugee_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3V_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3V_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		drools.setFocus("Qhp_MEC_4_AG");
+		logger.debug("Rule : Qhp_MEC_3V_2 : End");
+end
+
+rule "Qhp_MEC_3V_3"
+salience 59985
+activation-group "Qhp_MEC_3V_AT"
+agenda-group "Qhp_MEC_3V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECMedicaidORChipORRefugeeNoticeSent),
+														(isMECMedicaidORChipORRefugee_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3V_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3V_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_45);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_3V_3 : End");
+end
+
+//Qhp Public MEC(4)
+
+rule "Qhp_MEC_4_1"
+salience 66000
+activation-group "Qhp_MEC_4_AT"
+agenda-group "Qhp_MEC_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECVeterans));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_4_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_4_1");
+		drools.setFocus("Qhp_MEC_5_AG");
+		logger.debug("Rule : Qhp_MEC_4_1 : End");
+end
+
+rule "Qhp_MEC_4_2"
+salience 65990
+activation-group "Qhp_MEC_4_AT"
+agenda-group "Qhp_MEC_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECVeterans),
+														!(doesUserAgreesWithMECVeterans),
+														!(isMECVeteransStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_4_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_4_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPM);
+		drools.setFocus("Qhp_MEC_4V_AG");
+		logger.debug("Rule : Qhp_MEC_4_2 : End");
+end
+
+rule "Qhp_MEC_4_3"
+salience 65985
+activation-group "Qhp_MEC_4_AT"
+agenda-group "Qhp_MEC_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECVeterans),
+														!(doesUserAgreesWithMECVeterans),
+														(isMECVeteransStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_4_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_4_3");
+		drools.setFocus("Qhp_MEC_5_AG");
+		logger.debug("Rule : Qhp_MEC_4_3 : End");
+end
+
+rule "Qhp_MEC_4_4"
+salience 65980
+activation-group "Qhp_MEC_4_AT"
+agenda-group "Qhp_MEC_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECVeterans),
+														(doesUserAgreesWithMECVeterans));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_4_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_4_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPM);
+		drools.setFocus("Qhp_MEC_5_AG");
+		logger.debug("Rule : Qhp_MEC_4_4 : End");
+end
+
+
+//Qhp Public MEC(4V)
+
+rule "Qhp_MEC_4V_1"
+salience 59000
+activation-group "Qhp_MEC_4V_AT"
+agenda-group "Qhp_MEC_4V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECVeteransNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_4V_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_4V_1");
+		//TO DO
+		//Set Notice trigger
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.MEC_VET, ClockNameEnum.MEC_VET_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		drools.setFocus("Qhp_MEC_5_AG");
+		logger.debug("Rule : Qhp_MEC_4V_1 : End");
+end
+
+rule "Qhp_MEC_4V_2"
+salience 58990
+activation-group "Qhp_MEC_4V_AT"
+agenda-group "Qhp_MEC_4V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECVeteransNoticeSent),
+														!(isMECVeterans_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_4V_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_4V_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		drools.setFocus("Qhp_MEC_5_AG");
+		logger.debug("Rule : Qhp_MEC_4V_2 : End");
+end
+
+rule "Qhp_MEC_4V_3"
+salience 58985
+activation-group "Qhp_MEC_4V_AT"
+agenda-group "Qhp_MEC_4V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECVeteransNoticeSent),
+														(isMECVeterans_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_4V_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_4V_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR_45);
+		drools.setFocus("Qhp_MEC_5_AG");
+		logger.debug("Rule : Qhp_MEC_4V_3 : End");
+end
+
+
+
+//Qhp Public MEC(5)
+
+/*rule "Qhp_MEC_5_0"
+salience 81599
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_0");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPM);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_0 : End");
+end
+*/
+
+//CR577
+
+rule "Qhp_MEC_3c_1"
+salience 90900
+activation-group "Qhp_MEC_3c_AT"
+agenda-group "Qhp_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( isDataErrorExists()) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3c_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3c_1");
+	   	drools.setFocus("Qhp_MEC_5_AG");
+	 	logger.debug("Rule : Qhp_MEC_3c_1 : End");
+end
+
+
+rule "Qhp_MEC_3c_2"
+salience 90085
+activation-group "Qhp_MEC_3c_AT"
+agenda-group "Qhp_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														 HXConstants.COMPR_COV_N_IND.equals(getComprehensiveCoverageIndicator())) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3c_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3c_2");
+	   	drools.setFocus("Qhp_MEC_5_AG");
+	 	logger.debug("Rule : Qhp_MEC_3c_2 : End");
+end
+
+rule "Qhp_MEC_3c_3"
+salience 90080
+activation-group "Qhp_MEC_3c_AT"
+agenda-group "Qhp_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														 //getComprehensiveCoverageIndicator(),
+														  HXConstants.COMP_COV_OVERRIDE_EXISTS_Y_IND.equals(getIsBackOfficeCCOverrideExists())) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3c_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3c_3");
+	   	drools.setFocus("Qhp_MEC_5_AG");
+	 	logger.debug("Rule : Qhp_MEC_3c_3 : End");
+end
+
+
+
+
+rule "Qhp_MEC_3c_4"
+salience 90075
+activation-group "Qhp_MEC_3c_AT"
+agenda-group "Qhp_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														 HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														 HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),
+														 !isMedicarePartIndReceived(),
+														 !(HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate))) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3c_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3c_4");
+		//$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.REC_TPHI);
+	   	drools.setFocus("Qhp_MEC_5_AG");
+	 	logger.debug("Rule : Qhp_MEC_3c_4 : End");
+end
+
+
+rule "Qhp_MEC_3c_5"
+salience 90070
+activation-group "Qhp_MEC_3c_AT"
+agenda-group "Qhp_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														 HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														 HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),
+														 !isMedicarePartIndReceived(),
+														 (HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate)) ) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3c_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3c_5"); 
+ 	   	drools.setFocus("Qhp_MEC_5_AG");
+	 	logger.debug("Rule : Qhp_MEC_3c_5 : End");
+end
+
+
+rule "Qhp_MEC_3c_6"
+salience 90070
+activation-group "Qhp_MEC_3c_AT"
+agenda-group "Qhp_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														 HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														 HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),
+														 //isMedicarePartIndReceived(), not required as mutually exclusive
+														 HXConstants.NO_MEDICARE_LEFT_OVERRIDE_Y_IND.equals(getNoMedicareLeftoverrideInd()),
+														 !(HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate))) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3c_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3c_6");
+		//$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.REC_TPHI);
+ 	   	drools.setFocus("Qhp_MEC_5_AG");
+	 	logger.debug("Rule : Qhp_MEC_3c_6 : End");
+end
+
+
+
+rule "Qhp_MEC_3c_7"
+salience 90070
+activation-group "Qhp_MEC_3c_AT"
+agenda-group "Qhp_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isDataErrorExists(),
+														HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),
+														//isMedicarePartIndReceived(), not required as mutually exclusive
+														HXConstants.NO_MEDICARE_LEFT_OVERRIDE_Y_IND.equals(getNoMedicareLeftoverrideInd()),
+														(HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3c_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3c_7"); 
+ 	   	drools.setFocus("Qhp_MEC_5_AG");
+	 	logger.debug("Rule : Qhp_MEC_3c_7 : End");
+end
+
+
+
+rule "Qhp_MEC_3c_8"
+salience 90065
+activation-group "Qhp_MEC_3c_AT"
+agenda-group "Qhp_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														 HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														 HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),
+														 isMedicarePartIndReceived(),
+														 HXConstants.NO_MEDICARE_LEFT_OVERRIDE_N_IND.equals(getNoMedicareLeftoverrideInd()),
+														 !(HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate))) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3c_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3c_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+	    drools.setFocus("Qhp_MEC_5_AG");
+	 	logger.debug("Rule : Qhp_MEC_3c_8 : End");
+end
+
+
+
+rule "Qhp_MEC_3c_9"
+salience 90060
+activation-group "Qhp_MEC_3c_AT"
+agenda-group "Qhp_MEC_3c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !isDataErrorExists(),
+														 HXConstants.COMPR_COV_Y_IND.equals(getComprehensiveCoverageIndicator()),
+														 HXConstants.COMP_COV_OVERRIDE_EXISTS_N_IND.equals(getIsBackOfficeCCOverrideExists()),
+														 isMedicarePartIndReceived(),
+														 HXConstants.NO_MEDICARE_LEFT_OVERRIDE_N_IND.equals(getNoMedicareLeftoverrideInd()),
+														 (HXConstants.QHP.equals(currentCovaragebydate) 
+														|| HXConstants.FFS_QHP.equals(currentCovaragebydate) 
+														|| HXConstants.MMC_QHP.equals(currentCovaragebydate))) ;
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_3c_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_3c_9"); 
+	    drools.setFocus("Qhp_MEC_5_AG");
+	 	logger.debug("Rule : Qhp_MEC_3c_9 : End");
+end
+
+
+rule "Qhp_MEC_5_1"
+salience 81500
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECMedicaidAORB),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_1 : End");
+end
+
+
+rule "Qhp_MEC_5_2"
+salience 81490
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECMedicaidAORB),
+														(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.NRPM_MEDAB);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_2 : End");
+end
+
+rule "Qhp_MEC_5_3"
+salience 81480
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB,
+														isProposedElgForRenewal,
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)),
+														isCurrentlyEnrolledInQHP);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_3 : End");
+end
+
+rule "Qhp_MEC_5_4"
+salience 81470
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB,
+														isProposedElgForRenewal,
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)),
+														!isCurrentlyEnrolledInQHP);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_4 : End");
+end
+
+rule "Qhp_MEC_5_5"
+salience 81460
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB,
+														isProposedElgForRenewal,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)),
+														isCurrentlyEnrolledInQHP);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_5 : End");
+end
+
+rule "Qhp_MEC_5_6"
+salience 81450
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingMECMedicaidAORB,
+														isProposedElgForRenewal,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)),
+														!isCurrentlyEnrolledInQHP);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_6 : End");
+end
+
+
+rule "Qhp_MEC_5_7"
+salience 81440
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														!(doesUserAgreesWithMECMedicaidAORB),
+														!(isMECMedicaidAORBStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPM_MEDAB);
+		drools.setFocus("Qhp_MEC_5V_AG");
+		logger.debug("Rule : Qhp_MEC_5_7 : End");
+end
+
+
+rule "Qhp_MEC_5_8"
+salience 81430
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														!(doesUserAgreesWithMECMedicaidAORB),
+														(isMECMedicaidAORBStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_8");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_8 : End");
+end
+
+rule "Qhp_MEC_5_9"
+salience 81420
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														(doesUserAgreesWithMECMedicaidAORB),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)),
+														isCurrentlyEnrolledInQHP);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_9");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_9 : End");
+end
+
+rule "Qhp_MEC_5_10"
+salience 81410
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														(doesUserAgreesWithMECMedicaidAORB),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)),
+														!isCurrentlyEnrolledInQHP);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_10");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_10 : End");
+end
+
+rule "Qhp_MEC_5_11"
+salience 81400
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														(doesUserAgreesWithMECMedicaidAORB),
+														(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)),
+														isCurrentlyEnrolledInQHP);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_11");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_11 : End");
+end
+
+
+rule "Qhp_MEC_5_12"
+salience 81390
+activation-group "Qhp_MEC_5_AT"
+agenda-group "Qhp_MEC_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECMedicaidAORB),
+														(doesUserAgreesWithMECMedicaidAORB),
+														(memberAge >= configGroupBean.getValueFor(RuleKey.MEC_AGE_MAX)),
+														!isCurrentlyEnrolledInQHP);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5_12");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPM_MEDAB);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5_12 : End");
+end
+
+
+//Qhp Public MEC(5V)
+
+rule "Qhp_MEC_5V_1"
+salience 58000
+activation-group "Qhp_MEC_5V_AT"
+agenda-group "Qhp_MEC_5V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECMedicaidAORBNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5V_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5V_1");
+		//TO DO
+		//Set Notice trigger
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.MEC_MEDAB, ClockNameEnum.MEC_MEDAB_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		//drools.setFocus("Qhp_MEC_6a_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5V_1 : End");
+end
+
+rule "Qhp_MEC_5V_2"
+salience 57990
+activation-group "Qhp_MEC_5V_AT"
+agenda-group "Qhp_MEC_5V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECMedicaidAORBNoticeSent),
+														!(isMECMedicaidAORB_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5V_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5V_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.MEC_MEDAB, ClockNameEnum.MEC_MEDAB_45);
+		//drools.setFocus("Qhp_MEC_6a_AG");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5V_2 : End");
+end
+
+rule "Qhp_MEC_5V_3"
+salience 57985
+activation-group "Qhp_MEC_5V_AT"
+agenda-group "Qhp_MEC_5V_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECMedicaidAORBNoticeSent),
+														(isMECMedicaidAORB_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_5V_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_5V_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_45);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_5V_3 : End");
+end
+
+/*
+//Qhp Public MEC(6a)
+
+rule "Qhp_MEC_6a_1"
+salience 64000
+activation-group "Qhp_MEC_6a_AT"
+agenda-group "Qhp_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECTricare));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6a_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6a_1");
+		drools.setFocus("Qhp_MEC_6b_AG");
+		logger.debug("Rule : Qhp_MEC_6a_1 : End");
+end
+
+rule "Qhp_MEC_6a_2"
+salience 63990
+activation-group "Qhp_MEC_6a_AT"
+agenda-group "Qhp_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECTricare),
+														!(doesUserAgreesWithMECTricare),
+														(isMECTricareStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6a_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6a_2");
+		drools.setFocus("Qhp_MEC_6b_AG");
+		logger.debug("Rule : Qhp_MEC_6a_2 : End");
+end
+
+rule "Qhp_MEC_6a_3"
+salience 63985
+activation-group "Qhp_MEC_6a_AT"
+agenda-group "Qhp_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECTricare),
+														!(doesUserAgreesWithMECTricare),
+														!(isMECTricareStatusVerified),
+														!(isTricareTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6a_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6a_3");
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPM);
+		drools.setFocus("Qhp_MEC_6b_AG");
+		//drools.setFocus("Qhp_MEC_6aV2_AG");
+		logger.debug("Rule : Qhp_MEC_6a_3 : End");
+end
+
+rule "Qhp_MEC_6a_4"
+salience 63980
+activation-group "Qhp_MEC_6a_AT"
+agenda-group "Qhp_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECTricare),
+														!(doesUserAgreesWithMECTricare),
+														!(isMECTricareStatusVerified),
+														(isTricareTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6a_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6a_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPM);
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		drools.setFocus("Qhp_MEC_6b_AG");
+		logger.debug("Rule : Qhp_MEC_6a_4 : End");
+end
+
+rule "Qhp_MEC_6a_5"
+salience 63975
+activation-group "Qhp_MEC_6a_AT"
+agenda-group "Qhp_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECTricare),
+														(doesUserAgreesWithMECTricare),
+														!(isTricareTerminationClockExpired),
+														UserMECResponseEnum.H_SRV_NOT_AAVAILABLE.equals(tricareUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6a_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6a_5");
+		drools.setFocus("Qhp_MEC_6b_AG");
+		logger.debug("Rule : Qhp_MEC_6a_5 : End");
+end
+
+rule "Qhp_MEC_6a_6"
+salience 63970
+activation-group "Qhp_MEC_6a_AT"
+agenda-group "Qhp_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECTricare),
+														(doesUserAgreesWithMECTricare),
+														!(isTricareTerminationClockExpired),
+														UserMECResponseEnum.I_WANT_TO_KNOW_OTHER_AVAILABLE_INSURANCE.equals(tricareUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6a_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6a_6");
+		drools.setFocus("Qhp_MEC_6b_AG");
+		logger.debug("Rule : Qhp_MEC_6a_6 : End");
+end
+
+rule "Qhp_MEC_6a_7"
+salience 63965
+activation-group "Qhp_MEC_6a_AT"
+agenda-group "Qhp_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECTricare),
+														(doesUserAgreesWithMECTricare),
+														!(isTricareTerminationClockExpired),
+														UserMECResponseEnum.LOSING_COVERAGE_IN_3_MONTHS.equals(tricareUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6a_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6a_7");
+		drools.setFocus("Qhp_MEC_6aV1_AG");
+		logger.debug("Rule : Qhp_MEC_6a_7 : End");
+end
+
+rule "Qhp_MEC_6a_8"
+salience 63960
+activation-group "Qhp_MEC_6a_AT"
+agenda-group "Qhp_MEC_6a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECTricare),
+														(doesUserAgreesWithMECTricare),
+														(isTricareTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6a_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6a_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPM_90);
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		drools.setFocus("Qhp_MEC_6b_AG");
+		logger.debug("Rule : Qhp_MEC_6a_8 : End");
+end
+
+
+//Qhp Public MEC(6aV1)
+
+rule "Qhp_MEC_6aV1_1"
+salience 61000
+activation-group "Qhp_MEC_6aV1_AT"
+agenda-group "Qhp_MEC_6aV1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isTricareTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6aV1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6aV1_1");
+		//TO DO
+		//Re-check
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		//$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.MEC_TRI_TERMIN, ClockNameEnum.MEC_TRI_TERMIN_1);
+		drools.setFocus("Qhp_MEC_6b_AG");
+		logger.debug("Rule : Qhp_MEC_6aV1_1 : End");
+end
+
+rule "Qhp_MEC_6aV1_2"
+salience 60990
+activation-group "Qhp_MEC_6aV1_AT"
+agenda-group "Qhp_MEC_6aV1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isTricareTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6aV1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6aV1_2");
+		drools.setFocus("Qhp_MEC_6b_AG");
+		logger.debug("Rule : Qhp_MEC_6aV1_2 : End");
+end
+
+//Qhp Public MEC(6aV2)
+
+rule "Qhp_MEC_6aV2_1"
+salience 60000
+activation-group "Qhp_MEC_6aV2_AT"
+agenda-group "Qhp_MEC_6aV2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECTricareNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6aV2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6aV2_1");
+		//TO DO
+		//Set Notice trigger
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		//$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.MEC_TRI, ClockNameEnum.MEC_TRI_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		drools.setFocus("Qhp_MEC_6b_AG");
+		logger.debug("Rule : Qhp_MEC_6aV2_1 : End");
+end
+
+rule "Qhp_MEC_6aV2_2"
+salience 59990
+activation-group "Qhp_MEC_6aV2_AT"
+agenda-group "Qhp_MEC_6aV2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECTricareNoticeSent),
+														!(isMECTricare_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6aV2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6aV2_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		drools.setFocus("Qhp_MEC_6b_AG");
+		logger.debug("Rule : Qhp_MEC_6aV2_2 : End");
+end
+
+rule "Qhp_MEC_6aV2_3"
+salience 59985
+activation-group "Qhp_MEC_6aV2_AT"
+agenda-group "Qhp_MEC_6aV2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECTricareNoticeSent),
+														(isMECTricare_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6aV2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6aV2_3");
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		//$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_45);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6aV2_3 : End");
+end
+
+//Qhp Public MEC(6b)
+
+rule "Qhp_MEC_6b_1"
+salience 43000
+activation-group "Qhp_MEC_6b_AT"
+agenda-group "Qhp_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECPeaceCorps));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6b_1");
+		drools.setFocus("Qhp_MEC_6c_AG");
+		logger.debug("Rule : Qhp_MEC_6b_1 : End");
+end
+
+rule "Qhp_MEC_6b_2"
+salience 62990
+activation-group "Qhp_MEC_6b_AT"
+agenda-group "Qhp_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECPeaceCorps),
+														!(doesUserAgreesWithMECPeaceCorps),
+														(isMECPeaceCorpsStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6b_2");
+		drools.setFocus("Qhp_MEC_6c_AG");
+		logger.debug("Rule : Qhp_MEC_6b_2 : End");
+end
+
+rule "Qhp_MEC_6b_3"
+salience 62985
+activation-group "Qhp_MEC_6b_AT"
+agenda-group "Qhp_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECPeaceCorps),
+														!(doesUserAgreesWithMECPeaceCorps),
+														!(isMECPeaceCorpsStatusVerified),
+														!(isPeaceCorpsTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6b_3");
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPM);
+		//drools.setFocus("Qhp_MEC_6bV2_AG");
+		drools.setFocus("Qhp_MEC_6c_AG");
+		logger.debug("Rule : Qhp_MEC_6b_3 : End");
+end
+
+rule "Qhp_MEC_6b_4"
+salience 62980
+activation-group "Qhp_MEC_6b_AT"
+agenda-group "Qhp_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECPeaceCorps),
+														!(doesUserAgreesWithMECPeaceCorps),
+														!(isMECPeaceCorpsStatusVerified),
+														(isPeaceCorpsTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6b_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6b_4");
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPM);
+		drools.setFocus("Qhp_MEC_6c_AG");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6b_4 : End");
+end
+
+rule "Qhp_MEC_6b_5"
+salience 62975
+activation-group "Qhp_MEC_6b_AT"
+agenda-group "Qhp_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECPeaceCorps),
+														(doesUserAgreesWithMECPeaceCorps),
+														!(isPeaceCorpsTerminationClockExpired),
+														UserMECResponseEnum.I_WANT_TO_KNOW_OTHER_AVAILABLE_INSURANCE.equals(PeaceCorpsUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6b_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6b_5");
+		drools.setFocus("Qhp_MEC_6c_AG");
+		logger.debug("Rule : Qhp_MEC_6b_5 : End");
+end
+
+rule "Qhp_MEC_6b_6"
+salience 62970
+activation-group "Qhp_MEC_6b_AT"
+agenda-group "Qhp_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECPeaceCorps),
+														(doesUserAgreesWithMECPeaceCorps),
+														!(isPeaceCorpsTerminationClockExpired),
+														UserMECResponseEnum.LOSING_COVERAGE_IN_3_MONTHS.equals(PeaceCorpsUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6b_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6b_6");
+		drools.setFocus("Qhp_MEC_6bV1_AG");
+		logger.debug("Rule : Qhp_MEC_6b_6 : End");
+end
+
+rule "Qhp_MEC_6b_7"
+salience 62965
+activation-group "Qhp_MEC_6b_AT"
+agenda-group "Qhp_MEC_6b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECPeaceCorps),
+														(doesUserAgreesWithMECPeaceCorps),
+														(isPeaceCorpsTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6b_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6b_7");
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPM_90);
+		drools.setFocus("Qhp_MEC_6c_AG");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6b_7 : End");
+end
+
+//Qhp Public MEC(6bV1)
+
+rule "Qhp_MEC_6bV1_1"
+salience 61000
+activation-group "Qhp_MEC_6bV1_AT"
+agenda-group "Qhp_MEC_6bV1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isPeaceCorpsTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6bV1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6bV1_1");
+		//TO DO
+		//Re-check
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		//$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.MEC_PEACE_TERMIN, ClockNameEnum.MEC_PEACE_TERMIN_1);
+		drools.setFocus("Qhp_MEC_6c_AG");
+		logger.debug("Rule : Qhp_MEC_6bV1_1 : End");
+end
+
+rule "Qhp_MEC_6bV1_2"
+salience 60990
+activation-group "Qhp_MEC_6bV1_AT"
+agenda-group "Qhp_MEC_6bV1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isPeaceCorpsTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6bV1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6bV1_2");
+		drools.setFocus("Qhp_MEC_6c_AG");
+		logger.debug("Rule : Qhp_MEC_6bV1_2 : End");
+end
+
+//Qhp Public MEC(6bV2)
+
+rule "Qhp_MEC_6bV2_1"
+salience 60000
+activation-group "Qhp_MEC_6bV2_AT"
+agenda-group "Qhp_MEC_6bV2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECPeaceCorpsNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6bV2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6bV2_1");
+		//TO DO
+		//Set Notice trigger
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		//$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.MEC_PEACE, ClockNameEnum.MEC_PEACE_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		drools.setFocus("Qhp_MEC_6c_AG");
+		logger.debug("Rule : Qhp_MEC_6bV2_1 : End");
+end
+
+rule "Qhp_MEC_6bV2_2"
+salience 59990
+activation-group "Qhp_MEC_6bV2_AT"
+agenda-group "Qhp_MEC_6bV2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECPeaceCorpsNoticeSent),
+														!(isMECPeaceCorps_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6bV2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6bV2_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		drools.setFocus("Qhp_MEC_6c_AG");
+		logger.debug("Rule : Qhp_MEC_6bV2_2 : End");
+end
+
+rule "Qhp_MEC_6bV2_3"
+salience 59985
+activation-group "Qhp_MEC_6bV2_AT"
+agenda-group "Qhp_MEC_6bV2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECPeaceCorpsNoticeSent),
+														(isMECPeaceCorps_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6bV2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6bV2_3");
+		//MODIFIED BASED ON DISCUSSION WITH DOH ON 09/04/2013
+		//$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_45);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6bV2_3 : End");
+end
+
+//Qhp Public MEC(6c)
+
+rule "Qhp_MEC_6c_1"
+salience 62000
+activation-group "Qhp_MEC_6c_AT"
+agenda-group "Qhp_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isReceivingMECAmeriCorps));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6c_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6c_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6c_1 : End");
+end
+
+rule "Qhp_MEC_6c_2"
+salience 61990
+activation-group "Qhp_MEC_6c_AT"
+agenda-group "Qhp_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECAmeriCorps),
+														!(doesUserAgreesWithMECAmeriCorps),
+														(isMECAmeriCorpsStatusVerified));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6c_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6c_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6c_2 : End");
+end
+
+rule "Qhp_MEC_6c_3"
+salience 61985
+activation-group "Qhp_MEC_6c_AT"
+agenda-group "Qhp_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECAmeriCorps),
+														!(doesUserAgreesWithMECAmeriCorps),
+														!(isMECAmeriCorpsStatusVerified),
+														!(isAmeriCorpsTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6c_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6c_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.PENDING, ProgramReasonCode.RPM);
+		drools.setFocus("Qhp_MEC_6cV2_AG");
+		logger.debug("Rule : Qhp_MEC_6c_3 : End");
+end
+
+rule "Qhp_MEC_6c_4"
+salience 61980
+activation-group "Qhp_MEC_6c_AT"
+agenda-group "Qhp_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECAmeriCorps),
+														!(doesUserAgreesWithMECAmeriCorps),
+														!(isMECAmeriCorpsStatusVerified),
+														(isAmeriCorpsTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6c_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6c_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPM);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6c_4 : End");
+end
+
+rule "Qhp_MEC_6c_5"
+salience 61975
+activation-group "Qhp_MEC_6c_AT"
+agenda-group "Qhp_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECAmeriCorps),
+														(doesUserAgreesWithMECAmeriCorps),
+														!(isAmeriCorpsTerminationClockExpired),
+														UserMECResponseEnum.I_WANT_TO_KNOW_OTHER_AVAILABLE_INSURANCE.equals(ameriCorpsUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6c_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6c_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6c_5 : End");
+end
+
+rule "Qhp_MEC_6c_6"
+salience 61970
+activation-group "Qhp_MEC_6c_AT"
+agenda-group "Qhp_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECAmeriCorps),
+														(doesUserAgreesWithMECAmeriCorps),
+														!(isAmeriCorpsTerminationClockExpired),
+														UserMECResponseEnum.LOSING_COVERAGE_IN_3_MONTHS.equals(ameriCorpsUserMECResponse));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6c_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6c_6");
+		drools.setFocus("Qhp_MEC_6cV1_AG");
+		logger.debug("Rule : Qhp_MEC_6c_6 : End");
+end
+
+rule "Qhp_MEC_6c_7"
+salience 61965
+activation-group "Qhp_MEC_6c_AT"
+agenda-group "Qhp_MEC_6c_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isReceivingMECAmeriCorps),
+														(doesUserAgreesWithMECAmeriCorps),
+														(isAmeriCorpsTerminationClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6c_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6c_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPM_90);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6c_7 : End");
+end
+
+//Qhp Public MEC(6cV1)
+
+rule "Qhp_MEC_6cV1_1"
+salience 61000
+activation-group "Qhp_MEC_6cV1_AT"
+agenda-group "Qhp_MEC_6cV1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isAmeriCorpsTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6cV1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6cV1_1");
+		//TO DO
+		//Re-check
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.MEC_AMERI_TERMIN, ClockNameEnum.MEC_AMERI_TERMIN_1);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6cV1_1 : End");
+end
+
+rule "Qhp_MEC_6cV1_2"
+salience 60990
+activation-group "Qhp_MEC_6cV1_AT"
+agenda-group "Qhp_MEC_6cV1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isAmeriCorpsTerminationClockScheduled));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6cV1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6cV1_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6cV1_2 : End");
+end
+
+//Qhp Public MEC(6cV2)
+
+rule "Qhp_MEC_6cV2_1"
+salience 60000
+activation-group "Qhp_MEC_6cV2_AT"
+agenda-group "Qhp_MEC_6cV2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMECAmeriCorpsNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6cV2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6cV2_1");
+		//TO DO
+		//Set Notice trigger
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.MEC_AMERI, ClockNameEnum.MEC_AMERI_45);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6cV2_1 : End");
+end
+
+rule "Qhp_MEC_6cV2_2"
+salience 59990
+activation-group "Qhp_MEC_6cV2_AT"
+agenda-group "Qhp_MEC_6cV2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECAmeriCorpsNoticeSent),
+														!(isMECAmeriCorps_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6cV2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6cV2_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.VNPMR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6cV2_2 : End");
+end
+
+rule "Qhp_MEC_6cV2_3"
+salience 59985
+activation-group "Qhp_MEC_6cV2_AT"
+agenda-group "Qhp_MEC_6cV2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMECAmeriCorpsNoticeSent),
+														(isMECAmeriCorps_45_DayClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_MEC_6cV2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_MEC_6cV2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.VNPMR_45);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02);
+		logger.debug("Rule : Qhp_MEC_6cV2_3 : End");
+end
+*/

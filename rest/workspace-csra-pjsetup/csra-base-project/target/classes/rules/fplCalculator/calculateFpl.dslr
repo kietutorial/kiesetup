@@ -1,0 +1,244 @@
+//created on: Mar 27, 2013
+package com.hcentive.rulesengine.rule
+
+//list any import classes here.
+import java.text.DecimalFormat;
+import com.hcentive.rulesengine.domain.FplCalculatorFacts;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+
+expander calculateFpl.dsl
+
+
+//declare any global variables here
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+global com.hcentive.rulesengine.domain.ConfigGroupBean fplConfigTable;
+
+
+rule "Main_CalculateFPL"
+salience 10000
+    when
+        //conditions  
+        Load FplCalculatorFacts
+        If household count not null and greater than zero and householdIncome is not null
+    then
+       //actions
+		Begin rule "Main_CalculateFPL"
+		
+		Call rule agenda "hhCount_1_AG"
+		Call rule agenda "hhCount_2_AG"
+		Call rule agenda "hhCount_3_AG"
+		Call rule agenda "hhCount_4_AG"
+		Call rule agenda "hhCount_5_AG"
+		Call rule agenda "hhCount_6_AG"
+		Call rule agenda "hhCount_7_AG"
+		Call rule agenda "hhCount_8_AG"
+		Call rule agenda "hhCount_9_AG"
+		Call rule agenda "hhCount_10_AG"
+		Call rule agenda "hhCount_Other_AG"
+		
+		End rule "Main_CalculateFPL"
+end
+
+rule "hhCount_1"
+activation-group "calculateFpl_AT"
+agenda-group "hhCount_1_AG"
+salience 1100
+   when
+        //conditions  
+        Get FplCalculatorFacts for household count 1
+    then
+    	//actions
+        Begin rule "hhCount_1"
+        
+        Set variable fpl to zero
+        Set decimal size to two
+        Set fplIncome for FPL_100_HH_1
+        
+        Calculate FPL
+        
+        Set fpl to FplCalculatorFacts
+        
+        End rule "hhCount_1"
+end
+
+rule "hhCount_2"
+activation-group "calculateFpl_AT"
+agenda-group "hhCount_2_AG"
+salience 1000
+   when
+        //conditions  
+        Get FplCalculatorFacts for household count 2
+    then
+    	//actions
+        Begin rule "hhCount_2"
+        
+        Set variable fpl to zero
+        Set decimal size to two
+        Set fplIncome for FPL_100_HH_2
+        
+        Calculate FPL
+        
+        Set fpl to FplCalculatorFacts
+        
+        End rule "hhCount_2"
+end
+
+rule "hhCount_3"
+activation-group "calculateFpl_AT"
+agenda-group "hhCount_3_AG"
+salience 900
+   when
+        //conditions  
+        Get FplCalculatorFacts for household count 3
+    then
+    	//actions
+        Begin rule "hhCount_3"
+        
+        Set variable fpl to zero
+        Set decimal size to two
+        Set fplIncome for FPL_100_HH_3
+        
+        Calculate FPL
+        
+        Set fpl to FplCalculatorFacts
+        
+        End rule "hhCount_3"
+end
+
+rule "hhCount_4"
+activation-group "calculateFpl_AT"
+agenda-group "hhCount_4_AG"
+salience 800
+   when
+        //conditions  
+        Get FplCalculatorFacts for household count 4
+    then
+    	//actions
+        Begin rule "hhCount_4"
+        
+        Set variable fpl to zero
+        Set decimal size to two
+        Set fplIncome for FPL_100_HH_4
+        
+        Calculate FPL
+        
+        Set fpl to FplCalculatorFacts
+        
+        End rule "hhCount_4"
+end
+
+rule "hhCount_5"
+activation-group "calculateFpl_AT"
+agenda-group "hhCount_5_AG"
+salience 700
+   when
+        //conditions  
+        Get FplCalculatorFacts for household count 5
+    then
+    	//actions
+        Begin rule "hhCount_5"
+        
+        Set variable fpl to zero
+        Set decimal size to two
+        Set fplIncome for FPL_100_HH_5
+        
+        Calculate FPL
+        
+        Set fpl to FplCalculatorFacts
+        
+        End rule "hhCount_5"
+end
+
+
+rule "hhCount_6"
+activation-group "calculateFpl_AT"
+agenda-group "hhCount_6_AG"
+salience 600
+   when
+        //conditions  
+        Get FplCalculatorFacts for household count 6
+    then
+    	//actions
+        Begin rule "hhCount_6"
+        
+        Set variable fpl to zero
+        Set decimal size to two
+        Set fplIncome for FPL_100_HH_6
+        
+        Calculate FPL
+        
+        Set fpl to FplCalculatorFacts
+        
+        End rule "hhCount_6"
+end
+
+rule "hhCount_7"
+activation-group "calculateFpl_AT"
+agenda-group "hhCount_7_AG"
+salience 500
+   when
+        //conditions  
+        Get FplCalculatorFacts for household count 7
+    then
+    	//actions
+        Begin rule "hhCount_7"
+        
+        Set variable fpl to zero
+        Set decimal size to two
+        Set fplIncome for FPL_100_HH_7
+        
+        Calculate FPL
+        
+        Set fpl to FplCalculatorFacts
+        
+        End rule "hhCount_7"
+end
+
+
+rule "hhCount_8"
+activation-group "calculateFpl_AT"
+agenda-group "hhCount_8_AG"
+salience 400
+   when
+        //conditions  
+        Get FplCalculatorFacts for household count 8
+    then
+    	//actions
+        Begin rule "hhCount_8"
+        
+        Set variable fpl to zero
+        Set decimal size to two
+        Set fplIncome for FPL_100_HH_8
+        
+        Calculate FPL
+        
+        Set fpl to FplCalculatorFacts
+        
+        End rule "hhCount_8"
+end
+
+
+
+rule "hhCount_Other"
+activation-group "calculateFpl_AT"
+agenda-group "hhCount_Other_AG"
+salience 100
+   when
+        //conditions 
+        Initialize FplCalculatorFacts for household count is greater than 8
+    then
+    	//actions
+        Begin rule "hhCount_Other"
+        
+        Set variable fpl to zero
+        Set decimal size to two
+        Add FPL_100_HH_ADDNL for each additional person to lifeLevelIncomeThreshold  of FPL_100_HH_8
+        
+        Calculate FPL
+        
+        Set fpl to FplCalculatorFacts
+        
+        End rule "hhCount_Other"
+end

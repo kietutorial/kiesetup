@@ -1,0 +1,19 @@
+package com.hcentive.eligibility.notice;
+ 
+import com.hcentive.rulesengine.domain.notice.EmployerEligibilityDetailsFact;
+import com.hcentive.shop.domain.EmployerEligibility;
+
+/* Rule Notice 1000b :
+ * User clicks the "Continue" button from ID 171 - AL3 Only - Enter Token No. screen - No UAM Support as of now
+ */
+ 
+rule "Notice1000b"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	EmployerEligibility eligibility = n.getEmployerEligibility();
+				    
+		if(eligibility != null){
+	    	n.getTemplateNameList().add("Notice1000b.ftl");
+	   	} 
+	end

@@ -1,0 +1,17 @@
+import com.hcentive.rulesengine.domain.notice.UserProfileDetailsFact;
+import com.hcentive.user.UserProfile;
+/* Rule Notice N031 :
+*  Individual previously requested paper notifications and switched to receipt of notifications 
+*  through the secure inbox 
+*/
+
+rule "Notice031"
+    when
+        n : UserProfileDetailsFact()
+    then
+    	UserProfile profile = n.getUserProfile();
+    	if (profile !=null){
+    	   if (profile.getGoPaperless()!=null && profile.getGoPaperless().equals("1"))
+    		   n.getTemplateNameList().add("Notice031.ftl");
+    	}        
+end

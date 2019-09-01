@@ -1,0 +1,35 @@
+Cloning Kie WorkBench Github Repository
+----------------------------------------------------------------
+Kie Repository:
+ssh://localhost:8001/csra-memberrules-v101
+Id/pass: pchauvet pchauvet
+
+
+Clone Repository From Eclipse
+----------------------------------------------------------------
+o Select GIT plugin
+o Clone a Git repository
+ssh://localhost:8001/csra-memberrules-v101
+Id/pass: pchauvet pchauvet
+o Local destination is: 
+C:\GITSANDBOX_KIE\20170828
+
+
+Import Repo As Project
+----------------------------------------------------------------
+o Select Git Report
+Working Tree->select project1
+right-Click->Import Project
+
+Make code changes
+
+
+Commit Changes To Repo
+------------------------------------------------------------------
+Git Repositories->Select git root project1
+o Select Git Staging
+- See unstaged changes Panel
+- Move to Staged Changes Panel
+o Add comment to "Commit Messages"
+->[Commit And Puch]
+

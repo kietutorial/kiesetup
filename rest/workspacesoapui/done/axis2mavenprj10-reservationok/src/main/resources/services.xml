@@ -1,0 +1,55 @@
+<serviceGroup name="HotelReservation">
+
+	<service name="GuestManagementService">
+		<description>
+			Guest management web service
+		</description>
+		<parameter name="ServiceClass">com.sample.reservation.GuestManagementService
+		</parameter>
+		<operation name="addGuest">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="getGuest">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="deleteGuest">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+	</service>
+
+	<service name="RoomManagementService">
+		<description>
+			Room service
+		</description>
+		<parameter name="ServiceClass">com.sample.reservation.RoomManagementService
+		</parameter>
+		<operation name="addRoom">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="getRoom">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="deleteRoom">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+	</service>
+
+	<service name="ReservationService">
+		<description>
+			Reservation web service
+		</description>
+		<parameter name="ServiceClass">com.sample.reservation.ReservationService
+		</parameter>
+		<operation name="addReservation">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="getReservation">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="removeReservation">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+	</service>
+
+
+</serviceGroup>

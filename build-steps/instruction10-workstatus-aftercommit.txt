@@ -1,0 +1,65 @@
+Assumptions
+----------------------------
+o We are usin defect: 75354 as our sample defect.
+  Please the current defect #### for specific changes.
+
+Use RTC To Provide Status Of Project
+----------------------------------------
+*Note - Add fix status after Verification on DIT
+https://clm.emedny.org/ccm/web/projects/NY-HX%20%28CM%29#action=com.ibm.team.workitem.viewWorkItem&id=75354
+o Login
+o Search for defect
+75354
+
+o On top-mid Right of screen
+1. eMedNY Impact: No
+2. UI Impact:  Yes
+o Near bottom 
+3. Reason Code: Compliance Standards
+4. Defect Iteration: 0
+o Add commmment
+5. This is Fixed, apart from 508 standard test, verified  the UI functionality
+o Change status to: Resolved
+Enter:
+6. Summary: Resolved
+7. Save
+
+* Note Summary will change to: Fixed
+
+After The Defect In RTC - Broadcast For Testing
+------------------------------------------------
+o Get DIT document
+o Add defect as part of next build
+DIT List Calendar
+
+o See demo document from: Z:\build\2017\R13_1_1__5_11\20170428\DI_75422_508Compliances.doc
+I copied it to: C:\ELLIGIBILITY\TASKS\defect75354-508Compliance.doc
+rename it to DI_75354_508Compliances.doc
+
+o Change DI_75354_508Compliances.doc
+RTC: 75354
+DIT SIGNOFF: leave blank
+Type: Defect
+Description: 508_CS_Tab Not going to "Enrollment History & clear dates & Eligibility History"Buttons
+Track: EE or CS
+Developer: Philip Chauvet
+
+- Production is due to be released on June 8, use this directory:
+Z:\build\2017\R13_2_1__6_8
+- Create a dated directory, usually the date I delivered 20170427
+I will use todays date instead: 20170428
+- Add the date to the document name:
+
+- Go go Z:\build\2017\R13_2_1__6_8
+- Create directory: 20170428
+- Place DI_75354_508Compliances.doc to allow deployers 
+  to see what needs to be built.
+
+  
+Add DIT SignOff to Document After Verification on DIT
+-----------------------------------------------------
+- Go go Z:\build\2017\R13_2_1__6_8\20170428\DI_75354_508Compliances.doc
+- After verfication add in column DIT SIGNOFF:
+Verified and tested in DIT
+
+  

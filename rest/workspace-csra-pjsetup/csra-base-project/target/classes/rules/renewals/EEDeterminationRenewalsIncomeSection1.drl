@@ -1,0 +1,610 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.renewal;
+
+import com.hcentive.rulesengine.domain.RenewalIncomeFacts;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.rulesengine.domain.DecisionPointEnum;
+import com.hcentive.eligibility.prescreening.domain.ext.EligibilityIncomeTypeUsed;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+rule "MAIN_RENEWAL_INCOME_SHEET_1"
+salience 100000
+	when
+		$renewalIncomeFact : RenewalIncomeFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_RENEWAL_INCOME : Begin");
+		$renewalIncomeFact.updateRuleExec("MAIN_RENEWAL_INCOME");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_BEGIN");
+		drools.setFocus("RENEWAL_INCOME_SHEET_1_AG");
+		logger.debug("Rule : MAIN_RENEWAL_INCOME : End");
+end
+
+
+//RENEWAL INCOME(1)
+
+rule "RENEWAL_INCOME_SHEET1_RID_RI10000101"
+salience 90000
+activation-group "RENEWAL_INCOME_SHEET_1_AT"
+agenda-group "RENEWAL_INCOME_SHEET_1_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(isAccountAdminRenewalEligible, 
+												canUserAttestedIncomeBeUsedForRenewals);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET1_RID_RI10000101 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET1_RID_RI10000101");
+		$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET1_RID_RI10000101", DecisionPointEnum.ReUsableEligibilityAvailable);
+		$renewalIncomeFact.updateOutcome("RENEWAL_INCOME_SHEET1_RID_RI10000101", EligibilityIncomeTypeUsed.USER_INCOME_LAST_3_MONTHS);
+		$renewalIncomeFact.setTargetRuleGroupToFire("NONE");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET1_RID_RI10000101 : End");
+end
+
+
+rule "RENEWAL_INCOME_SHEET1_RID_RI10000201"
+salience 89990
+activation-group "RENEWAL_INCOME_SHEET_1_AT"
+agenda-group "RENEWAL_INCOME_SHEET_1_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(isAccountAdminRenewalEligible, 
+												!canUserAttestedIncomeBeUsedForRenewals);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET1_RID_RI10000201 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET1_RID_RI10000201");
+		drools.setFocus("RENEWAL_INCOME_SHEET_2_AG");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET1_RID_RI10000201 : End");
+end
+
+
+//RENEWAL INCOME(2)
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000100"
+salience 70000
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(didAnyMemberAttestToNonUsableIncomeType || didUIBReturnedForAnyMember);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000100 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000100");
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000100 : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000101"
+salience 69995
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												!availableNonTaxfilersInAccount,
+												irsIncomeVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000101 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000101");
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000101 : End");
+end
+
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000101_A"
+salience 69994
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												!availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												noBuildIncomeForTaxHousehold,
+												titleIINotReceivedFromSourceForFilerWhoHasAttestedToTitleII);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000101_A : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000101_A");
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000101_A : End");
+end
+
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000101_B"
+salience 69993
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												!availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												noBuildIncomeForTaxHousehold,
+												(wageReceivedForAllFilingMembersHavingBuiltWage || allFilersDoNotHaveBuiltWageButReceivedFromSource));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000101_B : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000101_B");
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000101_B : End");
+end
+
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000101_C"
+salience 69992
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												!availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												noBuildIncomeForTaxHousehold,
+												(titleIIReceivedForAllFilingMembersHavingBuiltTitleII || allFilersDoNotHaveBuiltTitleIIButReceivedFromSource));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000101_C : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000101_C");
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.updateOutcome("RENEWAL_INCOME_SHEET2_RID_RI20000101_C", EligibilityIncomeTypeUsed.DTF_RENEWAL);
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		$renewalIncomeFact.setTargetRuleGroupToFire("NONE");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000101_C : End");
+end
+
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000101_D"
+salience 69991
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												!availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												noBuildIncomeForTaxHousehold);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000101_D : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000101_D");
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000101_D : End");
+end
+
+
+
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000201"
+salience 69990
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												!availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												!noBuildIncomeForTaxHousehold,
+												wageNotReceivedFromSourceForFilerWhoHasAttestedToWage);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000201 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000201");
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000201 : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000301"
+salience 69970
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												!availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												!noBuildIncomeForTaxHousehold,
+												titleIINotReceivedFromSourceForFilerWhoHasAttestedToTitleII);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000301 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000301");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000301 : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000401"
+salience 69950
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												!availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												!noBuildIncomeForTaxHousehold,
+												(wageReceivedForAllFilingMembersHavingBuiltWage || allFilersDoNotHaveBuiltWageButReceivedFromSource));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000401 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000401");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20000401", DecisionPointEnum.);
+		$renewalIncomeFact.updateOutcome("RENEWAL_INCOME_SHEET2_RID_RI20000401", EligibilityIncomeTypeUsed.DTF_RENEWAL);
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		$renewalIncomeFact.setTargetRuleGroupToFire("NONE");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000401 : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000501"
+salience 69930
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												!availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												!noBuildIncomeForTaxHousehold,
+												(titleIIReceivedForAllFilingMembersHavingBuiltTitleII || allFilersDoNotHaveBuiltTitleIIButReceivedFromSource));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000501 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000501");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20000401", DecisionPointEnum.);
+		$renewalIncomeFact.updateOutcome("RENEWAL_INCOME_SHEET2_RID_RI20000501", EligibilityIncomeTypeUsed.DTF_RENEWAL);
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		$renewalIncomeFact.setTargetRuleGroupToFire("NONE");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000501 : End");
+end
+
+/*
+The below fact introduced as part of CR 1269 for Renewal improvements for the defect 64534.
+*/
+/*No longer required
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000501_A"
+salience 69920
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												!availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												!noBuildIncomeForTaxHousehold,
+												!wageNotReceivedFromSourceForFilerWhoHasAttestedToWage,
+												!titleIINotReceivedFromSourceForFilerWhoHasAttestedToTitleII,
+												(!wageReceivedForAllFilingMembersHavingBuiltWage && !allFilersDoNotHaveBuiltWageButReceivedFromSource),
+												(! titleIIReceivedForAllFilingMembersHavingBuiltTitleII && !allFilersDoNotHaveBuiltTitleIIButReceivedFromSource));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000501_A : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000501_A");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000501_A : End");
+end
+*/
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000601"
+salience 69910
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												!isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000601 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000601");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20000301", DecisionPointEnum.);
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000601 : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000701"
+salience 69890
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												availableNonTaxfilersInAccount,
+												irsIncomeVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000701 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000701");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20000301", DecisionPointEnum.);
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000701 : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000801_A"
+salience 69885
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												noBuildIncomeForTaxHousehold,
+												titleIINotReceivedFromSourceForFilerWhoHasAttestedToTitleII);
+												
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000801_A : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000801_A");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20000301", DecisionPointEnum.);
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000801_A : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000801_B"
+salience 69880
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												noBuildIncomeForTaxHousehold,
+												(wageReceivedForAllFilingMembersHavingBuiltWage || allFilersDoNotHaveBuiltWageButReceivedFromSource));
+												
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000801_B : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000801_B");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20000301", DecisionPointEnum.);
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000801_B : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000801_C"
+salience 69875
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												noBuildIncomeForTaxHousehold,
+												(titleIIReceivedForAllFilingMembersHavingBuiltTitleII || allFilersDoNotHaveBuiltTitleIIButReceivedFromSource));
+												
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000801_C : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000801_C");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20000301", DecisionPointEnum.);
+		$renewalIncomeFact.getExecState().setUseWageData(true);
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_2_2_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000801_C : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000801_D"
+salience 69873
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												noBuildIncomeForTaxHousehold);
+												
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000801_D : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000801_D");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20000301", DecisionPointEnum.);
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000801_D : End");
+end
+
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000801"
+salience 69870
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												!noBuildIncomeForTaxHousehold,
+												wageNotReceivedFromSourceForFilerWhoHasAttestedToWage);
+												
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000801 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000801");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20000301", DecisionPointEnum.);
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000801 : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20000901"
+salience 69850
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												!noBuildIncomeForTaxHousehold,
+												titleIINotReceivedFromSourceForFilerWhoHasAttestedToTitleII);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000901 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20000901");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20000301", DecisionPointEnum.);
+		//drools.setFocus("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");		
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20000901 : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20001001"
+salience 69830
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												!noBuildIncomeForTaxHousehold,
+												(wageReceivedForAllFilingMembersHavingBuiltWage || allFilersDoNotHaveBuiltWageButReceivedFromSource));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20001001 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20001001");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20001001", DecisionPointEnum.);
+		$renewalIncomeFact.getExecState().setUseWageData(true);
+		//drools.setFocus("RENEWAL_INCOME_SHEET_2_2_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_2_2_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20001001 : End");
+end
+
+rule "RENEWAL_INCOME_SHEET2_RID_RI20001101"
+salience 69810
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												!noBuildIncomeForTaxHousehold,
+												(titleIIReceivedForAllFilingMembersHavingBuiltTitleII || allFilersDoNotHaveBuiltTitleIIButReceivedFromSource));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20001101 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20001101");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20001101", DecisionPointEnum.);
+		$renewalIncomeFact.getExecState().setUseWageData(true);
+		//drools.setFocus("RENEWAL_INCOME_SHEET_2_2_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_2_2_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20001101 : End");
+end
+
+/*
+The below fact introduced as part of CR 1269 for Renewal improvements for the defect 64534.
+*/
+/*
+rule "RENEWAL_INCOME_SHEET2_RID_RI20001201"
+salience 69800
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(taxfilersAvailableInAccount, 
+												isOnlyOneTaxfilingNonDependentHouseholdFoundInAccount,
+												availableNonTaxfilersInAccount,
+												!irsIncomeVerified,
+												!noBuildIncomeForTaxHousehold,
+												!wageNotReceivedFromSourceForFilerWhoHasAttestedToWage,
+												!titleIINotReceivedFromSourceForFilerWhoHasAttestedToTitleII,
+												(!wageReceivedForAllFilingMembersHavingBuiltWage && !allFilersDoNotHaveBuiltWageButReceivedFromSource),
+												(! titleIIReceivedForAllFilingMembersHavingBuiltTitleII && !allFilersDoNotHaveBuiltTitleIIButReceivedFromSource));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20001201 : Begin");		
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20001201");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_3_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20001201 : End");
+end
+*/
+rule "RENEWAL_INCOME_SHEET2_RID_RI20001301"
+salience 69790
+activation-group "RENEWAL_INCOME_SHEET_2_AT"
+agenda-group "RENEWAL_INCOME_SHEET_2_AG"
+	when
+		//<CONDITION>
+		$renewalIncomeFact : RenewalIncomeFacts(!taxfilersAvailableInAccount);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20001301 : Begin");
+		$renewalIncomeFact.updateRuleExec("RENEWAL_INCOME_SHEET2_RID_RI20001301");
+		//TODO
+		//$renewalIncomeFact.updateRuleDecisionPoint("RENEWAL_INCOME_SHEET2_RID_RI20001201", DecisionPointEnum.);
+		//drools.setFocus("RENEWAL_INCOME_SHEET_2_2_AG");
+		$renewalIncomeFact.setTargetRuleGroupToFire("RENEWAL_INCOME_SHEET_2_2_AG");
+		$renewalIncomeFact.setRuleExecCompletionStep("MAIN_RENEWAL_INCOME_SHEET1_END");
+		logger.debug("Rule : RENEWAL_INCOME_SHEET2_RID_RI20001301 : End");
+end

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2009 - 2012 hCentive Inc. All rights reserved.
+
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:p="http://www.springframework.org/schema/p" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop"
+	xsi:schemaLocation="
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.1.xsd 
+http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-3.1.xsd">
+
+	<bean class="com.hcentive.utils.utils.ExtendedPropertySourcesPlaceholderConfigurer">
+		<property name="overridingPropertySource" value="classpath:/com/hcentive/core/utils/sample.properties" />
+		<property name="locations" value="classpath*:com/hcentive/core/utils/*-config.properties" />
+	</bean>
+</beans>

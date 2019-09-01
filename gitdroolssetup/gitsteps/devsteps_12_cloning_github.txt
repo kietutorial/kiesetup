@@ -1,0 +1,40 @@
+Cloning My github repository
+----------------------------------------------------------------
+doitphil12@outlook.com ezPhil12@ 1/1/1957
+https://github.com/doitphil12/project1.git
+git@github.com:doitphil12/project1.git
+
+
+Import Repository
+----------------------------------------------------------------
+o Select latest repository to work with
+Authoring->Repository->Clone Repository:
+
+o Enter
+Repository Name: project1
+Organizational Unit: csra-poc-domain
+Git URL: https://github.com/doitphil12/project1.git
+* Git did not work
+User Name: doitphil12@outlook.com
+Password: ezPhil12@
+
+
+-----------------------------------------------
+Authoring -> Administration
+Name: project1
+Default Group ID: com.csra.hcentive.eligibility.poc.domain
+Owner: pchauvet
+
+
+Import Existing Latest Code To GitHug Repo
+----------------------------------------------------------------
+o Select latest repository to work with
+Authoring->Teams->project1
+Import->Custom
+Repository URL: file:///C:/GITREPOS/sandox/.git
+
+ssh://localhost:8001/csra-poc-domains
+
+
+
+file:///C:/GITREPOS/hx-process-medicalincome/.git

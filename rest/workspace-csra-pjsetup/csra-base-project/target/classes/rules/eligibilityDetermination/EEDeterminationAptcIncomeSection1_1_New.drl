@@ -1,0 +1,170 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.IncomeTypeUsed;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.rulesengine.domain.ElgRulesIndicatorBean.IncomeRunMode;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_APTC_INCOME_SEC1_NEW"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_APTC_INCOME_SEC1_NEW : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "MAIN_APTC_INCOME_SEC1_NEW");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_02_ACK);
+		drools.setFocus("APTC_INCOME_STALE_1_AG");
+		logger.debug("Rule : MAIN_APTC_INCOME_SEC1_NEW : End");
+end
+
+
+
+//CR1606
+rule "APTC_INCOME_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "APTC_INCOME_STALE_1_AT"
+agenda-group "APTC_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : APTC_INCOME_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "APTC_INCOME_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_SEC1_1_NEW_01);
+		logger.debug("Rule : APTC_INCOME_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "APTC_INCOME_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "APTC_INCOME_STALE_1_AT"
+agenda-group "APTC_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : APTC_INCOME_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "APTC_INCOME_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Aptc_Income_1_AG");
+		logger.debug("Rule : APTC_INCOME_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//////////////////////////////////////////////////////Income////////////////////////////////////////////////
+
+//Aptc Income(1)
+
+rule "Aptc_Income_1_1"
+salience 90000
+activation-group "Aptc_Income_1_AT"
+agenda-group "Aptc_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.MEDICAID));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Income_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Income_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.MED_ELG);
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_01);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Income_Full_Comp");
+		drools.setFocus("Aptc_Income_SEC_1_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Aptc_Income_1_1 : End");
+end
+
+
+rule "Aptc_Income_1_2"
+salience 89990
+activation-group "Aptc_Income_1_AT"
+agenda-group "Aptc_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														!isInEligibleForProgram(ProgramCode.CHIP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Income_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Income_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.CHIP_ELG);
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_01);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Income_Full_Comp");
+		drools.setFocus("Aptc_Income_SEC_1_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Aptc_Income_1_2 : End");
+end
+
+rule "Aptc_Income_1_3"
+salience 89980
+activation-group "Aptc_Income_1_AT"
+agenda-group "Aptc_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isInEligibleForProgram(ProgramCode.CHIP),
+														!isInEligibleForProgram(ProgramCode.EPP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Income_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Income_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.EPP_ELG);
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_01);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Income_Full_Comp");
+		drools.setFocus("Aptc_Income_SEC_1_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Aptc_Income_1_2 : End");
+end
+
+rule "Aptc_Income_1_4"
+salience 89970
+activation-group "Aptc_Income_1_AT"
+agenda-group "Aptc_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isInEligibleForProgram(ProgramCode.CHIP),
+														isInEligibleForProgram(ProgramCode.EPP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Income_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Income_1_4");
+		//drools.setFocus("Aptc_Income_2_AG");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Aptc_Income_2_AG");
+		drools.setFocus("Aptc_Income_SEC_1_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Aptc_Income_1_4 : End");
+end
+
+//Rule completion
+rule "Aptc_Income_SEC_1_1_NEW_COMP_STEP_1"
+salience 60000
+activation-group "Aptc_Income_SEC_1_1_NEW_COMP_STEP_AT"
+agenda-group "Aptc_Income_SEC_1_1_NEW_COMP_STEP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Income_SEC_1_1_NEW_COMP_STEP_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC, "Aptc_Income_SEC_1_1_NEW_COMP_STEP_1");
+		$eDeterminationfacts.setPrevSectionACKName("RULE_EXEC_STEP_SEC1_1_NEW_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC, HXConstants.RULE_EXEC_STEP_SEC1_1_NEW_01);
+		logger.debug("Rule : Aptc_Income_SEC_1_1_NEW_COMP_STEP_1 : End");
+end
+

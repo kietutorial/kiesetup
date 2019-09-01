@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2009 - 2012 hCentive Inc. All rights reserved.
+
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd 
+http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd">
+
+	<bean id="auditMailLogTest" class="com.hcentive.utils.utils.AuditMailLogTest">
+		<property name="emailNotifierUtility" ref="emailNotifierUtility"></property>
+	</bean>
+
+	<bean id="emailNotifierUtility" class="com.hcentive.utils.notification.EmailNotifier">
+		<constructor-arg ref="mailSenderUtils" />
+		<property name="templateProcessor" ref="templateProcessor" />
+		<property name="fromEmailId" value="${mail.fromId}" />
+		<property name="replyToEmailId" value="${mail.repyToId}" />
+		<property name="fromName" value="${mail.fromName}" />
+		<property name="replyToName" value="${mail.replyToName}" />
+		<property name="genericDao" ref="genericDAO" />
+	</bean>
+
+	<bean id="sqlSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="configLocation" value="classpath:mybatisutils-test-config.xml" />
+	</bean>
+	
+	<bean id="mailSenderUtils" class="org.springframework.mail.javamail.JavaMailSenderImpl">
+		<property name="host" value="${mail.host}" />
+		<property name="port" value="25" />
+		<property name="username" value="${mail.username}" />
+		<property name="password" value="${mail.password}" />
+		<property name="javaMailProperties">
+			<props>
+				<prop key="mail.smtp.auth">${mail.auth}</prop>
+				<prop key="mail.smtp.starttls.enable">${mail.startTlsEnable}</prop>
+				<prop key="mail.smtp.timeout">${mail.timeout}</prop>
+			</props>
+		</property>
+	</bean>
+
+	<bean id="templateProcessor" class="com.hcentive.utils.notification.template.FreemarkerTemplateProcessor">
+		<property name="configuration" ref="freemarkerConfig" />
+		<property name="defaultDataMap">
+			<map>
+				<entry key="app_url" value="${app.url}" />
+				<entry key="app_url_secure" value="${app.url.secure}" />
+			</map>
+		</property>
+		<property name="templateManager" ref="templateManager" />
+		<!-- <property name="dmsService" ref="dmsService" />
+		<property name="templateBaseFolder" value="${config.folder}/freemarkerTemplates" /> -->
+	</bean>
+
+	<bean id="freemarkerConfig" class="org.springframework.web.servlet.view.freemarker.FreeMarkerConfigurer">
+		<property name="preferFileSystemAccess" value="false" />
+		<property name="templateLoaderPaths">
+			<list>
+				<value>classpath:/META-INF/templates/</value>
+			</list>
+		</property>
+		<property name="freemarkerSettings">
+			<props>
+				<prop key="url_escaping_charset">UTF-8</prop>
+			</props>
+		</property>
+	</bean>
+
+	<bean id="templateManager" class="com.hcentive.utils.notification.template.FreemarkerTemplateManager">
+	</bean>
+
+	<bean id="dmsService" class="com.hcentive.utils.dms.FileSystemBasedDocumentService">
+	</bean>
+
+	<bean id="genericDAO" class="com.hcentive.utils.orm.dao.GenericDAOImpl">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+	</bean>
+
+	<bean id="entityManagerFactory"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="packagesToScan"
+			value="com.hcentive.broker.domain,
+		com.hcentive.xchange.app.domain,
+		com.hcentive.utils.user,com.hcentive.platform.domain,
+		com.hcentive.platform.eligibility.domain,
+		com.hcentive.platform.eligibility.individual.domain,
+		com.hcentive.individual.domain.customer,
+		com.hcentive.individual.domain.shoppingcart,
+		com.hcentive.platform.eligibility.service,
+		com.hcentive.utils.notification.domain,
+		com.hcentive.platform.service,
+		com.hcentive.quotes.productCategory,
+		com.hcentive.plan.domain,
+		com.hcentive.xchange.carrier.domain,
+		com.hcentive.xchange.individual.domain,
+		com.hcentive.payment.domain,
+		com.hcentive.platform.admin.domain,
+		com.hcentive.xchange.agent.domain,
+		invitationCode.findByInvitationCode,
+		com.hcentive.enrollment.app.domain" />
+		<property name="jpaVendorAdapter">
+			<bean id="jpaAdapter"
+				class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+				<property name="database" value="${database}" />
+				<property name="showSql" value="false" />
+				<property name="generateDdl" value="false" />
+			</bean>
+		</property>
+	</bean>
+
+
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource"
+		destroy-method="close" p:driverClassName="com.mysql.jdbc.Driver"
+		p:url="jdbc:mysql://127.0.0.1:3306/private?autoReconnect=true"
+		p:username="root" p:password="root">
+	</bean>
+
+	<bean
+		class="com.hcentive.utils.utils.ExtendedPropertySourcesPlaceholderConfigurer">
+		<property name="locations"
+			value="classpath*:META-INF\logtest-config.properties" />
+	</bean>
+
+	<tx:annotation-driven transaction-manager="txManager" />
+
+	<bean id="txManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+	</bean>
+
+
+</beans>

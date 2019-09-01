@@ -1,0 +1,24 @@
+Issue: While Creating Eligibility Determination, this kept appearing
+--------------------------------------------------
+"We are sorry for the inconvenience. The Marketplace is experiencing technical difficulties. 
+We cannot verify the information that you have told us at this time. 
+The Marketplace will reach out to you if additional information is needed to process your application. 
+Try again in a few minutes"
+
+Fix
+----
+Add new configuration JVM Parameters:
+-DENCRYPT_DECRYPT_ALGORITHM="PBEWithMD5AndTripleDES"
+-DENCRYPT_DECRYPT_KEY="24nyhx24password24nyhx24"
+-DENCRYPT_PROPERTIES_CONFIGPATH="C:/dev/softwares/alfresco-encrypt.properties"
+-DhxEnvironment="DIT" 
+-DhxCertPwd="WebAS" 
+-DurlsAllowed=http://localhost:8080/individual/,http://localhost:8080/employer/,http://localhost:8080/agent/ 
+-DhxCertPath="c:\certs"
+-DhxWSRRURL="https://nyxsvlalb111:9443/WSRR/8.0" 
+-DhxWSRRPwd="sbhushan"
+-DhxWSRRUser="sbhushan"
+-XX:MaxPermSize=2014m
+-XX:PermSize=1024m 
+-DpostElgNoticeXMLProcessing="1" 
+

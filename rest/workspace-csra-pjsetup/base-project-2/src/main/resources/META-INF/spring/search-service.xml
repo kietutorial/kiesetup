@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2009 - 2012 hCentive Inc. All rights reserved.
+
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd 
+http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd">
+
+	<bean id="searchService" class="com.hcentive.utils.search.service.NamedQuerySearchService" />
+	
+	<bean id="criteriaSearchService" class="com.hcentive.utils.search.service.CriteriaSearchService" />
+	
+	<bean id="querySearchController" class="com.hcentive.utils.search.web.QuerySearchController">
+		<property name="searchService" ref="searchService"></property>
+	</bean>
+	
+	<bean id="datatableSearchController" class="com.hcentive.utils.search.datatable.web.DatatableSearchController">
+		<property name="querySearchController" ref="querySearchController"></property>
+	</bean>
+	<bean id="abstractDocumentHandler" class="com.hcentive.utils.document.handler.AbstractDocumentHandler" abstract="true">
+		<property name="genericDAO" ref="genericDAO" />
+		<property name="dmsService" ref="dmsService" />	
+	</bean>
+
+</beans>

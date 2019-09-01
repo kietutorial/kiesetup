@@ -1,0 +1,5 @@
+---
+Tools For Reading Screen
+o ChromeVox 53.0.2784.4
+o http://webaim.org/techniques/keyboard/tabindex
+- To add tabindex

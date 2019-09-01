@@ -1,0 +1,72 @@
+My Remote github is
+---------------------
+https://github.com/doitphil12/project1.git
+
+
+Clone Remote
+--------------------------------------------------------------
+git clone https://github.com/doitphil12/project1.git
+
+- Directory /project1 is created
+
+
+Get status and log of project1
+--------------------------------------------------------------
+cd project1
+
+o git status
+On branch master
+Your branch is up-to-date with 'origin/master'.
+nothing to commit, working tree clean
+
+
+o git log --graph --decorate --all --pretty=oneline
+* 056a9777327f7e193b549f727b1a00d3d149b0d5 (HEAD -> master, origin/master, origin/HEAD) first commit
+* 8925f2d7a1609d2afa18cf04ba3c3f7f566c7d58 first commit
+
+
+Copy archived of poc.domain
+----------------------------------------------
+cd C:\A-PRJ-DROOLS\kiedevbackups\20170723\MedicalIncome
+
+- Copy content to C:\GITREPOS\domain\project1
+- Delete Readme.md and github.cmd
+
+Add Changes To Git
+----------------------------------------
+git add --all
+
+git status
+-
+.
+.
+new file:   src/test/resources/com/hcentive/eligibility/poc/.gitkeep
+new file:   src/test/resources/com/hcentive/eligibility/poc/domain/.gitkeep
+new file:   src/test/resources/com/myteam/.pocmedicalincomedomain
+new file:   src/test/resources/com/myteam/pocmedicalincomedomain/.gitkeep
+
+
+Commit changes
+----------------------------------------------------------------------
+git commit -m "Commit initial Medical Income Process Flows"
+
+- git status
+On branch master
+Your branch is ahead of 'origin/master' by 1 commit.
+  (use "git push" to publish your local commits)
+nothing to commit, working tree clean
+
+Push changes to Remote
+---------------------------------------------------
+git push
+
+- Enter user info
+doitphil12@outlook.com ezPhil12@
+
+
+Go To Github Remote
+-----------------------------------
+https://github.com/doitphil12/project1
+
+- See changes posted
+

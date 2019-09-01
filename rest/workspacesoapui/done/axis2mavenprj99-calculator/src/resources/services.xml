@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<service name="CalculatorService" scope="application">
+
+	<description>
+		Brilliant Calculator
+	</description>
+
+	<parameter name="ServiceClass">com.aikiinc.axis2.service.CalculatorService
+	</parameter>
+
+	<operation name="getSum" mep="http://www.w3.org/ns/wsdl/in-out"
+		namespace="http://service.aikiinc.com/xsd">
+		<actionMapping>http://service.aikiinc.com/xsd/getSum</actionMapping>
+		<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+	</operation>
+
+
+</service>

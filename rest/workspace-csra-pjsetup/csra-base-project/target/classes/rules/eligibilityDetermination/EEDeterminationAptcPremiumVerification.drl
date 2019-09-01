@@ -1,0 +1,28 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+
+global org.slf4j.Logger logger;
+
+
+rule "MAIN_APTC_PREMIUM_VERIFY"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_APTC_PREMIUM_VERIFY : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "MAIN_APTC_PREMIUM_VERIFY");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_03);
+		logger.debug("Rule : MAIN_APTC_PREMIUM_VERIFY : End");
+end

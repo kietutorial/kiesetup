@@ -1,0 +1,98 @@
+My Local Latest DevRepo
+---------------------
+C:/GITDEVSANDBOX/subbranch/
+or
+file:///C:/GITDEVSANDBOX/subbranch/
+- With projects:
+hx-entity-medicaidincome
+hx-process-medicaidincome
+
+
+Create New User In KIE Workbench
+-----------------------------------------------
+o Create user: pchauvet / pchauvet
+Home->Admin->New User
+pchauvet 
+->Create
+password: pchauvet
+
+o Create Group
+kiemgmt
+rest-all
+kie-server
+->Save
+
+o Add Roles:
+Add roles
+process-admin
+manager	
+admin	
+developer	
+user	
+analyst	
+->Save
+
+
+Login as pchauvet
+-------------------------
+pchauvet pchauvet
+
+
+Create New Organizational Unit Manager
+-------------------------------------------
+Authoring -> Administration
+Name: csra-dto2
+Default Group ID: com.csra.eligibility.entity
+Owner: pchauvet
+
+
+Authoring -> Administration
+Name: csra-workflows2
+Default Group ID: com.csra.eligibility.process
+Owner: pchauvet
+
+
+Create New KIE Workbench Repository
+-------------------------------------
+Repository Name: csra-workflows2
+Organization Unit: csra-workflows2
+
+
+Import Lastest Local Git Repository Project Into Kie Workbench: Domain
+----------------------------------------------------------------
+o Select latest repository to work with
+Authoring
+Teams->csra-dto2
+Import->Custom
+
+Repository URL:
+file:///C:/GITDEVSANDBOX/subbranch/.git
+
+->Next
+- Select project hx-entity-medicaidincome
+
+- Import Example:
+Target Repository: csra-dto2
+Organization Units: csra-dto2
+
+
+Import Lastest Local Git Repository Project Into Kie Workbench: WorkFlow
+----------------------------------------------------------------
+o Select latest repository to work with
+Authoring
+Teams->csra-workflows2
+Import->Custom
+
+Repository URL:
+file:///C:/GITDEVSANDBOX/subbranch/.git
+
+->Next
+- Select project hx-process-medicaidincome
+
+- Import Example:
+Target Repository: csra-workflows2
+Organization Units: csra-workflows2
+
+
+
+

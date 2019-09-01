@@ -1,0 +1,41 @@
+Overwritting HS-Stack/application/<whateverprj>
+------------------------------------------------------
+This is the same as overwritting imported project <whateverprj>/src
+
+
+Share Jazz Project To Link Remote with Local Project
+---------------------------------------------------------
+Right click project - Team - Share Project
+
+o Unshare:
+Team - Disconnect
+
+
+Sometimes While Delivering Changes Come In
+-----------------------------------------------------
+o Jazz will deliver untill all incoming changes and Change set comflicts are resolved
+- Look for UNRESOLVED change set
+- Select file to be Auto Resolved
+- Make sure all incoming chance set are Accepted
+o After all incoming change set have been resolved 
+- Reaccept change set
+
+
+Verifying If Change Is In Current Build
+-----------------------------------------------
+o Choose Jazz [Team A] Tab
+o Select NY-HX (CM) [clm.emedny.org]
+o Expand child
+o Select Builds and Expand
+o Select desired Source: NY-HX (CM) CommonDev-13.1.1
+- Right click,  Open Latest Build Details
+o Cicl Show Changes
+- My name and defect should show
+NY-HX (CM) CommonDev-13.2.1 JBE auto-build_20170517-1339
+
+2nd Approach
+o Log in to Jazz
+o Search for defect
+o Look  at "Included in Builds"
+- Select a build: NY-HX (CM) CommonDev-13.2.1 JBE auto-build 20170517-1339
+- Select "Work Items", should see defect listed

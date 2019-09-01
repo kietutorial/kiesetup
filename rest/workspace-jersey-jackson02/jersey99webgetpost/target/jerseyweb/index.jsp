@@ -1,0 +1,18 @@
+<html>
+<body>
+    <h2>Jersey RESTful Web Application!</h2>
+    <p>
+    	<a href="webapi/myresource">Go jsersey</a>
+    </p>
+    <p>
+    	<a href="webapi/customers/all">All Customer</a>
+    </p>
+    <p>
+    	<a href="webapi/customers/104">Customer 104</a>
+    </p>
+    <p>
+    	Visit <a href="http://jersey.java.net">Project Jersey website</a>
+    for more information on Jersey!
+    </p>
+</body>
+</html>

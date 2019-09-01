@@ -1,0 +1,422 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<definitions id="Definition"
+             targetNamespace="http://www.omg.org/bpmn20"
+             typeLanguage="http://www.java.com/javaTypes"
+             expressionLanguage="http://www.mvel.org/2.0"
+             xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd"
+             xmlns:g="http://www.jboss.org/drools/flow/gpd"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:tns="http://www.jboss.org/drools">
+
+  <itemDefinition id="__7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityMainOutputXItem" structureRef="com.csra.eligibility.domain.process.EligibilityMain" />
+  <itemDefinition id="__648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityMainInputXItem" structureRef="Object" />
+  <itemDefinition id="_memberItem" structureRef="com.csra.eligibility.domain.entity.member.Member" />
+  <itemDefinition id="__7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityMainInputXItem" structureRef="com.csra.eligibility.domain.process.EligibilityMain" />
+  <itemDefinition id="__7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityResultOutputXItem" structureRef="com.csra.eligibility.domain.rulefact.EligibilityResult" />
+  <itemDefinition id="__648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityResultInputXItem" structureRef="Object" />
+  <itemDefinition id="__648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityMainOutputXItem" structureRef="Object" />
+  <itemDefinition id="__648BDF45-6BF1-4EDB-B742-8A81D0860D3B_memberOutputXItem" structureRef="Object" />
+  <itemDefinition id="_eligibilityResultItem" structureRef="com.csra.eligibility.domain.rulefact.EligibilityResult" />
+  <itemDefinition id="__7CAF3E2A-60FB-4B79-B675-5D20E49409C1_memberInputXItem" structureRef="com.csra.eligibility.domain.entity.member.Member" />
+  <itemDefinition id="__7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityResultInputXItem" structureRef="com.csra.eligibility.domain.rulefact.EligibilityResult" />
+  <itemDefinition id="__648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityResultOutputXItem" structureRef="Object" />
+  <itemDefinition id="__648BDF45-6BF1-4EDB-B742-8A81D0860D3B_memberInputXItem" structureRef="Object" />
+  <itemDefinition id="_eligibilityMainItem" structureRef="com.csra.eligibility.domain.process.EligibilityMain" />
+  <process processType="Private" isExecutable="true" id="MI_Main" name="MI_Main" tns:packageName="com.csra.eligibility.workflow.medicalincome" tns:version="1.0" >
+
+    <extensionElements>
+     <tns:import name="com.csra.eligibility.domain.entity.member.Member" />
+     <tns:import name="com.csra.eligibility.domain.process.EligibilityMain" />
+     <tns:import name="com.csra.eligibility.domain.rulefact.EligibilityResult" />
+    </extensionElements>
+    <!-- process variables -->
+    <property id="eligibilityMain" itemSubjectRef="_eligibilityMainItem"/>
+    <property id="member" itemSubjectRef="_memberItem"/>
+    <property id="eligibilityResult" itemSubjectRef="_eligibilityResultItem"/>
+
+    <!-- nodes -->
+    <startEvent id="_07BFA015-A6BA-4106-ADF1-92DB5045E57A" name=""  isInterrupting="true">
+    </startEvent>
+    <endEvent id="_E167FC9C-BEFA-4665-992F-EE2A32DB4A44" name="EndMain" />
+    <exclusiveGateway id="_1ED9021C-4897-404B-8B82-F25B133213B9" name="ElibilityStop" gatewayDirection="Converging" >
+    </exclusiveGateway>
+    <scriptTask id="_A11BAE34-BBEB-4B3E-8059-03D3E42068D2" name="Ineligible " scriptFormat="http://www.java.com/java" >
+      <script>System.out.println("Process(" + kcontext.getNodeInstance().getNodeName() + ") ");
+
+if( eligibilityResult!= null ) {
+	EligibilityResult teligibilityResult = (EligibilityResult) eligibilityResult;
+	if ( eligibilityMain.isPreCheckStale() ) {
+		teligibilityResult.setEligibleStatus(false);
+		teligibilityResult.setReason("Is Stale");
+		System.out.println("isPreCheckStale: " + eligibilityMain.isPreCheckStale() );
+	} else {
+		teligibilityResult.setEligibleStatus(false);
+		//teligibilityResult.setReason(teligibilityResult.getReason());
+	}
+	System.out.println("Set result isEligibleStatis: " + teligibilityResult.isEligibleStatus() );
+
+	//kcontext.getKnowledgeRuntime().insert(teligibilityResult);	
+}
+</script>
+    </scriptTask>
+    <exclusiveGateway id="_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61" name="Stale" gatewayDirection="Diverging" >
+    </exclusiveGateway>
+    <callActivity id="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1" name="Ineligibility Prechecks" calledElement="MI_Main_Sub_Ineligibility" >
+      <extensionElements>
+        <tns:onEntry-script scriptFormat="http://www.java.com/java">
+          <tns:script>System.out.println("");
+System.out.println("OnEntry Process(" + kcontext.getNodeInstance().getNodeName() + ") ");
+
+
+if (eligibilityMain != null)
+  System.out.println("1a eligibilityMain:" + eligibilityMain);
+
+if (member != null)
+  System.out.println("1a member:" + member);
+
+if (eligibilityResult != null)
+  System.out.println("1a eligibilityResult:" + eligibilityResult);</tns:script>
+        </tns:onEntry-script>
+        <tns:onExit-script scriptFormat="http://www.java.com/java">
+          <tns:script>System.out.println("OnExit Process(" + kcontext.getNodeInstance().getNodeName() + ") ");
+
+if( eligibilityResult != null ) {
+  //System.out.println("eligibilityResult: " + eligibilityResult);
+  EligibilityResult teligibilityResult = (EligibilityResult) eligibilityResult;
+  if (teligibilityResult.isTouched() &amp;&amp; !teligibilityResult.isEligibleStatus()) {
+      EligibilityMain teligibilityMain = (EligibilityMain) eligibilityMain;			
+      teligibilityMain.setInEligible(true);
+          
+      System.out.println("    *eligibilityMain.isInEligible(): " + teligibilityMain.isInEligible() );
+  }
+  
+  System.out.println(member);
+}
+  
+System.out.println("");</tns:script>
+        </tns:onExit-script>
+      </extensionElements>
+      <ioSpecification>
+        <dataInput id="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityMainInput" name="eligibilityMain" />
+        <dataInput id="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityResultInput" name="eligibilityResult" />
+        <dataInput id="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_memberInput" name="member" />
+        <dataOutput id="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityMainOutput" name="eligibilityMain" />
+        <dataOutput id="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityResultOutput" name="eligibilityResult" />
+        <inputSet>
+          <dataInputRefs>_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityMainInput</dataInputRefs>
+          <dataInputRefs>_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityResultInput</dataInputRefs>
+          <dataInputRefs>_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_memberInput</dataInputRefs>
+        </inputSet>
+        <outputSet>
+          <dataOutputRefs>_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityMainOutput</dataOutputRefs>
+          <dataOutputRefs>_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityResultOutput</dataOutputRefs>
+        </outputSet>
+      </ioSpecification>
+      <dataInputAssociation>
+        <sourceRef>eligibilityMain</sourceRef>
+        <targetRef>_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityMainInput</targetRef>
+      </dataInputAssociation>
+      <dataInputAssociation>
+        <sourceRef>eligibilityResult</sourceRef>
+        <targetRef>_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityResultInput</targetRef>
+      </dataInputAssociation>
+      <dataInputAssociation>
+        <sourceRef>member</sourceRef>
+        <targetRef>_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_memberInput</targetRef>
+      </dataInputAssociation>
+      <dataOutputAssociation>
+        <sourceRef>_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityMainOutput</sourceRef>
+        <targetRef>eligibilityMain</targetRef>
+      </dataOutputAssociation>
+      <dataOutputAssociation>
+        <sourceRef>_7CAF3E2A-60FB-4B79-B675-5D20E49409C1_eligibilityResultOutput</sourceRef>
+        <targetRef>eligibilityResult</targetRef>
+      </dataOutputAssociation>
+    </callActivity>
+    <scriptTask id="_B4AA836B-AB94-4A42-9BB7-3E64A2E2BB9F" name="PostProcessing" scriptFormat="http://www.java.com/java" >
+      <script>System.out.println("Process(" + kcontext.getNodeInstance().getNodeName() + ") ");
+
+if(member==null) {
+  System.out.println("Member I NULL");
+} else {
+  System.out.println("Member: " + member);
+  
+  System.out.println("");
+  System.out.println("=========================");
+  Member tmember = (Member) member;
+  System.out.println("Member: " + tmember.getFullName());
+}	
+
+if ( eligibilityResult != null ) {
+  EligibilityResult teligibilityResult = (EligibilityResult) eligibilityResult;
+  System.out.println(teligibilityResult.isEligibleStatus() == true ? "Member is Eligible" : "Member is Not Eligible" );
+  System.out.println("Reason: " + teligibilityResult.getReason());
+  System.out.println("=========================");
+}
+
+
+System.out.println("Completed processing..");
+</script>
+    </scriptTask>
+    <callActivity id="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B" name="Income Type  Determination" calledElement="Income_Type_Determination" >
+      <extensionElements>
+        <tns:onEntry-script scriptFormat="http://www.java.com/java">
+          <tns:script>System.out.println("");
+System.out.println("OnEntry Process(" + kcontext.getNodeInstance().getNodeName() + ") ");</tns:script>
+        </tns:onEntry-script>
+        <tns:onExit-script scriptFormat="http://www.java.com/java">
+          <tns:script>System.out.println("OnExit Process(" + kcontext.getNodeInstance().getNodeName() + ") ");
+System.out.println(member);
+System.out.println("");
+
+kcontext.getKnowledgeRuntime().insert(member);</tns:script>
+        </tns:onExit-script>
+      </extensionElements>
+      <ioSpecification>
+        <dataInput id="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityMainInput" name="eligibilityMain" />
+        <dataInput id="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityResultInput" name="eligibilityResult" />
+        <dataInput id="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_memberInput" name="member" />
+        <dataOutput id="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityMainOutput" name="eligibilityMain" />
+        <dataOutput id="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityResultOutput" name="eligibilityResult" />
+        <dataOutput id="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_memberOutput" name="member" />
+        <inputSet>
+          <dataInputRefs>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityMainInput</dataInputRefs>
+          <dataInputRefs>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityResultInput</dataInputRefs>
+          <dataInputRefs>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_memberInput</dataInputRefs>
+        </inputSet>
+        <outputSet>
+          <dataOutputRefs>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityMainOutput</dataOutputRefs>
+          <dataOutputRefs>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityResultOutput</dataOutputRefs>
+          <dataOutputRefs>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_memberOutput</dataOutputRefs>
+        </outputSet>
+      </ioSpecification>
+      <dataInputAssociation>
+        <sourceRef>eligibilityMain</sourceRef>
+        <targetRef>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityMainInput</targetRef>
+      </dataInputAssociation>
+      <dataInputAssociation>
+        <sourceRef>eligibilityResult</sourceRef>
+        <targetRef>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityResultInput</targetRef>
+      </dataInputAssociation>
+      <dataInputAssociation>
+        <sourceRef>member</sourceRef>
+        <targetRef>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_memberInput</targetRef>
+      </dataInputAssociation>
+      <dataOutputAssociation>
+        <sourceRef>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityMainOutput</sourceRef>
+        <targetRef>eligibilityMain</targetRef>
+      </dataOutputAssociation>
+      <dataOutputAssociation>
+        <sourceRef>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_eligibilityResultOutput</sourceRef>
+        <targetRef>eligibilityResult</targetRef>
+      </dataOutputAssociation>
+      <dataOutputAssociation>
+        <sourceRef>_648BDF45-6BF1-4EDB-B742-8A81D0860D3B_memberOutput</sourceRef>
+        <targetRef>member</targetRef>
+      </dataOutputAssociation>
+    </callActivity>
+    <exclusiveGateway id="_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41" name="Ineligible" gatewayDirection="Diverging" >
+    </exclusiveGateway>
+    <scriptTask id="_D9C40FEA-F072-439B-9699-2BC0161CC056" name="OtherProcess" scriptFormat="http://www.java.com/java" >
+      <script>System.out.println("Process ("+kcontext.getProcessInstance().getProcessName() + ") Task: " + kcontext.getNodeInstance().getNodeName());
+</script>
+    </scriptTask>
+    <callActivity id="_4E561F02-DBDA-4374-A761-7CCB5CE93349" name="Medicaid FPL Level Determination" calledElement="MI_MainSub_FPLLevelDetermination" >
+      <extensionElements>
+        <tns:onEntry-script scriptFormat="http://www.java.com/java">
+          <tns:script>System.out.println("");
+System.out.println("OnEntry Process(" + kcontext.getNodeInstance().getNodeName() + ") ");</tns:script>
+        </tns:onEntry-script>
+        <tns:onExit-script scriptFormat="http://www.java.com/java">
+          <tns:script>System.out.println("OnExit Process(" + kcontext.getNodeInstance().getNodeName() + ") ");
+System.out.println(member);
+System.out.println("");</tns:script>
+        </tns:onExit-script>
+      </extensionElements>
+      <ioSpecification>
+        <dataInput id="_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityMainInput" name="eligibilityMain" />
+        <dataInput id="_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityResultInput" name="eligibilityResult" />
+        <dataInput id="_4E561F02-DBDA-4374-A761-7CCB5CE93349_memberInput" name="member" />
+        <dataOutput id="_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityMainOutput" name="eligibilityMain" />
+        <dataOutput id="_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityResultOutput" name="eligibilityResult" />
+        <dataOutput id="_4E561F02-DBDA-4374-A761-7CCB5CE93349_memberOutput" name="member" />
+        <inputSet>
+          <dataInputRefs>_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityMainInput</dataInputRefs>
+          <dataInputRefs>_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityResultInput</dataInputRefs>
+          <dataInputRefs>_4E561F02-DBDA-4374-A761-7CCB5CE93349_memberInput</dataInputRefs>
+        </inputSet>
+        <outputSet>
+          <dataOutputRefs>_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityMainOutput</dataOutputRefs>
+          <dataOutputRefs>_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityResultOutput</dataOutputRefs>
+          <dataOutputRefs>_4E561F02-DBDA-4374-A761-7CCB5CE93349_memberOutput</dataOutputRefs>
+        </outputSet>
+      </ioSpecification>
+      <dataInputAssociation>
+        <sourceRef>eligibilityMain</sourceRef>
+        <targetRef>_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityMainInput</targetRef>
+      </dataInputAssociation>
+      <dataInputAssociation>
+        <sourceRef>eligibilityResult</sourceRef>
+        <targetRef>_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityResultInput</targetRef>
+      </dataInputAssociation>
+      <dataInputAssociation>
+        <sourceRef>member</sourceRef>
+        <targetRef>_4E561F02-DBDA-4374-A761-7CCB5CE93349_memberInput</targetRef>
+      </dataInputAssociation>
+      <dataOutputAssociation>
+        <sourceRef>_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityMainOutput</sourceRef>
+        <targetRef>eligibilityMain</targetRef>
+      </dataOutputAssociation>
+      <dataOutputAssociation>
+        <sourceRef>_4E561F02-DBDA-4374-A761-7CCB5CE93349_eligibilityResultOutput</sourceRef>
+        <targetRef>eligibilityResult</targetRef>
+      </dataOutputAssociation>
+      <dataOutputAssociation>
+        <sourceRef>_4E561F02-DBDA-4374-A761-7CCB5CE93349_memberOutput</sourceRef>
+        <targetRef>member</targetRef>
+      </dataOutputAssociation>
+    </callActivity>
+
+    <!-- connections -->
+    <sequenceFlow id="_B4AA836B-AB94-4A42-9BB7-3E64A2E2BB9F-_E167FC9C-BEFA-4665-992F-EE2A32DB4A44" sourceRef="_B4AA836B-AB94-4A42-9BB7-3E64A2E2BB9F" targetRef="_E167FC9C-BEFA-4665-992F-EE2A32DB4A44" />
+    <sequenceFlow id="_D9C40FEA-F072-439B-9699-2BC0161CC056-_1ED9021C-4897-404B-8B82-F25B133213B9" sourceRef="_D9C40FEA-F072-439B-9699-2BC0161CC056" targetRef="_1ED9021C-4897-404B-8B82-F25B133213B9" />
+    <sequenceFlow id="_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41-_1ED9021C-4897-404B-8B82-F25B133213B9" sourceRef="_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41" targetRef="_1ED9021C-4897-404B-8B82-F25B133213B9" name="Y" >
+      <conditionExpression xsi:type="tFormalExpression" language="http://www.java.com/java" >if (eligibilityMain.isInEligible() ) {
+	System.out.println("Gateway(" + kcontext.getNodeInstance().getNodeName() + ") is: " + eligibilityMain.isInEligible() ); 
+	return true;
+}
+
+return false;
+
+</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61-_1ED9021C-4897-404B-8B82-F25B133213B9" sourceRef="_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61" targetRef="_1ED9021C-4897-404B-8B82-F25B133213B9" name="Y" >
+      <conditionExpression xsi:type="tFormalExpression" language="http://www.java.com/java" >System.out.println("Process ("+kcontext.getProcessInstance().getProcessName() + ") Gateway: " + kcontext.getNodeInstance().getNodeName());
+
+if ( eligibilityMain != null &amp;&amp; eligibilityMain.isPreCheckStale() ) {
+    System.out.println("eligibilityMain.isPreCheckStale: " + eligibilityMain.isPreCheckStale() ); 
+	
+    return true;
+}
+
+return false;</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="_1ED9021C-4897-404B-8B82-F25B133213B9-_A11BAE34-BBEB-4B3E-8059-03D3E42068D2" sourceRef="_1ED9021C-4897-404B-8B82-F25B133213B9" targetRef="_A11BAE34-BBEB-4B3E-8059-03D3E42068D2" />
+    <sequenceFlow id="_07BFA015-A6BA-4106-ADF1-92DB5045E57A-_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61" sourceRef="_07BFA015-A6BA-4106-ADF1-92DB5045E57A" targetRef="_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61" />
+    <sequenceFlow id="_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61-_7CAF3E2A-60FB-4B79-B675-5D20E49409C1" sourceRef="_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61" targetRef="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1" name="N" tns:priority="1" >
+      <conditionExpression xsi:type="tFormalExpression" language="http://www.java.com/java" >System.out.println("Process ("+kcontext.getProcessInstance().getProcessName() + ") Gateway: " + kcontext.getNodeInstance().getNodeName());
+
+if ( eligibilityMain != null &amp;&amp; !eligibilityMain.isPreCheckStale() ) {
+    System.out.println("eligibilityMain.isPreCheckStale: " + eligibilityMain.isPreCheckStale() ); 
+	
+    return true;
+}
+
+return false;</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="_A11BAE34-BBEB-4B3E-8059-03D3E42068D2-_B4AA836B-AB94-4A42-9BB7-3E64A2E2BB9F" sourceRef="_A11BAE34-BBEB-4B3E-8059-03D3E42068D2" targetRef="_B4AA836B-AB94-4A42-9BB7-3E64A2E2BB9F" />
+    <sequenceFlow id="_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41-_648BDF45-6BF1-4EDB-B742-8A81D0860D3B" sourceRef="_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41" targetRef="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B" name="N" >
+      <conditionExpression xsi:type="tFormalExpression" language="http://www.java.com/java" >//System.out.println("*** eligibilityMain: " + eligibilityMain ); 
+
+if (!eligibilityMain.isInEligible() ) {
+	System.out.println("Gateway(" + kcontext.getNodeInstance().getNodeName() + ") is: " + eligibilityMain.isInEligible() ); 
+	return true;
+}
+
+return false;
+</conditionExpression>
+    </sequenceFlow>
+    <sequenceFlow id="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1-_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41" sourceRef="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1" targetRef="_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41" />
+    <sequenceFlow id="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B-_D9C40FEA-F072-439B-9699-2BC0161CC056" sourceRef="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B" targetRef="_D9C40FEA-F072-439B-9699-2BC0161CC056" />
+
+  </process>
+
+  <bpmndi:BPMNDiagram>
+    <bpmndi:BPMNPlane bpmnElement="MI_Main" >
+      <bpmndi:BPMNShape bpmnElement="_07BFA015-A6BA-4106-ADF1-92DB5045E57A" >
+        <dc:Bounds x="47" y="53" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_E167FC9C-BEFA-4665-992F-EE2A32DB4A44" >
+        <dc:Bounds x="27" y="343" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_1ED9021C-4897-404B-8B82-F25B133213B9" >
+        <dc:Bounds x="175" y="131" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_A11BAE34-BBEB-4B3E-8059-03D3E42068D2" >
+        <dc:Bounds x="142" y="210" width="113" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61" >
+        <dc:Bounds x="175" y="53" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1" >
+        <dc:Bounds x="311" y="47" width="110" height="62" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_B4AA836B-AB94-4A42-9BB7-3E64A2E2BB9F" >
+        <dc:Bounds x="154" y="333" width="89" height="68" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B" >
+        <dc:Bounds x="579" y="37" width="150" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41" >
+        <dc:Bounds x="475" y="53" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_D9C40FEA-F072-439B-9699-2BC0161CC056" >
+        <dc:Bounds x="579" y="200" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_4E561F02-DBDA-4374-A761-7CCB5CE93349" >
+        <dc:Bounds x="0" y="0" width="110" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="_B4AA836B-AB94-4A42-9BB7-3E64A2E2BB9F-_E167FC9C-BEFA-4665-992F-EE2A32DB4A44" >
+        <di:waypoint x="198" y="367" />
+        <di:waypoint x="51" y="367" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_D9C40FEA-F072-439B-9699-2BC0161CC056-_1ED9021C-4897-404B-8B82-F25B133213B9" >
+        <di:waypoint x="629" y="240" />
+        <di:waypoint x="355" y="240" />
+        <di:waypoint x="199" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41-_1ED9021C-4897-404B-8B82-F25B133213B9" >
+        <di:waypoint x="499" y="77" />
+        <di:waypoint x="499" y="155" />
+        <di:waypoint x="199" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61-_1ED9021C-4897-404B-8B82-F25B133213B9" >
+        <di:waypoint x="199" y="77" />
+        <di:waypoint x="199" y="155" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_1ED9021C-4897-404B-8B82-F25B133213B9-_A11BAE34-BBEB-4B3E-8059-03D3E42068D2" >
+        <di:waypoint x="199" y="155" />
+        <di:waypoint x="198" y="240" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_07BFA015-A6BA-4106-ADF1-92DB5045E57A-_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61" >
+        <di:waypoint x="71" y="77" />
+        <di:waypoint x="199" y="77" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_D5AF70D6-F08D-47B1-9AA7-C1C54A291E61-_7CAF3E2A-60FB-4B79-B675-5D20E49409C1" >
+        <di:waypoint x="199" y="77" />
+        <di:waypoint x="366" y="78" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_A11BAE34-BBEB-4B3E-8059-03D3E42068D2-_B4AA836B-AB94-4A42-9BB7-3E64A2E2BB9F" >
+        <di:waypoint x="198" y="240" />
+        <di:waypoint x="198" y="367" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41-_648BDF45-6BF1-4EDB-B742-8A81D0860D3B" >
+        <di:waypoint x="499" y="77" />
+        <di:waypoint x="654" y="77" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_7CAF3E2A-60FB-4B79-B675-5D20E49409C1-_CA7B2BD5-17F5-412B-BDEC-3CF9E985FC41" >
+        <di:waypoint x="366" y="78" />
+        <di:waypoint x="499" y="77" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_648BDF45-6BF1-4EDB-B742-8A81D0860D3B-_D9C40FEA-F072-439B-9699-2BC0161CC056" >
+        <di:waypoint x="654" y="77" />
+        <di:waypoint x="629" y="240" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</definitions>

@@ -1,0 +1,341 @@
+package com.hcentive.eligibility.notice;
+ 
+import com.hcentive.rulesengine.domain.notice.EmployeeApplicationDetailsFact;
+import com.hcentive.shop.domain.ext.CompanyDetail;
+import com.hcentive.shop.domain.Employer;
+import com.hcentive.user.UserProfile;
+import com.hcentive.utils.ext.ApplicationTransactionStatusEnum;
+import com.hcentive.enrollment.app.domain.Application;
+import com.hcentive.enrollment.app.domain.ext.ApplicationExt;
+import com.hcentive.enrollment.app.domain.ext.ApplicationTransaction;
+import com.hcentive.shop.domain.EmployerEligibility;
+import com.hcentive.shop.domain.EnrollmentSetup;
+import com.hcentive.shop.domain.EnrollmentSetupStatus;
+import com.hcentive.enrollment.app.domain.ApplicationStatusEnum;
+import com.hcentive.shop.domain.EmployerEligibilityStatusEnum;
+import org.apache.commons.lang.BooleanUtils;
+import java.util.Set;
+import com.hcentive.enrollment.app.domain.ApplicationMember;
+import com.hcentive.shop.hix.jobs.domain.ShopMemberDisenrollment;
+import java.util.Date;
+import com.hcentive.utils.enrollment.EnrollmentUtil;
+import com.hcentive.utils.ext.HXUtility;
+
+
+/* Rule Notice 1012 :
+ * Employer has successfully established an account with the SHOP and eligible 
+ * employee is prompted to establish an employee account and enroll in a QHP
+ */
+rule "Notice1012"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+     	
+		EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+		if(enrollmentSetup != null &&  enrollmentSetup.getStatus().equals("COMPLETED") && enrollmentSetup.isEligibleEmployeesNotified()){				
+			n.getTemplateNameList().add("Notice1012.ftl");
+		} 
+	end	
+
+/* Rule Notice 1013 :
+ * Employee completed account set up; Employee still needs to select a QHP
+ */
+ 
+rule "Notice1013"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+     	EnrollmentSetupStatus enrollmentSetupStatus = n.getEnrollmentSetupStatus();
+     	//EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+		if(enrollmentSetupStatus != null && enrollmentSetupStatus.isEmployeeIdleFor7Days()){
+	    	n.getTemplateNameList().add("Notice1013.ftl");
+	   	} 
+	end
+	
+/* Rule Notice 1015 :
+ * Employee has not enrolled in coverage and open enrollment period is ending in 14 days
+ */
+ 
+rule "Notice1015"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+     	EnrollmentSetupStatus enrollmentSetupStatus = n.getEnrollmentSetupStatus();
+     	//EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+		if(enrollmentSetupStatus != null && enrollmentSetupStatus.isApplicationReminder()){
+		   	n.getTemplateNameList().add("Notice1015.ftl");
+		} 
+	end
+	
+/* Rule Notice 1018a :
+ * Employee has requested a special enrollment period. The employee has provided enough information 
+ * online to report a change, but has not completed the enrollment. Applies only to certain Qualifying Events.
+ */
+ 
+rule "Notice1018a"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+		//EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+		EnrollmentSetupStatus enrollmentSetupStatus = n.getEnrollmentSetupStatus();
+		if(enrollmentSetupStatus != null && enrollmentSetupStatus.isSpecialEnrollment()){
+	    		n.getTemplateNameList().add("Notice1018a.ftl");
+	   	} 
+	end
+
+/* Rule Notice 1018b :
+ * Employee has requested a special enrollment period that must be effectuated through Customer Service - but Customer 
+ * Service may or may not have been contacted to complete the process.
+ */
+ 
+rule "Notice1018b"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+		EnrollmentSetupStatus enrollmentSetupStatus = n.getEnrollmentSetupStatus();
+		if(enrollmentSetupStatus != null && enrollmentSetupStatus.isLSCEventEffectuatedByCS()){
+	    		n.getTemplateNameList().add("Notice1018b.ftl");
+	   	} 
+	end
+	
+
+/* Rule Notice Notice1022a :
+ * Notifying the employee of the broker assigned by the employer to assist with health insurance coverage through the SHOP
+ * 
+ */	
+rule "Notice1022a"
+    when 
+        n : EmployeeApplicationDetailsFact();
+    then     	
+		EmployerEligibility eligibility = n.getEligibility();
+		UserProfile userProfile = n.getEmployeeUserProfile();
+		if(null != eligibility && eligibility.isBrokerAuthorized() && null != userProfile)
+		   n.getTemplateNameList().add("Notice1022a.ftl");
+	end
+
+/* Rule Notice 1023 :
+ * Employee completed account set up; Employee still needs to select a QHP
+ */	
+  
+rule "Notice1023"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+		//EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+	   UserProfile profile = n.getEmployeeUserProfile();
+	   if(null != profile && profile.isEmpAcctHolderUpdated() || profile.isEmpHouseholdUpdated() || profile.isEmpContactUpdated() || profile.isEmpContactPrefUpdated())
+	      n.getTemplateNameList().add("Notice1023.ftl");
+end
+
+/* Rule Notice Notice1014a :
+ * Employee account set up is not complete due to identity proofing failure
+ */	
+  
+/*rule "Notice1014a"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+		//EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+	   UserProfile profile = n.getEmployeeUserProfile();
+	   if(null != profile && profile.getIdentitySuccessIndicator() == null || profile.getIdentitySuccessIndicator() == "N")
+	      n.getTemplateNameList().add("Notice1014a.ftl");
+end*/
+
+/* Rule Notice Notice1014b :
+ * Customer Service has been able to Identity Proof the Employee
+ */	
+  
+rule "Notice1014b"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+		//EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+	   UserProfile profile = n.getEmployeeUserProfile();
+	   if(null != profile && profile.getIdentitySuccessIndicator() != null && profile.getIdentitySuccessIndicator().equalsIgnoreCase("Y") && profile.isManualIDProof())
+	      n.getTemplateNameList().add("Notice1014b.ftl");
+end
+
+/* Rule Notice Notice1017 :
+ * Employee account set up is not complete due to identity proofing failure
+ */	
+  
+rule "Notice1017"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+	  Application application = n.getApplication();
+	  if(null != application && null != application.getApplicationTransactions() && application.getStatus().name().equals(ApplicationStatusEnum.SUBMITTED.name()) && !BooleanUtils.toBoolean(application.getEnrlCancelRequestInd()))
+	  for(ApplicationTransaction transaction: application.getApplicationTransactions()){
+	   if(transaction.getId().equals(application.getEnrlTransactionToBeNotified())){
+	   	  if(transaction.getStatus().name().equals(ApplicationTransactionStatusEnum.ACCEPTED_BY_CARRIER.name()))
+	      	n.getTemplateNameList().add("Notice1017.ftl");
+	      }
+	   }
+end
+
+/* Rule Notice Notice1021 :
+ * Employee withdraws from coverage; could be due to gaining health insurance benefits through a spouse's employer
+ */	
+  
+rule "Notice1021"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then 
+      Application application = n.getApplication();
+	  if(null != application && application.getStatus().name().equals(ApplicationStatusEnum.OBSOLETE.name()) && !BooleanUtils.toBoolean(application.getEnrlCancelRequestInd()))
+	      n.getTemplateNameList().add("Notice1021.ftl");
+end
+
+
+/* Rule Notice Notice1016 :
+ * Employee withdraws from coverage; could be due to gaining health insurance benefits through a spouse's employer
+ */	
+  
+rule "Notice1016"
+   when
+        n : EmployeeApplicationDetailsFact();
+    then
+	  Application application = n.getApplication();
+	  if(null != application && null != application.getApplicationTransactions() && application.getStatus().name().equals(ApplicationStatusEnum.SUBMITTED.name()) && !BooleanUtils.toBoolean(application.getEnrlCancelRequestInd()))
+	  for(ApplicationTransaction transaction: application.getApplicationTransactions()){
+	   if(transaction.getId().equals(application.getEnrlTransactionToBeNotified())){
+	   		if(transaction.getStatus().name().equals(ApplicationTransactionStatusEnum.REJECTED_BY_CARRIER.name()))
+	      		n.getTemplateNameList().add("Notice1016.ftl");
+	   }
+	  }
+end
+
+
+	
+/* Rule Notice Notice1030 :
+* N#1030:  Employer Edits contribution OR Edits Coverage Tier during Open enrollment period,Employer enrollment status  changed from ON-HOLD to Notified status
+*/	
+	rule "Notice1030"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+     	EnrollmentSetupStatus enrollmentSetupStatus = n.getEnrollmentSetupStatus();
+   		EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+   		Date currentDate = HXUtility.getCurrentDate();
+   		if( enrollmentSetup != null ){
+			if(  BooleanUtils.toBoolean(enrollmentSetup.getContributionChangedOEP()) 
+					|| (EnrollmentUtil.isValidOpenEnrollmentPeriod(currentDate,enrollmentSetup.getEnrollmentStartDate(),enrollmentSetup.getEnrollmentEndDate())
+							&& (BooleanUtils.toBoolean(n.isModifiedPlans()) || BooleanUtils.toBoolean(n.isRemovedDentalPlan())))){
+	    		n.getTemplateNameList().add("Notice1030.ftl");
+	    	}else if(enrollmentSetupStatus != null && BooleanUtils.toBoolean(enrollmentSetupStatus.getIsEmployeeNotified())){
+	    		n.getTemplateNameList().add("Notice1030.ftl");
+	    	}
+	    }
+	end
+	
+/* Rule Notice Notice1031 :
+* N#1031:  Employer Edits contribution OR Edits Coverage Tier during Retroactive period
+*/	
+	
+	rule "Notice1031"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+     	EnrollmentSetupStatus enrollmentSetupStatus = n.getEnrollmentSetupStatus();
+   		EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+   		if( enrollmentSetup != null ){
+			if( BooleanUtils.toBoolean(enrollmentSetup.getContributionChanged())){
+	    		n.getTemplateNameList().add("Notice1031.ftl");
+	    	}
+	    }
+	end
+	
+/* Rule Notice Notice1032 :
+*  N#1032:  Employer Edits contribution OR Edits Coverage Tier during Edit Enrollment period, Employer added dental options during Open enrollment period.
+*/	
+	rule "Notice1032"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+     	EnrollmentSetupStatus enrollmentSetupStatus = n.getEnrollmentSetupStatus();
+   		EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+   		if( enrollmentSetup != null ){
+			if(BooleanUtils.toBoolean(enrollmentSetup.getCoverageTierChanged())){
+	    		n.getTemplateNameList().add("Notice1032.ftl");
+	    	}
+	    } 
+	end
+	
+/* Rule Notice Notice1033 :
+*   N#1033:  Employer Authorizes an Employee to make changes to their completed enrollment
+*/
+	rule "Notice1033"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+     	EnrollmentSetupStatus enrollmentSetupStatus = n.getEnrollmentSetupStatus();
+   		EnrollmentSetup enrollmentSetup = n.getEnrollmentSetup();
+   		 if( enrollmentSetupStatus != null ){ 
+	  		if( BooleanUtils.toBoolean(enrollmentSetupStatus.getIsEmployerAuthorised())){
+	    		n.getTemplateNameList().add("Notice1033.ftl");
+	    	}
+	  	} 
+	end
+	
+/* Rule Notice Notice1043 :
+ * When FM ReInstates Employer from SHOP Notice to Employee
+ */	
+rule "Notice1043"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then     	
+		EmployerEligibility eligibility = n.getEligibility();
+		UserProfile userProfile = n.getEmployeeUserProfile();
+		if(null != eligibility && null != eligibility.getEligibilityVerificationStatus()){
+		   if(eligibility.getEligibilityVerificationStatus().name().equals(EmployerEligibilityStatusEnum.ELIGIBLE.name()) && null != userProfile){
+		     if(eligibility.isReInstatementNotice()){
+		     	n.getTemplateNameList().add("Notice1043.ftl");
+		     }
+		    }
+		 }
+	end
+	
+	/* Rule Notice 1051 :
+ * Employee completed account set up;  did not finish renewal application after OEP.
+ */
+ 
+rule "Notice1051"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then
+     	EnrollmentSetupStatus enrollmentSetupStatus = n.getEnrollmentSetupStatus();
+     	if(enrollmentSetupStatus != null && enrollmentSetupStatus.isRenewalEmployeeIdleAfterOEP()){
+	    	n.getTemplateNameList().add("Notice1051.ftl");
+	   	} 
+	end
+	
+	/* Rule Notice Notice1044 :
+ * Dependent child enrolled in Pediatric dental plan turns 19
+ */	
+rule "Notice1044"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then     	
+		
+		UserProfile userProfile = n.getEmployeeUserProfile();
+	  Set<ApplicationMember> applicationMembers = n.getApplicationMembers();
+   		 if( applicationMembers != null  && applicationMembers.iterator().next()!=null && BooleanUtils.toBoolean(applicationMembers.iterator().next().getIsMemberChildDentalPlanTerminate())){ 
+	  			n.getTemplateNameList().add("Notice1044.ftl");
+	    	} 
+	end
+	
+	
+	/* Rule Notice Notice1045 :
+ * Dependent child Shop Member Disenroll
+ */	
+rule "Notice1045"
+    when
+        n : EmployeeApplicationDetailsFact();
+    then     	
+		
+		ShopMemberDisenrollment shopMemberDisenrollment =  n.getShopMemberDisenrollment();
+   		 if( shopMemberDisenrollment != null  && shopMemberDisenrollment.getEventType().equals("AGE_DISENROLLMENT")){ 
+	  			n.getTemplateNameList().add("Notice1045.ftl");
+	    	} 
+	end
+	

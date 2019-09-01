@@ -1,0 +1,222 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.utils.ext.HXUtility;
+
+global org.slf4j.Logger logger;
+
+
+rule "MAIN_QHP_INCOME"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_QHP_INCOME : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "MAIN_QHP_INCOME");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_02_ACK);
+		drools.setFocus("QHP_INCOME_STALE_1_AG");
+		logger.debug("Rule : MAIN_QHP_INCOME : End");
+end
+
+
+//CR1606
+rule "QHP_INCOME_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "QHP_INCOME_STALE_1_AT"
+agenda-group "QHP_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_INCOME_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_INCOME_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : QHP_INCOME_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "QHP_INCOME_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "QHP_INCOME_STALE_1_AT"
+agenda-group "QHP_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_INCOME_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_INCOME_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Qhp_Income_1_AG");
+		logger.debug("Rule : QHP_INCOME_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//QHP Income (1)
+rule "Qhp_Income_1_1"
+salience 90000
+activation-group "Qhp_Income_1_AT"
+agenda-group "Qhp_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isRunModeNoIncomeDataSource,
+														getRenewalPeriodForMemberHasPast(),
+														(getIsMemberEnrolledinProgram(ProgramCode.MEDICAID) || getIsMemberEnrolledinProgram(ProgramCode.CHIP) || isPreviousNoneProgramAvailable()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Income_1_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Income_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPDNCRR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Qhp_Income_1_1 : End");
+end
+
+
+/*
+The below fact introduced as part of CR 1269 for Renewal improvements.
+*/
+/*rule "Qhp_Income_1_1A"
+salience 89998
+activation-group "Qhp_Income_1_AT"
+agenda-group "Qhp_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isRunModeNoIncomeDataSource,
+														getRenewalPeriodForMemberHasPast(),
+														!isCurrentlyEnrolledInQHP
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Income_1_1A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Income_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.RPDNCRR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Qhp_Income_1_1A : End");
+end*/
+
+/*
+The below fact introduced as part of CR 1269 for Renewal improvements.
+*/
+rule "Qhp_Income_1_1B"
+salience 89996
+activation-group "Qhp_Income_1_AT"
+agenda-group "Qhp_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInQHP,
+														getMemberIsNowMandatoryForUpComingMonth(),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInChip || isPreviousNoneProgramAvailable()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Income_1_1B : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Income_1_1B");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPRIR);	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Qhp_Income_1_1B : End");
+end
+
+/*
+The below fact introduced as part of CR 1269 for Renewal improvements.
+*/
+rule "Qhp_Income_1_1C"
+salience 89993
+activation-group "Qhp_Income_1_AT"
+agenda-group "Qhp_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInQHP,
+														!getMemberIsNowMandatoryForUpComingMonth(),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInChip || isPreviousNoneProgramAvailable()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Income_1_1C : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Income_1_1C");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPRISO);	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Qhp_Income_1_1C : End");
+end
+
+/*
+The below fact introduced as part of CR 1269 defect# 66223 for Renewal improvements.
+*/
+rule "Qhp_Income_1_1D"
+salience 89990
+activation-group "Qhp_Income_1_AT"
+agenda-group "Qhp_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInQHP,
+														getMemberIsNowMandatoryForUpComingMonth());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Income_1_1D : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Income_1_1D");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPRIR);	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Qhp_Income_1_1D : End");
+end
+
+/*
+The below fact introduced as part of CR 1269 defect# 66223 for Renewal improvements.
+*/
+rule "Qhp_Income_1_1E"
+salience 89987
+activation-group "Qhp_Income_1_AT"
+agenda-group "Qhp_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInQHP,
+														!getMemberIsNowMandatoryForUpComingMonth());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Income_1_1E : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Income_1_1E");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RPRISO);	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Qhp_Income_1_1E : End");
+end
+
+rule "Qhp_Income_1_2"
+salience 89985
+activation-group "Qhp_Income_1_AT"
+agenda-group "Qhp_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isRunModeNoIncomeDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Income_1_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Income_1_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Qhp_Income_1_2 : End");
+end
+
+rule "Qhp_Income_1_3"
+salience 89980
+activation-group "Qhp_Income_1_AT"
+agenda-group "Qhp_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isRunModeNoIncomeDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Income_1_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Income_1_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Qhp_Income_1_3 : End");
+end

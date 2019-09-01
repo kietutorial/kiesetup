@@ -1,0 +1,67 @@
+My Local Latest DevRepo
+---------------------
+C:\GITREPOS\sandox\
+
+
+Copy Exported KIE Workbench Project Into Repository
+--------------------------------------------------------------
+A project, medicaidlocaldev02, was created  in KIE Workbench on its default repo.
+I exported medicaidlocaldev02.zip and extraced the JBPM contents.
+
+ 
+Copy contents into my repo
+-----------------------------------
+Copy medicaidlocaldev02 maven project into C:\GITREPOS\sandox\medicaidlocaldev02
+I copied directory from: C:\A-PRJ-DROOLS\tasks\T1008\kiedevbackups\medicaidlocaldev02
+
+
+Commit JBPM contents
+-------------------------
+C:\GITREPOS\sandox\
+
+o See status of repo
+git status
+
+Untracked files:
+.classpath
+.global
+.project
+.settings/
+global/
+package-names-white-lis
+pom.xml
+project.imports
+project.repositories
+src/
+target/
+
+o Add all files
+git add --all
+
+On branch master
+Initial commit
+Changes to be committed:
+(use "git rm --cached <file>..." to unstage)
+new file:   .classpath
+new file:   .global
+new file:   .project
+new file:   .settings/org.eclipse.jdt.core.prefs
+new file:   .settings/org.eclipse.m2e.core.prefs
+
+o Commit changes
+git commit -m "Commit initial Medical Income Process Flows"
+
+- See status
+git status
+On branch master
+nothing to commit, working tree clean
+
+- See commits:
+git log
+
+
+Pretty Log
+----------------------
+git log --graph --decorate --all --pretty=oneline
+* ff01f3311b6e0210972aca6f8625dc2f40b9065f (HEAD -> master) Commit initial Medical Income Pro
+

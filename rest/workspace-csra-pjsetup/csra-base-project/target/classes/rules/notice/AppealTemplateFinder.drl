@@ -1,0 +1,11 @@
+import com.hcentive.rulesengine.domain.notice.AppealDetailsFact;
+/* Rule Notice N036 :
+*  Individual received an eligibility result. Individual initiated an appeal
+*/
+
+rule "Template060"
+    when
+        n : AppealDetailsFact()
+    then
+     	n.getTemplateNameList().add("Template060.ftl"); 	           
+end

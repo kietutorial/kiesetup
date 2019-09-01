@@ -1,0 +1,20 @@
+package com.hcentive.eligibility.notice;
+ 
+
+import com.hcentive.rulesengine.domain.notice.PaperAppDetailsFact;  
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Iterator;
+
+ 
+rule "Notice035"
+    when
+        n : PaperAppDetailsFact();
+    then
+    
+	if(n.isN035Template()==true)
+	{
+    		n.getTemplateNameList().add("Notice035.ftl");
+   	} 
+end

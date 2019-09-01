@@ -1,0 +1,38 @@
+package com.hcentive.eligibility.notice;
+ 
+import com.hcentive.rulesengine.domain.notice.EmployerEligibilityDetailsFact;
+import com.hcentive.shop.domain.ext.CompanyDetail;
+import com.hcentive.shop.domain.Employer;
+import com.hcentive.user.UserProfile;
+import com.hcentive.shop.domain.EmployerEligibility;
+import com.hcentive.shop.domain.EnrollmentSetup;
+import org.apache.commons.lang.StringUtils;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Iterator;
+
+/* Rule Notice 1003b :
+ * Employer's SHOP Application has been approved; but information is needed to complete 
+ * enrollment steps for employees
+ */
+ 
+rule "Notice1003b"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		UserProfile userProfile = eligibility.getEmployer().getUserProfile();
+		CompanyDetail companyDetail = eligibility.getCompanyDetail();
+
+		String eligibilityStatus = eligibility.getEligibilityStatus().name();
+		String eligibilityVerificationStatus = eligibility.getEligibilityVerificationStatus().name();
+		
+		if(userProfile.getType().toString().equalsIgnoreCase("EMPLOYER")){
+			if(eligibility != null && eligibilityStatus.equalsIgnoreCase("SUBMITTED") && eligibilityVerificationStatus.equalsIgnoreCase("Eligible")){
+		    	n.getTemplateNameList().add("Notice1003b.ftl");
+		   	} 
+	   	}
+	end
+	

@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2009 - 2012 hCentive Inc. All rights reserved.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="COMMON.FreemarkerTemplate">
+
+	<resultMap id="freeMarkerTemplateResultMap" type="com.hcentive.utils.notification.domain.FreeMarkerTemplate">
+	    <id property="id" column="id" />
+	    <result property="templateName" column="template_name" />
+		<result property="templateDescription" column="template_desc" />
+		<result property="UUID" column="uuid" />
+	</resultMap>
+
+	
+	<sql id="getTemplateObjByName" >
+		SELECT * FROM freemarker_template WHERE template_name = #{templateName}
+	</sql>
+	
+</mapper>

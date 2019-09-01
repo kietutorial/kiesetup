@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2009 - 2012 hCentive Inc. All rights reserved.
+
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd 
+http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd">
+
+	<bean id="stringDigestor" class="org.jasypt.digest.PooledStringDigester">
+		<property name="config">
+			<bean class="org.jasypt.digest.config.SimpleStringDigesterConfig">
+				<property name="algorithm" value="MD5"></property>
+				<property name="poolSize" value="2"></property>
+ 				<property name="stringOutputType" value="HEXADECIMAL"></property>
+				<property name="saltSizeBytes" value="0"></property>
+			<!-- 	<property name="unicodeNormalizationIgnored" value="true"></property> -->
+				<property name="iterations" value="1"></property>
+			</bean>
+		</property>
+	</bean>
+	
+	<bean id="byteDigestor" class="org.jasypt.digest.StandardByteDigester">
+		<property name="config">
+			<bean class="org.jasypt.digest.config.SimpleStringDigesterConfig">
+				<property name="algorithm" value="MD5"></property>
+				<property name="poolSize" value="2"></property>
+				<property name="stringOutputType" value="HEXADECIMAL"></property>
+				<property name="saltSizeBytes" value="0"></property>
+				<property name="unicodeNormalizationIgnored" value="true"></property>
+				<property name="iterations" value="1"></property>
+			</bean>
+		</property>
+	</bean>
+	
+	<bean id="jasyptPasswordEncoder" class="org.jasypt.springsecurity3.authentication.encoding.PasswordEncoder">
+		<property name="stringDigester" ref="stringDigestor" />
+	</bean>
+
+	<bean id="stringEncryptor" class="org.jasypt.encryption.pbe.PooledPBEStringEncryptor">
+		<property name="config">
+			<bean class="org.jasypt.encryption.pbe.config.SimplePBEConfig">
+				<property name="algorithm" value="PBEWITHMD5ANDDES"></property>
+				<property name="poolSize" value="2"></property>
+				<property name="password" value="password"></property>
+			</bean>
+		</property>
+	</bean>
+
+	<bean id="byteEncryptor" class="org.jasypt.encryption.pbe.PooledPBEByteEncryptor">
+		<property name="config">
+			<bean class="org.jasypt.encryption.pbe.config.SimplePBEConfig">
+				<property name="algorithm" value="PBEWITHMD5ANDDES"></property>
+				<property name="poolSize" value="2"></property>
+				<property name="password" value="PBEWITHMD5ANDDES"></property>
+			</bean>
+		</property>
+	</bean>
+
+	<bean id="hibernateStringEncryptor"
+		class="org.jasypt.hibernate4.encryptor.HibernatePBEStringEncryptor">
+		<property name="registeredName" value="customHibernateStringEncryptor" />
+		<property name="encryptor" ref="stringEncryptor" />
+	</bean>
+
+	<bean id="hibernateByteEncryptor"
+		class="org.jasypt.hibernate4.encryptor.HibernatePBEByteEncryptor">
+		<property name="registeredName" value="customHibernateByteEncryptor" />
+		<property name="encryptor" ref="byteEncryptor" />
+	</bean>
+
+	<bean id="digestor" class="org.jasypt.util.digest.Digester">
+		<property name="algorithm" value="MD5"></property>
+	</bean>
+	
+</beans>

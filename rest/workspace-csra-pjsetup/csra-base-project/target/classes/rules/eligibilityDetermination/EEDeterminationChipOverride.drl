@@ -1,0 +1,750 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+import com.hcentive.eligibility.ext.PostEligibilityDates.DateCategoryEnum;
+import com.hcentive.override.eligibility.dataobject.OverrideToCHIPEligibilityBean;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+
+
+rule "MAIN_CHIP_OVERRIDE"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CHIP_OVERRIDE : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_OVERRIDE");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_OVERRIDE_ACK);
+		drools.setFocus("MAIN_CHIP_OVERRIDE_STALE_1_AG");
+		logger.debug("Rule : MAIN_CHIP_OVERRIDE : End");
+end
+
+
+//CR1606
+rule "MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_01"
+salience 95070
+activation-group "MAIN_CHIP_OVERRIDE_STALE_1_AT"
+agenda-group "MAIN_CHIP_OVERRIDE_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_01");
+		drools.setFocus("Chip_OVR_GENERAL_1_AG");
+		logger.debug("Rule : MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_01 : End");
+end
+
+rule "MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_02"
+salience 95060
+activation-group "MAIN_CHIP_OVERRIDE_STALE_1_AT"
+agenda-group "MAIN_CHIP_OVERRIDE_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,!isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_02 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_02");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.STALE_MEM);// set program as Ineligble with reason code
+		$eDeterminationfacts.skipProgramExecution(ProgramCode.CHIP, HXConstants.BOLTRUE); // Set Flag to stop further execution of drls for this program
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_02 : End");
+end
+
+rule "MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_03"
+salience 95050
+activation-group "MAIN_CHIP_OVERRIDE_STALE_1_AT"
+agenda-group "MAIN_CHIP_OVERRIDE_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_03");
+		$eDeterminationfacts.clearStaleFlag();
+		drools.setFocus("Chip_OVR_GENERAL_1_AG");
+		logger.debug("Rule : MAIN_CHIP_OVERRIDE_STALE_ELG_SEC_03 : End");
+end
+//CR1606 code changes end
+
+
+//Chip Override(1)
+
+
+rule "Chip_Override_1_0"
+salience 90000
+activation-group "Chip_OVR_GENERAL_1_AT"
+agenda-group "Chip_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Override_1_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Override_1_0");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_MED);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : Chip_Override_1_0 : End");
+end
+
+
+
+rule "Chip_Override_1_1"
+salience 89990
+activation-group "Chip_OVR_GENERAL_1_AT"
+agenda-group "Chip_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Override_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Override_1_1");
+		drools.setFocus("Chip_OVR_TYPE_1_AG");
+		logger.debug("Rule : Chip_Override_1_1 : End");
+end
+
+
+rule "Chip_Override_1_2"
+salience 89980
+activation-group "Chip_OVR_GENERAL_1_AT"
+agenda-group "Chip_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Override_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Override_1_2");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_EPP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : Chip_Override_1_2 : End");
+end
+
+
+rule "Chip_Override_1_3"
+salience 89970
+activation-group "Chip_OVR_GENERAL_1_AT"
+agenda-group "Chip_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Override_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Override_1_3");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_APTC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : Chip_Override_1_3 : End");
+end
+
+
+rule "Chip_Override_1_4"
+salience 89960
+activation-group "Chip_OVR_GENERAL_1_AT"
+agenda-group "Chip_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.QHP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Override_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Override_1_4");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_QHP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : Chip_Override_1_4 : End");
+end
+
+
+rule "Chip_Override_1_5"
+salience 89950
+activation-group "Chip_OVR_GENERAL_1_AT"
+agenda-group "Chip_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoOverrideAvailableForProgram());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Override_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Override_1_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : Chip_Override_1_5 : End");
+end
+
+
+//Chip Override Type(1)
+
+
+rule "Chip_OVR_Types_1_1"
+salience 88000
+activation-group "Chip_OVR_TYPE_1_AT"
+agenda-group "Chip_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														getChipOverrideBean().getIsFullOverrideRequested());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Types_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Types_1_1");
+		
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.CHIP, program_status.ELIGIBLE, null);
+		
+		drools.setFocus("Chip_OVR_FULL_ELG_DATES_1_AG");
+		
+		logger.debug("Rule : Chip_OVR_Types_1_1 : End");
+end
+
+
+rule "Chip_OVR_Types_1_2"
+salience 87990
+activation-group "Chip_OVR_TYPE_1_AT"
+agenda-group "Chip_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														getChipOverrideBean().getIsPartialOverrideRequested(), 
+														getChipOverrideBean().getIsPartialOverrideReadyToRunForDrools());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Types_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Types_1_2");
+		
+		drools.setFocus("Chip_OVR_PART_ELG_DATES_1_AG");
+		
+		logger.debug("Rule : Chip_OVR_Types_1_2 : End");
+end
+
+
+rule "Chip_OVR_Types_1_3"
+salience 87980
+activation-group "Chip_OVR_TYPE_1_AT"
+agenda-group "Chip_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														getChipOverrideBean().getIsPartialOverrideRequested(), 
+														!getChipOverrideBean().getIsPartialOverrideReadyToRunForDrools());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Types_1_3 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Types_1_3");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : Chip_OVR_Types_1_3 : End");
+end
+
+
+//Chip Override Full Elg Dates(1)
+
+
+rule "Chip_OVR_Full_Elg_Dates_1_1"
+salience 86000
+activation-group "Chip_OVR_FULL_ELG_DATES_1_AT"
+agenda-group "Chip_OVR_FULL_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														!HXUtility.isNull(getChipOverrideBean().getOverrideElgEffectiveStartDate()), 
+														!HXUtility.isNull(getChipOverrideBean().getOverrideElgEffectiveEndDate()));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Full_Elg_Dates_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Full_Elg_Dates_1_1");
+		
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.CHIP).getOverrideElgEffectiveStartDate());
+		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.CHIP).getOverrideElgEffectiveEndDate());
+				
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.CHIP, HXUtility.getCurrentDate());
+		
+		drools.setFocus("Chip_OVR_FULL_AID_CAT_1_AG");
+		
+		logger.debug("Rule : Chip_OVR_Full_Elg_Dates_1_1 : End");
+end
+
+
+//Chip Override Part Elg Dates(1)
+
+
+rule "Chip_OVR_part_Elg_Dates_1_1"
+salience 85000
+agenda-group "Chip_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														!HXUtility.isNull(getChipOverrideBean().getOverrideElgEffectiveStartDate()), 
+														HXUtility.isNull(getChipOverrideBean().getOverrideElgEffectiveEndDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_part_Elg_Dates_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_part_Elg_Dates_1_1");
+				
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.CHIP, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.CHIP).getOverrideElgEffectiveStartDate());
+		
+		logger.debug("Rule : Chip_OVR_part_Elg_Dates_1_1 : End");
+end
+
+
+rule "Chip_OVR_part_Elg_Dates_1_2"
+salience 84990
+agenda-group "Chip_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														HXUtility.isNull(getChipOverrideBean().getOverrideElgEffectiveStartDate()), 
+														!HXUtility.isNull(getChipOverrideBean().getOverrideElgEffectiveEndDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_part_Elg_Dates_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_part_Elg_Dates_1_2");
+		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.CHIP).getOverrideElgEffectiveEndDate());
+		
+		logger.debug("Rule : Chip_OVR_part_Elg_Dates_1_2 : End");
+end
+
+
+rule "Chip_OVR_part_Elg_Dates_1_END"
+salience 84980
+agenda-group "Chip_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_part_Elg_Dates_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_part_Elg_Dates_1_END");
+		
+		drools.setFocus("Chip_OVR_PART_AID_CAT_1_AG");
+		
+		logger.debug("Rule : Chip_OVR_part_Elg_Dates_1_END : End");
+end
+
+
+//Chip Override Full AidCategory(1)
+
+
+rule "Chip_OVR_Full_Aid_Cat_1_1"
+salience 81000
+activation-group "Chip_OVR_FULL_AID_CAT_1_AT"
+agenda-group "Chip_OVR_FULL_AID_CAT_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														!HXUtility.isNull(getChipOverrideBean().getAidCategory()),
+														!HXUtility.isNull(getChipOverrideBean().getAidCategoryEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Full_Aid_Cat_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Full_Aid_Cat_1_1");
+		
+		$eDeterminationfacts.setAidCategory(ProgramCode.CHIP, 
+								$eDeterminationfacts.getChipOverrideBean().getAidCategory());
+		$eDeterminationfacts.setAidCategoryEffectiveDate(ProgramCode.CHIP, 
+								$eDeterminationfacts.getChipOverrideBean().getAidCategoryEffectiveDate());
+		
+		drools.setFocus("Chip_OVR_FULL_REASON_CODES_1_AG");
+		
+		logger.debug("Rule : Chip_OVR_Full_Aid_Cat_1_1 : End");
+end
+
+
+//Chip Override Part Coverage Codes(1)
+
+
+rule "Chip_OVR_Part_Aid_Cat_1_1"
+salience 80000
+agenda-group "Chip_OVR_PART_AID_CAT_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														HXUtility.isNull(getChipOverrideBean().getAidCategory()),
+														!HXUtility.isNull(getChipOverrideBean().getAidCategoryEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Aid_Cat_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Aid_Cat_1_1");
+		
+		$eDeterminationfacts.setAidCategory(ProgramCode.CHIP, 
+								$eDeterminationfacts.getChipOverrideBean().getAidCategory());
+		
+		logger.debug("Rule : Chip_OVR_Part_Aid_Cat_1_1 : End");
+end
+
+
+rule "Chip_OVR_Part_Aid_Cat_1_2"
+salience 79990
+agenda-group "Chip_OVR_PART_AID_CAT_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														!HXUtility.isNull(getChipOverrideBean().getAidCategory()),
+														HXUtility.isNull(getChipOverrideBean().getAidCategoryEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Aid_Cat_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Aid_Cat_1_2");
+		
+		$eDeterminationfacts.setAidCategoryEffectiveDate(ProgramCode.CHIP, 
+								$eDeterminationfacts.getChipOverrideBean().getAidCategoryEffectiveDate());
+		
+		logger.debug("Rule : Chip_OVR_Part_Aid_Cat_1_2 : End");
+end
+
+
+rule "Chip_OVR_Part_Aid_Cat_1_3"
+salience 79980
+agenda-group "Chip_OVR_PART_AID_CAT_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														!HXUtility.isNull(getChipOverrideBean().getAidCategory()),
+														!HXUtility.isNull(getChipOverrideBean().getAidCategoryEffectiveDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Aid_Cat_1_3 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Aid_Cat_1_3");
+		
+		$eDeterminationfacts.setAidCategory(ProgramCode.CHIP, 
+								$eDeterminationfacts.getChipOverrideBean().getAidCategory());
+		$eDeterminationfacts.setAidCategoryEffectiveDate(ProgramCode.CHIP, 
+								$eDeterminationfacts.getChipOverrideBean().getAidCategoryEffectiveDate());
+		
+		logger.debug("Rule : Chip_OVR_Part_Aid_Cat_1_3 : End");
+end
+
+
+rule "Chip_OVR_Part_Aid_Cat_1_END"
+salience 79970
+agenda-group "Chip_OVR_PART_AID_CAT_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Aid_Cat_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Aid_Cat_1_END");
+								
+		drools.setFocus("Chip_OVR_PART_REASON_CODES_1_AG");
+		
+		logger.debug("Rule : Chip_OVR_Part_Aid_Cat_1_END : End");
+end
+
+
+//Chip Override Full Reason Codes(1)
+
+
+rule "Chip_OVR_Full_Reason_Codes_1_1"
+salience 78000
+activation-group "Chip_OVR_FULL_REASON_CODES_1_AT"
+agenda-group "Chip_OVR_FULL_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														!HXUtility.isEmpty(getChipOverrideBean().getAllReasonCodes()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Full_Reason_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Full_Reason_Codes_1_1");
+		
+		$eDeterminationfacts.setReasonCodes(ProgramCode.CHIP, $eDeterminationfacts.getChipOverrideBean().getAllReasonCodes());
+		
+		drools.setFocus("Chip_OVR_FULL_INDICATORS_1_AG");
+		
+		logger.debug("Rule : Chip_OVR_Full_Reason_Codes_1_1 : End");
+end
+
+
+//Chip Override Part Reason Codes(1)
+
+
+rule "Chip_OVR_Part_Reason_Codes_1_1"
+salience 77000
+agenda-group "Chip_OVR_PART_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP), 
+														!HXUtility.isEmpty(getChipOverrideBean().getAllReasonCodes()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Reason_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Reason_Codes_1_1");
+		
+		$eDeterminationfacts.setReasonCodes(ProgramCode.CHIP, $eDeterminationfacts.getChipOverrideBean().getAllReasonCodes());
+		
+		logger.debug("Rule : Chip_OVR_Part_Reason_Codes_1_1 : End");
+end
+
+
+rule "Chip_OVR_Part_Reason_Codes_1_END"
+salience 76990
+agenda-group "Chip_OVR_PART_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Reason_Codes_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Reason_Codes_1_END");
+		
+		drools.setFocus("Chip_OVR_PART_INDICATORS_1_AG");
+		
+		logger.debug("Rule : Chip_OVR_Part_Reason_Codes_1_END : End");
+end
+
+
+//Chip Override Full Indicators (1)
+
+
+rule "Chip_OVR_Full_Indicators_1_1"
+salience 76000
+activation-group "Chip_OVR_FULL_INDICATORS_1_AT"
+agenda-group "Chip_OVR_FULL_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP),
+														getChipOverrideBean().getIsFullOverrideRequested());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Full_Indicators_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Full_Indicators_1_1");
+		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setCrowdOutIndicator($eDeterminationfacts.getChipOverrideBean().getCrowdOutIndicator());
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd($eDeterminationfacts.getChipOverrideBean().getChipUndocumentInd());
+		
+		drools.setFocus("Chip_OVR_FULL_POST_ELG_1_AG");
+		
+		logger.debug("Rule : Chip_OVR_Full_Indicators_1_1 : End");
+end
+
+
+//Chip Override Part Indicators (1)
+
+
+rule "Chip_OVR_Part_Indicators_1_1"
+salience 75000
+agenda-group "Chip_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP),
+														HXUtility.isTrue(getChipOverrideBean().getCrowdOutIndicator()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Indicators_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Indicators_1_1");
+		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setCrowdOutIndicator($eDeterminationfacts.getChipOverrideBean().getCrowdOutIndicator());
+		
+		logger.debug("Rule : Chip_OVR_Part_Indicators_1_1 : End");
+end
+
+
+rule "Chip_OVR_Part_Indicators_1_2"
+salience 74990
+agenda-group "Chip_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP),
+														HXUtility.isTrue(getChipOverrideBean().getChipUndocumentInd()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Indicators_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Indicators_1_2");
+		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd($eDeterminationfacts.getChipOverrideBean().getChipUndocumentInd());
+		
+		logger.debug("Rule : Chip_OVR_Part_Indicators_1_2 : End");
+end
+
+
+rule "Chip_OVR_Part_Indicators_1_END"
+salience 74880
+agenda-group "Chip_OVR_PART_INDICATORS_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Indicators_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Indicators_1_END");
+		
+		drools.setFocus("Chip_OVR_PART_POST_ELG_1_AG");	
+		
+		logger.debug("Rule : Chip_OVR_Part_Indicators_1_END : End");
+end
+
+
+//Chip Override Full Post Eligibility (1)
+
+
+rule "Chip_OVR_Full_Post_Elg_1_1"
+salience 74000
+activation-group "Chip_OVR_FULL_POST_ELG_1_AT"
+agenda-group "Chip_OVR_FULL_POST_ELG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Full_Post_Elg_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Full_Post_Elg_1_1");
+		
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, $eDeterminationfacts.getChipOverrideBean().getConSavedate());
+		
+		drools.setFocus("Chip_OVR_FULL_CHIP_FPL_1_AG");	
+		
+		logger.debug("Rule : Chip_OVR_Full_Post_Elg_1_1 : End");
+end
+
+
+//Chip Override Part Post Eligibility (1)
+
+
+rule "Chip_OVR_Part_Post_Elg_1_1"
+salience 73000
+agenda-group "Chip_OVR_PART_POST_ELG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP),
+														!HXUtility.isNull(getChipOverrideBean().getConSavedate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Post_Elg_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Post_Elg_1_1");
+		
+		$eDeterminationfacts.updateContinuousSaveDate(ProgramCode.CHIP, $eDeterminationfacts.getChipOverrideBean().getConSavedate());
+		
+		logger.debug("Rule : Chip_OVR_Part_Post_Elg_1_1 : End");
+end
+
+
+rule "Chip_OVR_Part_Post_Elg_1_END"
+salience 72970
+agenda-group "Chip_OVR_PART_POST_ELG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Post_Elg_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Post_Elg_1_END");
+		
+		drools.setFocus("Chip_OVR_PART_CHIP_FPL_1_AG");	
+		
+		logger.debug("Rule : Chip_OVR_Part_Post_Elg_1_END : End");
+end
+
+
+//Chip Override Full Chip FPL (1)
+
+
+rule "Chip_OVR_Full_Chip_FPL_1_1"
+salience 73000
+activation-group "Chip_OVR_FULL_CHIP_FPL_1_AT"
+agenda-group "Chip_OVR_FULL_CHIP_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP),
+														!HXUtility.isNull(getChipOverrideBean().getChipFPL()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Full_Chip_FPL_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Full_Chip_FPL_1_1");
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.FULL_OVR_FPL, $eDeterminationfacts.getChipOverrideBean().getChipFPL() +"");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : Chip_OVR_Full_Chip_FPL_1_1 : End");
+end
+
+
+//Chip Override Part Post Eligibility (1)
+
+
+rule "Chip_OVR_Part_Chip_Fpl_1_1"
+salience 73000
+agenda-group "Chip_OVR_PART_CHIP_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP),
+														!HXUtility.isNull(getChipOverrideBean().getChipFPL()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Chip_Fpl_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Chip_Fpl_1_1");
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.PART_OVR_FPL, $eDeterminationfacts.getChipOverrideBean().getChipFPL() +"");
+		
+		logger.debug("Rule : Chip_OVR_Part_Chip_Fpl_1_1 : End");
+end
+
+
+rule "Chip_OVR_Part_Chip_Fpl_1_END"
+salience 72970
+agenda-group "Chip_OVR_PART_CHIP_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_OVR_Part_Chip_Fpl_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_OVR_Part_Chip_Fpl_1_END");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : Chip_OVR_Part_Chip_Fpl_1_END : End");
+end

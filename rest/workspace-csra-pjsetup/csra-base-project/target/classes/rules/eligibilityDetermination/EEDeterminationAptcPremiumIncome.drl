@@ -1,0 +1,217 @@
+//created on: Aug 08, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_APTC_PREMIUM_INCOME"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_APTC_PREMIUM_INCOME : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "MAIN_APTC_PREMIUM_INCOME");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_INIT_ACK);
+		drools.setFocus("Aptc_Premium_FPL_Band_1_AG");
+		logger.debug("Rule : MAIN_APTC_PREMIUM_INCOME : End");
+end
+
+
+//////////////////////////////////////////////////////Income////////////////////////////////////////////////
+
+rule "Aptc_Premium_FPL_Band_1_1"
+salience 85700
+activation-group "Aptc_Premium_FPL_Band_1_AT"
+agenda-group "Aptc_Premium_FPL_Band_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Premium_FPL_Band_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "Aptc_Premium_FPL_Band_1_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC_PREMIUM).setFplMin(configGroupBean.getValueFor(RuleKey.APTC_PREMIUM_FPL_MIN));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.APTC_PREMIUM).setFplMax(configGroupBean.getValueFor(RuleKey.APTC_PREMIUM_FPL_MAX));
+		drools.setFocus("Aptc_Premium_Income_1_AG");
+		logger.debug("Rule : Aptc_Premium_FPL_Band_1_1 : End");
+end
+
+
+//Aptc_Premium_Income(1)
+
+rule "Aptc_Premium_Income_1_1"
+salience 90000
+activation-group "Aptc_Premium_Income_1_AT"
+agenda-group "Aptc_Premium_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.APTC));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Premium_Income_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "Aptc_Premium_Income_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC_PREMIUM, program_status.INELIGIBLE, ProgramReasonCode.NOT_APTC_ELG);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Aptc_Premium_Income_1_1 : End");
+end
+
+
+rule "Aptc_Premium_Income_1_2"
+salience 89990
+activation-group "Aptc_Premium_Income_1_AT"
+agenda-group "Aptc_Premium_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.APTC),
+														isCaretakerRelativeFlag);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Premium_Income_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "Aptc_Premium_Income_1_2");
+		drools.setFocus("Aptc_Premium_Income_2_AG");
+		logger.debug("Rule : Aptc_Premium_Income_1_2 : End");
+end
+
+rule "Aptc_Premium_Income_1_3"
+salience 89980
+activation-group "Aptc_Premium_Income_1_AT"
+agenda-group "Aptc_Premium_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.APTC),
+														!isCaretakerRelativeFlag);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Premium_Income_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "Aptc_Premium_Income_1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC_PREMIUM, program_status.INELIGIBLE, ProgramReasonCode.NOT_A_PARENT_CARETAKER);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Aptc_Premium_Income_1_3 : End");
+end
+
+
+//Aptc_Premium Income(2)
+
+rule "Aptc_Premium_Income_2_1"
+salience 80000
+activation-group "Aptc_Premium_Income_2_AT"
+agenda-group "Aptc_Premium_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isFinancialAssistanceRequired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Premium_Income_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "Aptc_Premium_Income_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC_PREMIUM, program_status.INELIGIBLE, ProgramReasonCode.NRFA);		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Aptc_Premium_Income_2_1 : End");
+end
+
+rule "Aptc_Premium_Income_2_2"
+salience 79995
+activation-group "Aptc_Premium_Income_2_AT"
+agenda-group "Aptc_Premium_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Premium_Income_2_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "Aptc_Premium_Income_2_2");
+		drools.setFocus("Aptc_Premium_Income_3_AG");
+		logger.debug("Rule : Aptc_Premium_Income_2_2 : End");
+end
+
+
+//Aptc_Premium Income(3)
+
+rule "Aptc_Premium_Income_3_1"
+salience 70000
+activation-group "Aptc_Premium_Income_3_AT"
+agenda-group "Aptc_Premium_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(aptcFPL > configGroupBean.getValueFor(RuleKey.APTC_PREMIUM_FPL_MIN)),
+														!HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Premium_Income_3_1 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC_PREMIUM, program_status.INELIGIBLE, ProgramReasonCode.UI);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "Aptc_Premium_Income_3_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Aptc_Premium_Income_3_1 : End");
+end
+
+rule "Aptc_Premium_Income_3_2"
+salience 69990
+activation-group "Aptc_Premium_Income_3_AT"
+agenda-group "Aptc_Premium_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(aptcFPL > configGroupBean.getValueFor(RuleKey.APTC_PREMIUM_FPL_MIN)),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Premium_Income_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "Aptc_Premium_Income_3_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC_PREMIUM, AidCategory.H2, null);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Aptc_Premium_Income_3_2 : End");
+end
+
+rule "Aptc_Premium_Income_3_3"
+salience 69980
+activation-group "Aptc_Premium_Income_3_AT"
+agenda-group "Aptc_Premium_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((aptcFPL > configGroupBean.getValueFor(RuleKey.APTC_PREMIUM_FPL_MIN)),
+														!(aptcFPL < configGroupBean.getValueFor(RuleKey.APTC_PREMIUM_FPL_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Premium_Income_3_3 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC_PREMIUM, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "Aptc_Premium_Income_3_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Aptc_Premium_Income_3_3 : End");
+end
+
+rule "Aptc_Premium_Income_3_4"
+salience 69970
+activation-group "Aptc_Premium_Income_3_AT"
+agenda-group "Aptc_Premium_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((aptcFPL > configGroupBean.getValueFor(RuleKey.APTC_PREMIUM_FPL_MIN)),
+														(aptcFPL < configGroupBean.getValueFor(RuleKey.APTC_PREMIUM_FPL_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Aptc_Premium_Income_3_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "Aptc_Premium_Income_3_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC_PREMIUM, AidCategory.H2, null);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Aptc_Premium_Income_3_4 : End");
+end

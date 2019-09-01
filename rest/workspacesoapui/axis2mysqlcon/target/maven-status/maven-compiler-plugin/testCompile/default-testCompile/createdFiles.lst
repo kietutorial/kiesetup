@@ -1,0 +1,7 @@
+com/sample/dao/RoomDAOTest.class
+com/sample/dao/ReservationDAOTest.class
+com/sample/reservation/GuestManagementServiceTest.class
+com/sample/reservation/ReservationServiceTest.class
+com/sample/dao/GuestDAOTest.class
+com/sample/reservation/database/DBConnectionTest.class
+com/sample/reservation/RoomManagementServiceTest.class

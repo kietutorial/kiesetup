@@ -1,0 +1,1786 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.pvc.domain.DeceasedSourceEnum;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+
+global org.slf4j.Logger logger;
+
+
+rule "MAIN_QHP"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_QHP : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "MAIN_QHP");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_INIT_ACK);
+		drools.setFocus("QHP_STALE_1_AG");
+		logger.debug("Rule : MAIN_QHP : End");
+end
+
+
+//CR1606
+rule "QHP_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "QHP_STALE_1_AT"
+agenda-group "QHP_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_VERIFY_STALE_ELG_SEC_01");
+		drools.setFocus("Qhp_Deceased_1_AG");
+		logger.debug("Rule : QHP_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "QHP_VERIFY_STALE_ELG_SEC_02"
+salience 95060
+activation-group "QHP_STALE_1_AT"
+agenda-group "QHP_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,!isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_VERIFY_STALE_ELG_SEC_02 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_VERIFY_STALE_ELG_SEC_02");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.STALE_MEM);// set program as Ineligble with reason code
+		$eDeterminationfacts.skipProgramExecution(ProgramCode.QHP, HXConstants.BOLTRUE); // Set Flag to stop further execution of drls for this program
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		//drools.setFocus("QHP_REL_1_AG");
+		logger.debug("Rule : QHP_VERIFY_STALE_ELG_SEC_02 : End");
+end
+
+rule "QHP_VERIFY_STALE_ELG_SEC_03"
+salience 95070
+activation-group "QHP_STALE_1_AT"
+agenda-group "QHP_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_VERIFY_STALE_ELG_SEC_03");
+		$eDeterminationfacts.clearStaleFlag();
+		drools.setFocus("Qhp_Deceased_1_AG");
+		logger.debug("Rule : QHP_VERIFY_STALE_ELG_SEC_03 : End");
+end
+//CR1606 code changes end
+
+
+/* CR111 - Isliving & CSR override related rules are retired and new set of rules are introduced 
+//Death Indicator Fix Defect# 16341
+rule "Qhp_PD_0_1"
+salience 81000
+activation-group "Qhp_PD_1_AT"
+agenda-group "Qhp_PD_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isPersonLiving);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_PD_0_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_PD_0_1");
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_PD_0_1 : End");
+end
+
+rule "Qhp_PD_0_2"
+salience 80990
+activation-group "Qhp_PD_1_AT"
+agenda-group "Qhp_PD_1_AG"
+when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isPersonLiving,
+														!csDeathIndOverride,
+														!isDecesedAcctHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_PD_0_2 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.PD);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_PD_0_2");
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_PD_0_2 : End");
+end
+
+rule "Qhp_PD_0_3"
+salience 80980
+activation-group "Qhp_PD_1_AT"
+agenda-group "Qhp_PD_1_AG"
+when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isPersonLiving,
+														!csDeathIndOverride,
+														isDecesedAcctHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_PD_0_3 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.PD_ACCT);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_PD_0_3");
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_PD_0_3 : End");
+end
+
+rule "Qhp_PD_0_4"
+salience 80970
+activation-group "Qhp_PD_1_AT"
+agenda-group "Qhp_PD_1_AG"
+when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isPersonLiving,
+														csDeathIndOverride);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_PD_0_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_PD_0_4");
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_PD_0_4 : End");
+end
+*/
+
+//Qhp Deceased(1)
+
+rule "Qhp_Deceased_1_1"
+salience 80960
+activation-group "Qhp_Deceased_1_AT"
+agenda-group "Qhp_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesDeceasedInfoExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_1_1");
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_1_1 : End");
+end
+
+rule "Qhp_Deceased_1_2"
+salience 80950
+activation-group "Qhp_Deceased_1_AT"
+agenda-group "Qhp_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists, 
+														!doesUserResponseExists,
+														!nonDeterministicDeceasedClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_1_2");
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_1_2 : End");
+end
+
+rule "Qhp_Deceased_1_3"
+salience 80940
+activation-group "Qhp_Deceased_1_AT"
+agenda-group "Qhp_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists, 
+														!doesUserResponseExists,
+														nonDeterministicDeceasedClockExpired,
+														!isDeceasedPersonAccountHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.PD);
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED, "1");
+		drools.setFocus("Qhp_Deceased_Reason_1_AG");
+		logger.debug("Rule : Qhp_Deceased_1_3 : End");
+end
+
+rule "Qhp_Deceased_1_4"
+salience 80930
+activation-group "Qhp_Deceased_1_AT"
+agenda-group "Qhp_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists, 
+														!doesUserResponseExists,
+														nonDeterministicDeceasedClockExpired,
+														isDeceasedPersonAccountHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.PD);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.PD_ACCT);
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED, "1");
+		drools.setFocus("Qhp_Deceased_Reason_1_AG");
+		logger.debug("Rule : Qhp_Deceased_1_4 : End");
+end
+
+rule "Qhp_Deceased_1_5"
+salience 80920
+activation-group "Qhp_Deceased_1_AT"
+agenda-group "Qhp_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists,
+														!doesUserAgreeToDeceasedInfo);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_1_5");
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.QHP, $eDeterminationfacts.getClockName(HXConstants.QHP_DECEASED_CLCOK));
+		drools.setFocus("Qhp_Deceased_Reason_1_AG");
+		logger.debug("Rule : Qhp_Deceased_1_5 : End");
+end
+
+rule "Qhp_Deceased_1_6"
+salience 80910
+activation-group "Qhp_Deceased_1_AT"
+agenda-group "Qhp_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists,
+														doesUserAgreeToDeceasedInfo,
+														!isDeceasedPersonAccountHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_1_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.PD);
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.QHP, $eDeterminationfacts.getClockName(HXConstants.QHP_DECEASED_CLCOK));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED, "1");
+		drools.setFocus("Qhp_Deceased_Reason_1_AG");
+		logger.debug("Rule : Qhp_Deceased_1_6 : End");
+end
+
+rule "Qhp_Deceased_1_7"
+salience 80800
+activation-group "Qhp_Deceased_1_AT"
+agenda-group "Qhp_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists,
+														doesUserAgreeToDeceasedInfo,
+														isDeceasedPersonAccountHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_1_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.PD);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.PD_ACCT);
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.QHP, $eDeterminationfacts.getClockName(HXConstants.QHP_DECEASED_CLCOK));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED, "1");
+		drools.setFocus("Qhp_Deceased_Reason_1_AG");
+		logger.debug("Rule : Qhp_Deceased_1_7 : End");
+end
+
+
+//Qhp Deceased Reason(1)
+
+rule "Qhp_Deceased_Reason_1_1"
+salience 80700
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														!userAttestedDateOfDeceased,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.SSA, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.SSA_TX_USR_AGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_1 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_2"
+salience 80690
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														userAttestedDateOfDeceased,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.SSA, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.SSA_TX_USR_DOD_AGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_2 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_3"
+salience 80680
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesUserAgreeToDeceasedInfo,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.SSA, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.SSA_TX_USR_DISAGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_3 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_4"
+salience 80670
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														!userAttestedDateOfDeceased,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.PVC_USR_AGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_4 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_5"
+salience 80660
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														userAttestedDateOfDeceased,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.PVC_USR_DOD_AGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_5 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_6"
+salience 80650
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesUserAgreeToDeceasedInfo,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.PVC_USR_DISAGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_6 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_7"
+salience 80640
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(nonDeterministicDeceasedClockExpired,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														!doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.PVC_DOD_CLK_EXP);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_7 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_8"
+salience 80630
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														!userAttestedDateOfDeceased,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.PVC_TX_USR_AGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_8 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_9"
+salience 80620
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														userAttestedDateOfDeceased,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_9");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.PVC_TX_USR_DOD_AGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_9 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_10"
+salience 80610
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesUserAgreeToDeceasedInfo,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_10");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.PVC_TX_USR_DISAGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_10 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_11"
+salience 80600
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(nonDeterministicDeceasedClockExpired,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														!doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_11");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.PVC_TX_CLK_EXP);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_11 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_12"
+salience 80590
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														!userAttestedDateOfDeceased,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_12");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RRV_TX_USR_AGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_12 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_13"
+salience 80580
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														userAttestedDateOfDeceased,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_13");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RRV_TX_USR_DOD_AGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_13 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_14"
+salience 80570
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesUserAgreeToDeceasedInfo,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_14");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RRV_TX_USR_DISAGREE);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_14 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_15"
+salience 80560
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(nonDeterministicDeceasedClockExpired,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														!doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_15 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_15");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.RRV_TX_CLK_EXP);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_15 : End");
+end
+
+rule "Qhp_Deceased_Reason_1_16"
+salience 80550
+activation-group "Qhp_Deceased_Reason_1_AT"
+agenda-group "Qhp_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														userAttestedDateOfDeceased,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.SSA, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Deceased_Reason_1_16 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Deceased_Reason_1_16");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.USR_DOD);
+		drools.setFocus("Qhp_SSN_1_AG");
+		logger.debug("Rule : Qhp_Deceased_Reason_1_16 : End");
+end
+
+
+///Qhp SSN(1)
+rule "Qhp_SSN_1_1"
+salience 40000
+activation-group "Qhp_SSN_1_AT"
+agenda-group "Qhp_SSN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesSSNExist);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_1_1");
+		drools.setFocus("Qhp_SSN_2_AG");
+		logger.debug("Rule : Qhp_SSN_1_1 : End");
+end
+
+rule "Qhp_SSN_1_2"
+salience 39990
+activation-group "Qhp_SSN_1_AT"
+agenda-group "Qhp_SSN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesSSNExist, isSSNVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_1_2");		
+		drools.setFocus("Qhp_CITI_1_AG");
+		logger.debug("Rule : Qhp_SSN_1_2 : End");
+end
+
+rule "Qhp_SSN_1_3"
+salience 39980
+activation-group "Qhp_SSN_1_AT"
+agenda-group "Qhp_SSN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesSSNExist, !isSSNVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.SNVS);
+		drools.setFocus("Qhp_SSN_3_AG");
+		logger.debug("Rule : Qhp_SSN_1_3 : End");
+end
+
+//Qhp SSN(2)
+
+rule "Qhp_SSN_2_1"
+salience 35000
+activation-group "Qhp_SSN_2_AT"
+agenda-group "Qhp_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.DONOTWANTTOOBTAIN.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.MOS);
+		drools.setFocus("Qhp_CITI_1_AG");
+		logger.debug("Rule : Qhp_SSN_2_1 : End");
+end
+
+rule "Qhp_SSN_2_2"
+salience 34990
+activation-group "Qhp_SSN_2_AT"
+agenda-group "Qhp_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.NEEDTOAPPLY.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_2_2");		
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.MOS);
+		drools.setFocus("Qhp_SSN_3_AG");
+		logger.debug("Rule : Qhp_SSN_2_2 : End");
+end
+
+rule "Qhp_SSN_2_3"
+salience 34980
+activation-group "Qhp_SSN_2_AT"
+agenda-group "Qhp_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.INPROCESS.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_2_3");		
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.MOS);
+		drools.setFocus("Qhp_SSN_3_AG");
+		logger.debug("Rule : Qhp_SSN_2_3 : End");
+end
+
+rule "Qhp_SSN_2_4"
+salience 34975
+activation-group "Qhp_SSN_2_AT"
+agenda-group "Qhp_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.NOTELIGIBLE.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_2_4");		
+		drools.setFocus("Qhp_CITI_1_AG");
+		logger.debug("Rule : Qhp_SSN_2_4 : End");
+end
+
+/*
+rule "Qhp_SSN_2_5"
+salience 34970
+activation-group "Qhp_SSN_2_AT"
+agenda-group "Qhp_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.NOTELIGIBLE.equals(noSSNReasonCode), !doesTINExist);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_2_5");		
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.MOS);
+		drools.setFocus("Qhp_CITI_1_AG");
+		logger.debug("Rule : Qhp_SSN_2_5 : End");
+end
+*/
+
+
+rule "Qhp_SSN_2_6"
+salience 34965
+activation-group "Qhp_SSN_2_AT"
+agenda-group "Qhp_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.DONOTWANTTOPROVIDE.equals(noSSNReasonCode), 
+									"Religious Objection".equals(dontProvideReasonCodeReason));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_2_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_2_6");		
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.MOS);
+		drools.setFocus("Qhp_SSN_3_AG");
+		logger.debug("Rule : Qhp_SSN_2_6 : End");
+end
+
+rule "Qhp_SSN_2_7"
+salience 34960
+activation-group "Qhp_SSN_2_AT"
+agenda-group "Qhp_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.DONOTWANTTOPROVIDE.equals(noSSNReasonCode), 
+									!("Religious Objection".equals(dontProvideReasonCodeReason)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_2_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_2_7");		
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.MOS);
+		drools.setFocus("Qhp_CITI_1_AG");
+		logger.debug("Rule : Qhp_SSN_2_7 : End");
+end
+
+
+//Qhp SSN(3)
+
+rule "Qhp_SSN_3_0"
+salience 30000
+activation-group "Qhp_SSN_3_AT"
+agenda-group "Qhp_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_3_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_3_0");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		drools.setFocus("Qhp_CITI_1_AG");
+		logger.debug("Rule : Qhp_SSN_3_0 : End");
+end
+
+rule "Qhp_SSN_3_1"
+salience 29995
+activation-group "Qhp_SSN_3_AT"
+agenda-group "Qhp_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isSSNVerificationNoticeSent);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_3_1");
+		//16734 - See task for reason
+		//Based on the discussion on 10/19/2013 pending qhp where there is no ssn
+		//$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.PENDING, ProgramReasonCode.SNV);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.SNV);
+		//TO DO
+		//Schedule Verification Notice Trigger
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.SSN, ClockNameEnum.SSN_90);
+		drools.setFocus("Qhp_CITI_1_AG");
+		logger.debug("Rule : Qhp_SSN_3_1 : End");
+end
+
+rule "Qhp_SSN_3_2"
+salience 29990
+activation-group "Qhp_SSN_3_AT"
+agenda-group "Qhp_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isSSNVerificationNoticeSent, 
+														!isSSNClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_3_2");
+		//16734 - See task for reason
+		//Based on the discussion on 10/19/2013 pending qhp where there is no ssn
+		//$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.PENDING, ProgramReasonCode.SNV);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.SNV);
+		//Defect# 55330
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.SSN, ClockNameEnum.SSN_90);
+		drools.setFocus("Qhp_CITI_1_AG");
+		logger.debug("Rule : Qhp_SSN_3_2 : End");
+end
+
+rule "Qhp_SSN_3_3"
+salience 29980
+activation-group "Qhp_SSN_3_AT"
+agenda-group "Qhp_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isSSNVerificationNoticeSent, 
+														isSSNClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_SSN_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_SSN_3_3");		
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.SNV_90);
+		drools.setFocus("Qhp_CITI_1_AG");
+		logger.debug("Rule : Qhp_SSN_3_3 : End");
+end
+
+
+
+//Qhp Citizenship(1)
+
+rule "Qhp_Citizenship_1_0"
+salience 25010
+activation-group "Qhp_CITI_1_AT"
+agenda-group "Qhp_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMedicaidDeemedCitizenship);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_1_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_1_0");
+		drools.setFocus("Qhp_RES_SPEC_1_AG");	//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]	
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_1_0 : End");
+end
+
+rule "Qhp_Citizenship_1_1"
+salience 25000
+activation-group "Qhp_CITI_1_AT"
+agenda-group "Qhp_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMedicaidDeemedCitizenship),
+														!CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														!CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_1_1");		
+		drools.setFocus("Qhp_RES_SPEC_1_AG");	//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]	
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_1_1 : End");
+end
+
+rule "Qhp_Citizenship_1_2"
+salience 24990
+activation-group "Qhp_CITI_1_AT"
+agenda-group "Qhp_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMedicaidDeemedCitizenship),
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														isCitizenshipVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_1_2");		
+		drools.setFocus("Qhp_RES_SPEC_1_AG");	//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]	
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_1_2 : End");
+end
+
+rule "Qhp_Citizenship_1_2A"
+salience 24985
+activation-group "Qhp_CITI_1_AT"
+agenda-group "Qhp_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMedicaidDeemedCitizenship),
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														!isCitizenshipVerified,
+														isFailureToProvideImmiDocInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_1_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_1_2A");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP,program_status.INELIGIBLE, ProgramReasonCode.FVIS);		
+		drools.setFocus("Qhp_RES_SPEC_1_AG");	//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]	
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_1_2A : End");
+end
+
+rule "Qhp_Citizenship_1_3"
+salience 24980
+activation-group "Qhp_CITI_1_AT"
+agenda-group "Qhp_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMedicaidDeemedCitizenship),
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														!isCitizenshipVerified,
+														!isFailureToProvideImmiDocInd,
+														isLawfullPresenceVerified,
+														HXConstants.INDICATOR_NO.equals(vlpUSCitizenCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_1_3");		
+		drools.setFocus("Qhp_CITI_2B_AG");
+		logger.debug("Rule : Qhp_Citizenship_1_3 : End");
+end
+
+
+rule "Qhp_Citizenship_1_4"
+salience 24975
+activation-group "Qhp_CITI_1_AT"
+agenda-group "Qhp_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMedicaidDeemedCitizenship),
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														!isCitizenshipVerified,
+														!isFailureToProvideImmiDocInd,
+														isLawfullPresenceVerified,
+														!HXConstants.INDICATOR_NO.equals(vlpUSCitizenCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_1_4");		
+		drools.setFocus("Qhp_RES_SPEC_1_AG");		//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_1_4 : End");
+end
+
+rule "Qhp_Citizenship_1_5"
+salience 24970
+activation-group "Qhp_CITI_1_AT"
+agenda-group "Qhp_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMedicaidDeemedCitizenship),
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														!isCitizenshipVerified,
+														!isFailureToProvideImmiDocInd,
+														!isLawfullPresenceVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_1_5");		
+		drools.setFocus("Qhp_CITI_2_AG");
+		logger.debug("Rule : Qhp_Citizenship_1_5 : End");
+end
+
+rule "Qhp_Citizenship_1_6"
+salience 24960
+activation-group "Qhp_CITI_1_AT"
+agenda-group "Qhp_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMedicaidDeemedCitizenship),
+														CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														isCitizenshipVerified,
+														!isFailureToProvideImmiDocInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_1_6");		
+		drools.setFocus("Qhp_RES_SPEC_1_AG");	//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]	
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_1_6 : End");
+end
+
+rule "Qhp_Citizenship_1_7"
+salience 24950
+activation-group "Qhp_CITI_1_AT"
+agenda-group "Qhp_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMedicaidDeemedCitizenship),
+														CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														!isCitizenshipVerified,
+														!isFailureToProvideImmiDocInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_1_7");		
+		drools.setFocus("Qhp_CITI_2_AG");
+		logger.debug("Rule : Qhp_Citizenship_1_7 : End");
+end
+
+
+//Qhp Citizenship(2)
+
+rule "Qhp_Citizenship_2_0"
+salience 20000
+activation-group "Qhp_CITI_2_AT"
+agenda-group "Qhp_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_2_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_2_0");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		drools.setFocus("Qhp_RES_SPEC_1_AG");		//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_2_0 : End");
+end
+
+rule "Qhp_Citizenship_2_1"
+salience 19995
+activation-group "Qhp_CITI_2_AT"
+agenda-group "Qhp_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!(isCitizenshipVerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_2_1");		
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.CNV);
+		//TO DO
+		//Schedule Verification Notice Trigger				
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS, ClockNameEnum.CITIZENSHIP_90);
+		drools.setFocus("Qhp_RES_SPEC_1_AG");	//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]	
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_2_1 : End");
+end
+
+rule "Qhp_Citizenship_2_2"
+salience 19990
+activation-group "Qhp_CITI_2_AT"
+agenda-group "Qhp_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														(isCitizenshipVerificationNoticeSent),
+														!(isCitizenshipClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_2_2");		
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.CNV);
+		// Defect# 55330
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS, ClockNameEnum.CITIZENSHIP_90);
+		drools.setFocus("Qhp_RES_SPEC_1_AG");	//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]	
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_2_2 : End");
+end
+
+rule "Qhp_Citizenship_2_3"
+salience 19980
+activation-group "Qhp_CITI_2_AT"
+agenda-group "Qhp_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														(isCitizenshipVerificationNoticeSent),
+														(isCitizenshipClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.CNV_90);
+		drools.setFocus("Qhp_RES_SPEC_1_AG");		//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_2_2 : End");
+end
+
+
+//Qhp Citizenship(2B)
+
+rule "Qhp_Citizenship_2B_0"
+salience 68000
+activation-group "Qhp_CITI_2B_AT"
+agenda-group "Qhp_CITI_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_2B_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_2B_0");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		drools.setFocus("Qhp_RES_SPEC_1_AG");		//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_2B_0 : End");
+end
+
+rule "Qhp_Citizenship_2B_1"
+salience 67995
+activation-group "Qhp_CITI_2B_AT"
+agenda-group "Qhp_CITI_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isCitiDiscrepancyVerificationNoticeSent);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_2B_1 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.CD_NATUR);
+		//TO DO
+		//Schedule Verification Notice Trigger
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY, ClockNameEnum.CITIZENSHIP_DISCREPANCY_90);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_2B_1");
+		drools.setFocus("Qhp_RES_SPEC_1_AG");		//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_2B_1 : End");
+end
+
+rule "Qhp_Citizenship_2B_2"
+salience 67990
+activation-group "Qhp_CITI_2B_AT"
+agenda-group "Qhp_CITI_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isCitiDiscrepancyVerificationNoticeSent,
+														!isCitiDiscrepancyClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_2B_2 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, ProgramReasonCode.CD_NATUR);
+		//Defect# 55330
+		$eDeterminationfacts.setClocks(ProgramCode.QHP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY, ClockNameEnum.CITIZENSHIP_DISCREPANCY_90);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_2B_2"); 
+		drools.setFocus("Qhp_RES_SPEC_1_AG");		//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_2B_2 : End");
+end
+
+rule "Qhp_Citizenship_2B_3"
+salience 67980
+activation-group "Qhp_CITI_2B_AT"
+agenda-group "Qhp_CITI_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isCitiDiscrepancyVerificationNoticeSent,
+														isCitiDiscrepancyClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Citizenship_2B_3 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.CDP_90_NATUR);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Citizenship_2B_3");
+		drools.setFocus("Qhp_RES_SPEC_1_AG");		//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//drools.setFocus("Qhp_IMIG_1_AG");
+		logger.debug("Rule : Qhp_Citizenship_2B_3 : End");
+end
+
+//EPP RES SPEC RULES Added for enhancement [36560]
+
+// RES SPEC RULES(1)
+
+rule "Qhp_ResSpec_1_1"
+salience 66000
+activation-group "Qhp_RES_SPEC_1_AT"
+agenda-group "Qhp_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_1_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_1_1");
+		//drools.setFocus("Qhp_IMIG_1_AG");			//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//Added for CR# 1234
+		drools.setFocus("Qhp_IMIG_A1_AG");
+		logger.debug("Rule : Qhp_ResSpec_1_1 : End");
+end
+
+rule "Qhp_ResSpec_1_2"
+salience 65990
+activation-group "Qhp_RES_SPEC_1_AT"
+agenda-group "Qhp_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+															(isCSVLPOverride));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_1_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_1_2");
+		//drools.setFocus("Qhp_IMIG_1_AG");			//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//Added for CR# 1234
+		drools.setFocus("Qhp_IMIG_A1_AG");
+		logger.debug("Rule : Qhp_ResSpec_1_2 : End");
+end
+
+
+rule "Qhp_ResSpec_1_3"
+salience 65980
+activation-group "Qhp_RES_SPEC_1_AT"
+agenda-group "Qhp_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														!(isCSVLPOverride),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														isAvailableInNonCitCoaCode);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_1_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_1_3");
+		drools.setFocus("Qhp_RES_SPEC_2_AG");
+		logger.debug("Rule : Qhp_ResSpec_1_3 : End");
+end
+
+
+rule "Qhp_ResSpec_1_4"
+salience 65970
+activation-group "Qhp_RES_SPEC_1_AT"
+agenda-group "Qhp_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														!(isCSVLPOverride),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														!isAvailableInNonCitCoaCode);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_1_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_1_4");
+		//drools.setFocus("Qhp_IMIG_1_AG");			//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//Added for CR# 1234
+		drools.setFocus("Qhp_IMIG_A1_AG");
+		logger.debug("Rule : Qhp_ResSpec_1_4 : End");
+end
+
+
+rule "Qhp_ResSpec_1_5"
+salience 65960
+activation-group "Qhp_RES_SPEC_1_AT"
+agenda-group "Qhp_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														!(isCSVLPOverride),
+														!HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_1_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_1_5");
+		//drools.setFocus("Qhp_IMIG_1_AG");			//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//Added for CR# 1234
+		drools.setFocus("Qhp_IMIG_A1_AG");
+		logger.debug("Rule : Qhp_ResSpec_1_5 : End");
+end
+
+
+//Qhp RES SPEC RULES(2)  -Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+
+rule "Qhp_ResSpec_2_1"
+salience 64000
+activation-group "Qhp_RES_SPEC_2_AT"
+agenda-group "Qhp_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(appliedAdjstStatusForLglResi);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_2_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_2_1");
+		//drools.setFocus("Qhp_IMIG_1_AG");			//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//Added for CR# 1234
+		drools.setFocus("Qhp_IMIG_A1_AG");
+		logger.debug("Rule : Qhp_ResSpec_2_1 : End");
+end
+
+rule "Qhp_ResSpec_2_2"
+salience 63990
+activation-group "Qhp_RES_SPEC_2_AT"
+agenda-group "Qhp_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!appliedAdjstStatusForLglResi,
+														doYouWork);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_2_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_2_2");
+		//drools.setFocus("Qhp_IMIG_1_AG");			//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//Added for CR# 1234
+		drools.setFocus("Qhp_IMIG_A1_AG");
+		logger.debug("Rule : Qhp_ResSpec_2_2 : End");
+end
+
+
+rule "Qhp_ResSpec_2_3"
+salience 63980
+activation-group "Qhp_RES_SPEC_2_AT"
+agenda-group "Qhp_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!appliedAdjstStatusForLglResi,
+														!doYouWork,
+														childrenGoingToSchool);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_2_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_2_3");
+		//drools.setFocus("Qhp_IMIG_1_AG");			//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//Added for CR# 1234
+		drools.setFocus("Qhp_IMIG_A1_AG");
+		logger.debug("Rule : Qhp_ResSpec_2_3 : End");
+end
+
+
+rule "Qhp_ResSpec_2_4"
+salience 63970
+activation-group "Qhp_RES_SPEC_2_AT"
+agenda-group "Qhp_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!appliedAdjstStatusForLglResi,
+														!doYouWork,
+														!childrenGoingToSchool,
+														ownHome);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_2_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_2_4");
+		//drools.setFocus("Qhp_IMIG_1_AG");			//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//Added for CR# 1234
+		drools.setFocus("Qhp_IMIG_A1_AG");
+		logger.debug("Rule : Qhp_ResSpec_2_4 : End");
+end
+
+rule "Qhp_ResSpec_2_5"
+salience 63960
+activation-group "Qhp_RES_SPEC_2_AT"
+agenda-group "Qhp_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!appliedAdjstStatusForLglResi,
+														!doYouWork,
+														!childrenGoingToSchool,
+														!ownHome,
+														rentHomeOrApt);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_2_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_2_5");
+		//drools.setFocus("Qhp_IMIG_1_AG");			//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//Added for CR# 1234
+		drools.setFocus("Qhp_IMIG_A1_AG");
+		logger.debug("Rule : Qhp_ResSpec_2_5 : End");
+end
+
+
+rule "Qhp_ResSpec_2_6"
+salience 63950
+activation-group "Qhp_RES_SPEC_2_AT"
+agenda-group "Qhp_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!appliedAdjstStatusForLglResi,
+														!doYouWork,
+														!childrenGoingToSchool,
+														!ownHome,
+														!rentHomeOrApt);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_ResSpec_2_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_ResSpec_2_6");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixRestrictedFlg(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.NALPR);
+		//drools.setFocus("Qhp_IMIG_1_AG");			//Added Res Spec rules - the flow will be citizen ship ->res spec rules->immigration [36560]
+		//Added for CR# 1234
+		drools.setFocus("Qhp_IMIG_A1_AG");
+		logger.debug("Rule : Qhp_ResSpec_2_6 : End");
+end
+
+
+
+
+
+
+//Added for CR# 1234
+//Qhp immigration (A1)
+
+//CR1234 Qhp immigration (A1) should not be executed before 01/01/2016. 
+
+rule "Qhp_Immigration_A1_00"
+salience 50000
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isEPPApplies);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_00 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_00");
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_00 : End");
+end
+
+rule "Qhp_Immigration_A1_01"
+salience 49997
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHIXDACAEmploymentAuthorized);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_01 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_01");
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_01 : End");
+end
+
+rule "Qhp_Immigration_A1_1"
+salience 49995
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+														isNonCitExpeditedCoaCode,
+														isAlienExpDtGrtrorEql30DaysFrmElgRuleEffctDt);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Qhp_INCAR_1_AG");
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_1 : End");
+end
+
+
+rule "Qhp_Immigration_A1_2"
+salience 49990
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+														isNonCitExpeditedCoaCode,
+														isAlienExpDateNull);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Qhp_INCAR_1_AG");
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_2 : End");
+end
+
+
+rule "Qhp_Immigration_A1_3"
+salience 49980
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+														isNonCitExpeditedCoaCode,
+														isAlienExpDateExpired);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Qhp_INCAR_1_AG");
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_3 : End");
+end
+
+rule "Qhp_Immigration_A1_4"
+salience 49970
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+														isNonCitExpeditedCoaCode,
+														!isAlienExpDateExpired,
+														!HXConstants.IMMG_ELG_STATMNT_CODE_TEN.equals(elgStatementCode));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Qhp_INCAR_1_AG");
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_4 : End");
+end
+
+rule "Qhp_Immigration_A1_5"
+salience 49960
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonCitPENCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														(HXConstants.FIVE_YR_BAR_APPLIES_X.equals(isFiveYearBarAppliesStr)
+														|| HXConstants.FIVE_YR_BAR_APPLIES_N.equals(isFiveYearBarAppliesStr)),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														HXConstants.QNC_VERIFIED_N.equals(isQualifiedNonCitizenStr));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_5");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_5 : End");
+end
+
+rule "Qhp_Immigration_A1_6"
+salience 49950
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonCitPENCoaCode,!isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_6");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		//$eDeterminationfacts.setIsPrucolVerificationRequired(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setIsPrucolVerReqInd(Boolean.TRUE);
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_6 : End");
+end
+
+rule "Qhp_Immigration_A1_7"
+salience 49950
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonCitPENCoaCode,isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_7");
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_7 : End");
+end
+
+
+rule "Qhp_Immigration_A1_8"
+salience 49940
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														!HXConstants.LAWFUL_PRESENCE_NOT_VERIFIED.equals(isMemberLawfullyPresent),
+														!isAlienExpDtGrtrorEql30DaysFrmElgRuleEffctDt,
+														!isAlienExpDateNull,
+														!isAlienExpDateExpired,
+														HXConstants.IMMG_ELG_STATMNT_CODE_TEN.equals(elgStatementCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_8");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixLawfulPresenceFlg(Boolean.TRUE);
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_8 : End");
+end
+
+rule "Qhp_Immigration_A1_9"
+salience 49930
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														 isAlienExpDateNull,
+														!isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_9");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixLawfulPresenceFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setIsPrucolVerReqInd(Boolean.TRUE);
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_9 : End");
+end
+
+
+rule "Qhp_Immigration_A1_10"
+salience 49920
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														isAlienExpDateNull,
+														isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_10");
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_10 : End");
+end
+
+
+rule "Qhp_Immigration_A1_11"
+salience 49910
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														isAlienExpDateExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_11");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixLawfulPresenceFlg(Boolean.TRUE);
+		//$eDeterminationfacts.setIsPrucolVerificationRequired(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setIsPrucolVerReqInd(Boolean.TRUE);
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_11 : End");
+end
+
+
+rule "Qhp_Immigration_A1_12"
+salience 49900
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														!isAlienExpDateExpired,
+														!isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_12");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setHixLawfulPresenceFlg(Boolean.TRUE);
+		//$eDeterminationfacts.setIsPrucolVerificationRequired(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setIsPrucolVerReqInd(Boolean.TRUE);
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_12 : End");
+end
+
+
+
+rule "Qhp_Immigration_A1_13"
+salience 49890
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														!isAlienExpDateExpired,
+														isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_13");
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_13 : End");
+end
+
+
+rule "Qhp_Immigration_A1_14"
+salience 49880
+activation-group "Qhp_IMIG_A1_AT"
+agenda-group "Qhp_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														!isNonCitExpeditedCoaCode);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Immigration_A1_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Immigration_A1_14");
+		drools.setFocus("Qhp_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : Qhp_Immigration_A1_14 : End");
+end
+
+//End of Rules for CR# 1234
+
+//Rule completion
+rule "Qhp_VERIFY_SEC_1_COMP_STEP_1"
+salience 89900
+activation-group "Qhp_VERIFY_SEC_1_COMP_STEP_AT"
+agenda-group "Qhp_VERIFY_SEC_1_COMP_STEP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_VERIFY_SEC_1_COMP_STEP_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_VERIFY_SEC_1_COMP_STEP_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		logger.debug("Rule : Qhp_VERIFY_SEC_1_COMP_STEP_1 : End");
+end
+

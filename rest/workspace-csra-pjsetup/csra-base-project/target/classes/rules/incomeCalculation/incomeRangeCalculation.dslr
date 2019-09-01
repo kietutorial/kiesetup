@@ -1,0 +1,33 @@
+//created on: Mar 6, 2013
+package com.hcentive.rulesengine.rule
+
+//list any import classes here.
+import com.hcentive.rulesengine.domain.IncomeCalculation;
+
+expander incomeRangeCalculation.dsl
+
+//declare any global variables here
+global org.slf4j.Logger logger;
+
+rule "incomeRangeCalculation"
+
+    when
+        //conditions
+        Load IncomeCalculation object
+        
+        Check IncomeCalculation object and Income Amount is not empty
+        
+    then
+        //actions 
+		Begin rule "incomeRangeCalculation"
+		Initialize minRange
+		Initialize maxRange
+		
+		Calculate minRange
+		Calculate maxRange
+		
+		Set minRange to IncomeCalculation
+		Set maxRange to IncomeCalculation
+		
+		End rule "incomeRangeCalculation"
+end

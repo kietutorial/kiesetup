@@ -1,0 +1,408 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXUtility;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+rule "MAIN_FamilyPlanning_INCOME"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_FamilyPlanning_INCOME : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "MAIN_FamilyPlanning_INCOME");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_03_ACK);
+		drools.setFocus("MAIN_FamilyPlanning_INCOME_STALE_1_AG");
+		logger.debug("Rule : MAIN_FamilyPlanning : End");
+end
+
+//CR1606
+rule "MAIN_FamilyPlanning_INCOME_STALE_ELG_SEC_01"
+salience 95060
+activation-group "MAIN_FamilyPlanning_INCOME_STALE_1_AT"
+agenda-group "MAIN_FamilyPlanning_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_FamilyPlanning_INCOME_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "MAIN_FamilyPlanning_INCOME_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : MAIN_FamilyPlanning_INCOME_STALE_ELG_SEC_01 : End");
+end
+
+rule "MAIN_FamilyPlanning_INCOME_STALE_ELG_SEC_03"
+salience 95050
+activation-group "MAIN_FamilyPlanning_INCOME_STALE_1_AT"
+agenda-group "MAIN_FamilyPlanning_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_FamilyPlanning_INCOME_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "MAIN_FamilyPlanning_INCOME_STALE_ELG_SEC_03");
+		drools.setFocus("Inint_FamilyPlanning_INCOME_1_AG");
+		logger.debug("Rule : MAIN_FamilyPlanning_INCOME_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//-------------------------------------------------------------------------------------FAMILYPLANNING BEGIN------------------------------------------------------------
+
+//-------------------------FAMILYPLANNING CONTROLLER-----------------------
+
+
+rule "Inint_FamilyPlanning_INCOME_1"
+salience 99000
+activation-group "Inint_FamilyPlanning_INCOME_1_AT"
+agenda-group "Inint_FamilyPlanning_INCOME_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isRequestingfamilyPlanningBenefitProgram);
+	then
+		logger.debug("Rule : Inint_FamilyPlanning_INCOME_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "Inint_FamilyPlanning_INCOME_1");
+		drools.setFocus("FamilyPlanning_Income_1_AG");
+		logger.debug("Rule : Inint_FamilyPlanning_INCOME_1 : End");
+end
+
+rule "Inint_FamilyPlanning_INCOME_2"
+salience 98990
+activation-group "Inint_FamilyPlanning_INCOME_1_AT"
+agenda-group "Inint_FamilyPlanning_INCOME_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isRequestingfamilyPlanningBenefitProgram);
+	then
+		logger.debug("Rule : Inint_FamilyPlanning_INCOME_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "Inint_FamilyPlanning_INCOME_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.NOT_REQ_FPBP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Inint_FamilyPlanning_INCOME_2 : End");
+end
+
+//FAMILYPLANNING Income(1)
+
+rule "FamilyPlanning_Income_1_1"
+salience 98000
+activation-group "FamilyPlanning_Income_1_AT"
+agenda-group "FamilyPlanning_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_1_1 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.MED_ELG);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_1_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_1_1 : End");
+end
+
+
+rule "FamilyPlanning_Income_1_2"
+salience 97990
+activation-group "FamilyPlanning_Income_1_AT"
+agenda-group "FamilyPlanning_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_1_2 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, null);
+		//Set Reason Code(s) = same as Medicaid fail reasons
+		$eDeterminationfacts.copyProgramReasons(ProgramCode.FAMILYPLANNING, ProgramCode.MEDICAID);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_1_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_1_2 : End");
+end
+
+
+rule "FamilyPlanning_Income_1_3"
+salience 97980
+activation-group "FamilyPlanning_Income_1_AT"
+agenda-group "FamilyPlanning_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_1_3");
+		drools.setFocus("FamilyPlanning_Income_2_AG");
+		logger.debug("Rule : FamilyPlanning_Income_1_3 : End");
+end
+
+
+//Family Planning Income (2)
+
+rule "FamilyPlanning_Income_2_1"
+salience 96000
+activation-group "FamilyPlanning_Income_2_AT"
+agenda-group "FamilyPlanning_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isFinancialAssistanceRequired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_2_1 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.NRFA);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_2_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_2_1 : End");
+end
+
+
+rule "FamilyPlanning_Income_2_2"
+salience 95990
+activation-group "FamilyPlanning_Income_2_AT"
+agenda-group "FamilyPlanning_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(isIncomeVerificationComplete),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.FAMILYPLANNING_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_2_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, AidCategory.FiftySix, CoverageCode.EIGHTEEN);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_2_2 : End");
+end
+
+rule "FamilyPlanning_Income_2_3"
+salience 95980
+activation-group "FamilyPlanning_Income_2_AT"
+agenda-group "FamilyPlanning_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(isIncomeVerificationComplete),
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.FAMILYPLANNING_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_2_3");
+		drools.setFocus("FamilyPlanning_Income_3_AG");
+		logger.debug("Rule : FamilyPlanning_Income_2_3 : End");
+end
+
+rule "FamilyPlanning_Income_2_4"
+salience 95970
+activation-group "FamilyPlanning_Income_2_AT"
+agenda-group "FamilyPlanning_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														!(isIncomeVerificationComplete),
+														(isIncomeResonablyCompatable),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.FAMILYPLANNING_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_2_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, AidCategory.FiftySix, CoverageCode.EIGHTEEN);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_2_4 : End");
+end
+
+rule "FamilyPlanning_Income_2_5"
+salience 95960
+activation-group "FamilyPlanning_Income_2_AT"
+agenda-group "FamilyPlanning_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														!(isIncomeVerificationComplete),
+														(isIncomeResonablyCompatable),
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.FAMILYPLANNING_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_2_5");
+		drools.setFocus("FamilyPlanning_Income_3_AG");
+		logger.debug("Rule : FamilyPlanning_Income_2_5 : End");
+end
+
+rule "FamilyPlanning_Income_2_6"
+salience 95950
+activation-group "FamilyPlanning_Income_2_AT"
+agenda-group "FamilyPlanning_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														!(isIncomeVerificationComplete),
+														!(isIncomeResonablyCompatable),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.FAMILYPLANNING_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_2_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_2_6");
+		drools.setFocus("FamilyPlanning_Income_4_AG");
+		logger.debug("Rule : FamilyPlanning_Income_2_6 : End");
+end
+
+
+rule "FamilyPlanning_Income_2_7"
+salience 95940
+activation-group "FamilyPlanning_Income_2_AT"
+agenda-group "FamilyPlanning_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														!(isIncomeVerificationComplete),
+														!(isIncomeResonablyCompatable),
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.FAMILYPLANNING_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_2_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_2_7");
+		drools.setFocus("FamilyPlanning_Income_3_AG");
+		logger.debug("Rule : FamilyPlanning_Income_2_7 : End");
+end
+
+
+//Family Planning Income (3)
+
+rule "FamilyPlanning_Income_3_1"
+salience 94000
+activation-group "FamilyPlanning_Income_3_AT"
+agenda-group "FamilyPlanning_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(ihFpl <= configGroupBean.getValueFor(RuleKey.FAMILYPLANNING_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_3_1 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_3_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_3_1 : End");
+end
+
+rule "FamilyPlanning_Income_3_2"
+salience 93090
+activation-group "FamilyPlanning_Income_3_AT"
+agenda-group "FamilyPlanning_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((ihFpl <= configGroupBean.getValueFor(RuleKey.FAMILYPLANNING_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_3_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, AidCategory.FiftySix, CoverageCode.EIGHTEEN);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_3_2 : End");
+end
+
+
+//Family Planning Income (4)
+
+rule "FamilyPlanning_Income_4_1"
+salience 92000
+activation-group "FamilyPlanning_Income_4_AT"
+agenda-group "FamilyPlanning_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(familyPlanning_income_90_Day_VerificationNoticeSent));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_4_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_4_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.PENDING, ProgramReasonCode.IVO);
+		//Schedule Verification Notice
+		$eDeterminationfacts.setClocks(ProgramCode.FAMILYPLANNING, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.FAMILYPLANNING_INCOME_90);
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, AidCategory.FiftySix, CoverageCode.EIGHTEEN);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_4_1 : End");
+end
+
+rule "FamilyPlanning_Income_4_2"
+salience 91990
+activation-group "FamilyPlanning_Income_4_AT"
+agenda-group "FamilyPlanning_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((familyPlanning_income_90_Day_VerificationNoticeSent),
+														!(familyPlanning_income_90_DayClockExpired));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_4_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_4_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.PENDING, ProgramReasonCode.IVO);
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, AidCategory.FiftySix, CoverageCode.EIGHTEEN);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_4_2 : End");
+end
+
+
+rule "FamilyPlanning_Income_4_3"
+salience 91980
+activation-group "FamilyPlanning_Income_4_AT"
+agenda-group "FamilyPlanning_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((familyPlanning_income_90_Day_VerificationNoticeSent),
+														(familyPlanning_income_90_DayClockExpired));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_4_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_4_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, program_status.INELIGIBLE, ProgramReasonCode.IVOP_90);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_4_3 : End");
+end
+
+
+//Family Planning Income (5)
+/*
+rule "FamilyPlanning_Income_5_1"
+salience 90000
+activation-group "FamilyPlanning_Income_5_AT"
+agenda-group "FamilyPlanning_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl < configGroupBean.getValueFor(RuleKey.FAMILYPLANNING_FPL_MAX)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_5_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_5_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.FAMILYPLANNING, AidCategory.FiftySix, CoverageCode.EIGHTEEN);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_5_1 : End");
+end
+
+rule "FamilyPlanning_Income_5_2"
+salience 89990
+activation-group "FamilyPlanning_Income_5_AT"
+agenda-group "FamilyPlanning_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl < configGroupBean.getValueFor(RuleKey.FAMILYPLANNING_FPL_MAX)),
+														isMemberPregnant);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : FamilyPlanning_Income_5_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.FAMILYPLANNING, "FamilyPlanning_Income_5_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.FAMILYPLANNING, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : FamilyPlanning_Income_5_2 : End");
+end
+*/

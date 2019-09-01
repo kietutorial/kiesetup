@@ -1,0 +1,41 @@
+//created on: Mar 6, 2013
+package com.hcentive.rulesengine.rule
+
+//list any import classes here.
+import com.hcentive.rulesengine.domain.IncomeCalculation;
+
+expander incomeReasonableCompatability.dsl
+
+
+//declare any global variables here
+global org.slf4j.Logger logger;
+
+
+
+rule "reasonableCompatability"
+
+    when
+        //conditions  
+        Load IncomeCalculation object
+        Check IncomeCalculation object  Income Amount and AttestedIncome is not empty
+    then
+        //actions 
+        Begin rule "reasonableCompatability"
+        Initialize minRange
+        Initialize maxRange
+        Initialize rangeFlag to False
+        Set attested income to aIncome
+        
+        Calculate minRange
+        Calculate maxRange
+        
+        If attested income is within max and min range
+        	Set rangeFlag to true
+        End If
+        
+        Set  income is within range
+        
+        End rule "reasonableCompatability"
+end
+
+

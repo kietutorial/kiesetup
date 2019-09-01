@@ -1,0 +1,109 @@
+Assumptions
+----------------------------
+o We are usin defect: 75354 as our sample defect.
+  Please the current defect #### for specific changes.
+o Most actions are happening withing eclipse
+
+Accept All Changes Before Working
+------------------------------------
+o Select [Pending Changes] tab
+Accept:
+	Architecture
+	Build
+	datastage_componets
+	DBs
+Accept:
+	Incoming changes
+
+
+Compare Changes with Remote
+------------------------------------
+o Select [Pending Changes] tab
+- Select  HX_Stack - Unresolved
+- Open desire file
+- Right-click file content - Compare With - Remote
+All compared changes are shown
+??
+
+
+Refreshing Changes With Lastest Changes With Sandbox
+--------------------------------------------------
+o Select [Pending Changes] tab
+o Select Refesh icon
+- Drill down to "Refresh Sandox and Remote changes"
+
+
+Refesh All Projects In My Repository
+------------------------------------------------------------
+o Go to Project Explorer
+o Select All Project
+- Right tab - Refresh
+
+
+Create Secondary DO_NOT_DELIVER Change Set
+----------------------------------------
+o Select [Pending Changes] tab
+- Select HX_Stack 
+- New - Change Set
+- Go to Outgoing
+- Rename Change Set it to DO_NOT_DELIVER
+- In this change set, we can move all the undesired changes
+
+
+Create Outgoing Change Set
+------------------------------------
+o Select [Pending Changes] tab
+- Select HX_Stack
+- New - Change Set
+- Select new Outgoing change set
+Right-click - Related Artifacts - Associated With Work Items
+- Enter 75354, the defect number
+- The defected will be associated with the file changes:
+75354: 508_CS_Tab Not going to "Enrollment History & clear dates & Eligibility History"Buttons
+
+o Move unnecessary changes 
+- You may say other changes than the on necessay, like
+/
+Agent_Config_Template
+Agent_Config_Template/prodstating
+Agent_Config_Template/UAT3
+Individual_Config_Template
+- Select all these changes
+- Right-click - Move - to DO_NOT_DELIVER
+- Now all the changes that are to be in repo will go
+
+o If change ins in DO_NOT_DELIVER Change set
+- More changes from this section to 75354 Change Set
+- Right-click the file to move
+- Move - Select 75354 change set
+
+Compare Changes Set Again 
+------------------------------------
+o Select [Pending Changes] tab
+- Select  75354 change set
+- Open desire file
+- Right-click file content - Compare With - Remote
+
+
+Have Defect Assigner Review Changes
+-------------------------------------------
+Digbijoy Das - Provided Defect Information
+
+
+Commit Changes
+--------------------------------------------
+o Select [Pending Changes] tab
+o Select Target Outgoin Chanset: 75354: 508_CS_Tab Not goin......
+Right-click - Deliver
+
+
+Sometimes While Delivering Changes Come In
+-----------------------------------------------------
+o Jazz will deliver untill all incoming changes and Change set comflicts are resolved
+- Look for UNRESOLVED change set
+- Select file to be Auto Resolved
+- Make sure all incoming chance set are Accepted
+o After all incoming change set have been resolved 
+- Reaccept change set
+
+

@@ -1,0 +1,70 @@
+My Local Latest DevRepo
+---------------------
+C:\GITREPOS\sandox\
+- With project: medicaidlocaldev02
+
+
+Create New User In KIE Workbench
+-----------------------------------------------
+o Create user: pchauvet / pchauvet
+Home->Admin->New User
+pchauvet 
+->Create
+password: pchauvet
+
+o Create Group
+kiemgmt
+rest-all
+kie-server
+->Save
+
+o Add Roles:
+Add roles
+process-admin
+manager	
+admin	
+developer	
+user	
+analyst	
+->Save
+
+
+Login as pchauvet
+-------------------------
+pchauvet pchauvet
+
+
+Create New Organizational Unit Manager
+-------------------------------------------
+Authoring -> Administration
+Name: medical_income
+Default Group ID: com.hcentive.jbpm7.exchange
+Owner: pchauvet
+
+
+Create New KIE Workbench Repository
+-------------------------------------
+Repository Name: MedicalIncome
+Organization Unit: medical_income
+
+
+
+Import Lastest Local Git Repository Project Into Kie Workbench
+----------------------------------------------------------------
+o Select latest repository to work with
+Authoring
+Teams->
+Import->Custom
+
+Repository URL:
+file:///C:/GITREPOS/sandox/.git
+or 
+c:/GITREPOS/sanbox/
+
+->Next
+- Select project medicaidlocaldev02
+
+- Import Example:
+Target Repository: MedicalIncome
+Organization Units: medical_income
+

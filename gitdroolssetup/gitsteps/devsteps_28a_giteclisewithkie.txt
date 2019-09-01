@@ -1,0 +1,49 @@
+In KIE - 
+------------
+Authoring - Repository - Clone Repository 
+- Enter local git url
+ex:file:///C:/GITSANDBOX_KIE/20171009v102c/.git
+
+
+Copy Remote Reposity URL
+---------------------------------
+Authoring - Repository - List
+Repository-List
+Select ssh url: ssh://localhost:8001/csra-workflows-a
+
+
+In Eclipse
+------------
+Select GIT Perspective
+Add an Existing local Git Repository
+Directory: C:/GITSANDBOX_KIE/20171009v102c
+Browse->OK
+Select
+Finish
+
+
+Link SSH Remote to Local Repositories
+---------------------------------------------
+Destination Git Repositories: 
+Remote name: origin
+URI: ssh://localhost:8001/csra-workflows-a
+Host: localhost
+Repository path: /csra-workflows-a
+Protocol: ssh
+Port: 8001
+User/Password: pchauvet
+
+Enter again:
+[New Remote]
+- Enter info again
+
+
+Pull First Time
+-----------------------
+Reference: refs/heads/master
+x Configure upstream for pust and pull
+
+
+
+
+

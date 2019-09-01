@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<definitions id="Definition"
+             targetNamespace="http://www.jboss.org/drools"
+             typeLanguage="http://www.java.com/javaTypes"
+             expressionLanguage="http://www.mvel.org/2.0"
+             xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd"
+             xmlns:g="http://www.jboss.org/drools/flow/gpd"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:tns="http://www.jboss.org/drools">
+
+  <itemDefinition id="_eligibilityMain" structureRef="com.csra.eligibility.domain.process.EligibilityMain" />
+  <itemDefinition id="null" />
+  <itemDefinition id="_eEligibilityResult" structureRef="com.csra.eligibility.domain.rulefact.EligibilityResult" />
+  <itemDefinition id="_eligibilityResult" structureRef="com.csra.eligibility.domain.rulefact.EligibilityResult" />
+  <itemDefinition id="_eligibilityFact" structureRef="com.csra.eligibility.domain.rulefact.EligibilityFact" />
+  <itemDefinition id="_member" structureRef="com.csra.eligibility.domain.entity.member.Member" />
+  <process processType="Private" isExecutable="true" id="MI_MainSub_IncomeTypeDetermination" name="MI_MainSub_IncomeTypeDetermination" tns:packageName="com.csra.eligibility.workflow.medicalincome" >
+
+    <extensionElements>
+     <tns:import name="com.csra.eligibility.domain.entity.member.Member" />
+     <tns:import name="com.csra.eligibility.domain.process.EligibilityMain" />
+     <tns:import name="com.csra.eligibility.domain.rulefact.EligibilityResult" />
+    </extensionElements>
+    <!-- process variables -->
+    <property id="member" itemSubjectRef="null"/>
+    <property id="eligibilityMain" itemSubjectRef="null"/>
+    <property id="eligibilityResult" itemSubjectRef="null"/>
+
+    <!-- nodes -->
+    <startEvent id="25403b55-1bed-4f1e-baba-7e88872ef148" name="Start"  isInterrupting="false">
+    </startEvent>
+    <endEvent id="214dffd4-2c60-4483-9a34-bc0a28f2e9cf" name="End" >
+        <terminateEventDefinition />
+    </endEvent>
+    <businessRuleTask id="e03b311b-01d2-4a51-a8be-5de007e99bad" name="Rule_IncomeTypeDetermination" g:ruleFlowGroup="eligibility_incometypedet" 
+ implementation="http://www.jboss.org/drools/rule" >
+      <ioSpecification>
+        <inputSet>
+        </inputSet>
+        <outputSet>
+        </outputSet>
+      </ioSpecification>
+    </businessRuleTask>
+    <scriptTask id="1c1424c3-1643-44c6-97c5-48e2a652669f" name="Rule_IncomeTypeDetermination" scriptFormat="http://www.java.com/java" >
+      <script>System.out.println("SubProcess(" + kcontext.getNodeInstance().getNodeName() + ") ");</script>
+    </scriptTask>
+
+    <!-- connections -->
+    <sequenceFlow id="e03b311b-01d2-4a51-a8be-5de007e99bad-214dffd4-2c60-4483-9a34-bc0a28f2e9cf" sourceRef="e03b311b-01d2-4a51-a8be-5de007e99bad" targetRef="214dffd4-2c60-4483-9a34-bc0a28f2e9cf" />
+    <sequenceFlow id="1c1424c3-1643-44c6-97c5-48e2a652669f-e03b311b-01d2-4a51-a8be-5de007e99bad" sourceRef="1c1424c3-1643-44c6-97c5-48e2a652669f" targetRef="e03b311b-01d2-4a51-a8be-5de007e99bad" />
+    <sequenceFlow id="25403b55-1bed-4f1e-baba-7e88872ef148-1c1424c3-1643-44c6-97c5-48e2a652669f" sourceRef="25403b55-1bed-4f1e-baba-7e88872ef148" targetRef="1c1424c3-1643-44c6-97c5-48e2a652669f" />
+
+  </process>
+
+  <bpmndi:BPMNDiagram>
+    <bpmndi:BPMNPlane bpmnElement="MI_MainSub_IncomeTypeDetermination" >
+      <bpmndi:BPMNShape bpmnElement="25403b55-1bed-4f1e-baba-7e88872ef148" >
+        <dc:Bounds x="34" y="103" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="214dffd4-2c60-4483-9a34-bc0a28f2e9cf" >
+        <dc:Bounds x="306" y="102" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="e03b311b-01d2-4a51-a8be-5de007e99bad" >
+        <dc:Bounds x="224" y="178" width="80" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="1c1424c3-1643-44c6-97c5-48e2a652669f" >
+        <dc:Bounds x="111" y="179" width="80" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="e03b311b-01d2-4a51-a8be-5de007e99bad-214dffd4-2c60-4483-9a34-bc0a28f2e9cf" >
+        <di:waypoint x="264" y="202" />
+        <di:waypoint x="330" y="126" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="1c1424c3-1643-44c6-97c5-48e2a652669f-e03b311b-01d2-4a51-a8be-5de007e99bad" >
+        <di:waypoint x="151" y="203" />
+        <di:waypoint x="264" y="202" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="25403b55-1bed-4f1e-baba-7e88872ef148-1c1424c3-1643-44c6-97c5-48e2a652669f" >
+        <di:waypoint x="58" y="127" />
+        <di:waypoint x="151" y="203" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</definitions>

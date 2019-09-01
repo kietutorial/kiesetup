@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:p="http://www.springframework.org/schema/p" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:aop="http://www.springframework.org/schema/aop" xmlns:tx="http://www.springframework.org/schema/tx"
+	xmlns:cache="http://www.springframework.org/schema/cache"
+	xsi:schemaLocation="
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd 
+http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd
+http://www.springframework.org/schema/cache
+http://www.springframework.org/schema/cache/spring-cache-3.2.xsd">
+	
+	
+	<cache:annotation-driven />
+	<bean id="cacheManager" class="org.springframework.cache.support.SimpleCacheManager">
+    	<property name="caches">
+	      	<set>
+	        	<bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean" p:name="ruleCache" />
+	        	<bean class="org.springframework.cache.concurrent.ConcurrentMapCacheFactoryBean" p:name="configCategory" />
+	      	</set>
+    	</property>
+  	</bean>
+	<bean
+		class="com.hcentive.utils.utils.ExtendedPropertySourcesPlaceholderConfigurer">
+		<property name="locations">
+			<list>
+				<value>classpath:META-INF/application.properties</value>
+			</list>
+		</property>
+	</bean>
+
+	<bean id="dslRuleRepository" class="com.hcentive.rulesengine.rule.RuleRepositoryExtImpl">
+		<property name="knowledgeBaseBuilder" ref="knowledgeBaseBuilder" />
+	</bean>
+
+	<bean id="knowledgeBaseBuilder" class="com.hcentive.rulesengine.rule.KnowledgeBaseBuilder">
+		<property name="ruledirPath" value="${ruleRepository.path.new}" />
+	</bean>
+
+	<bean id="cacheImplementation" class="com.hcentive.utils.cache.SimpleInMemoryCache"></bean>
+
+	<bean id="elgDeterminationService" class="com.hcentive.rulesengine.service.EligibilityDeterminationUtilServiceFacadeImpl">
+		<property name="ruleConfigService" ref="ruleConfigService"/>
+	</bean>
+	
+	<bean id="eligibilityRuleFacade"
+		class="com.hcentive.rulesengine.service.EligibilityRuleFacadeImpl">
+		<property name="elgDeterminationService" ref="elgDeterminationService" />
+	</bean>
+	
+	<bean id="incomeRuleFacade" class="com.hcentive.rulesengine.service.IncomeRuleFacadeImpl"></bean>
+	<!-- <bean id="ruleConfigService" class="com.hcentive.rulesengine.stub.service.RuleConfigServiceStubImpl"></bean> -->
+	<bean id="ruleConfigService" class="com.hcentive.rulesengine.service.RuleConfigServiceImpl"></bean>
+	<bean id="eligibilityDeterminationFactsBuilderService" class="com.hcentive.rulesengine.service.EligibilityDeterminationFactsBuilderServiceImpl"></bean>
+	<bean id="dateDeterminationLogicService" class="com.hcentive.rulesengine.service.DateDeterminationLogicServiceImpl"></bean>
+	
+		<bean id="calculateMAGIAndincomeVerificationStub" class="com.hcentive.rulesengine.stub.service.CalculateMAGIAndincomeVerificationStubImpl"></bean>
+	
+
+	<bean id="dataSource" class="org.apache.commons.dbcp.BasicDataSource">
+		<property name="driverClassName" value="org.hsqldb.jdbcDriver" />
+		<!-- <property name="driverClassName" value="com.p6spy.engine.spy.P6SpyDriver" /> -->
+		<property name="url" value="jdbc:hsqldb:mem:HXADEV_DBUNIT" />
+		<property name="username" value="sa" />
+		<property name="password" value="" />
+	</bean>
+	<bean id="dataSourcefti" class="org.apache.commons.dbcp.BasicDataSource">
+		<property name="driverClassName" value="org.hsqldb.jdbcDriver" />
+		<!-- <property name="driverClassName" value="com.p6spy.engine.spy.P6SpyDriver" /> -->
+		<property name="url" value="jdbc:hsqldb:mem:HXADEVFTI_DBUNIT" />
+		<property name="username" value="sa" />
+		<property name="password" value="" />
+	</bean>
+
+	<bean id="txManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactory" />
+	</bean>
+	<bean id="transactionManager" class="org.springframework.orm.jpa.JpaTransactionManager">
+		<property name="entityManagerFactory" ref="entityManagerFactoryfti" />
+	</bean>
+	<tx:annotation-driven transaction-manager="txManager" />
+
+	<bean id="entityManagerFactory"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSource" />
+		<property name="persistenceUnitName" value="DEFAULT" />
+		<property name="packagesToScan"
+			value="com.hcentive.eligibility,com.hcentive.eligibility.prescreening.domain,com.hcentive.user,com.hcentive.utils.demographics.domain,
+			com.hcentive.utils.organization,com.hcentive.enrollment.app.domain,com.hcentive.enrollment.app.domain.ext,com.hcentive.utils.picklist.domain,com.hcentive.eligibility.ext,com.hcentive.rulesengine.domain, 
+			com.hcentive.agent.domain, com.hcentive.shop, com.hcentive.shop.domain, com.hcentive.utils.notification.domain, 
+			com.hcentive.cs.notification.entities, com.hcentive.individual.hix.lsc.domain" />
+		<property name="jpaProperties">
+			<props>
+				<prop key="org.hibernate.envers.default_schema">${jdbc.audit.schema}</prop>
+				<prop key="org.hibernate.envers.store_data_at_delete">true</prop>
+				<prop key="org.hibernate.envers.audit_strategy">org.hibernate.envers.strategy.ValidityAuditStrategy
+				</prop>
+				<prop key="hibernate.listeners.envers.autoRegister">${enableAuditing}</prop>
+				<prop key="javax.persistence.validation.mode">none</prop>
+				<prop key="org.hibernate.envers.audit_table_prefix">${auditTablePrefix}</prop>
+				<prop key="hibernate.cache.use_second_level_cache">false</prop>
+				<prop key="hibernate.cache.use_query_cache">false</prop>
+				<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.ehcache.SingletonEhCacheRegionFactory</prop>
+			</props>
+		</property>
+		<property name="jpaPropertyMap">
+			<map>
+				<entry key="javax.persistence.validation.factory" value-ref="validator" />
+			</map>
+		</property>
+		<property name="jpaVendorAdapter" ref="jpaAdapter"></property>
+	</bean>
+
+	<bean id="entityManagerFactoryfti"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean">
+		<property name="dataSource" ref="dataSourcefti" />
+		<property name="persistenceUnitName" value="FTI" />
+		<property name="packagesToScan" value="com.hcentive.eligibility.domain.ext.fti" />
+		<property name="jpaProperties">
+			<props>
+				<prop key="org.hibernate.envers.default_schema">${jdbc.audit.schema}</prop>
+				<prop key="org.hibernate.envers.store_data_at_delete">true</prop>
+				<prop key="org.hibernate.envers.audit_strategy">org.hibernate.envers.strategy.ValidityAuditStrategy
+				</prop>
+				<prop key="hibernate.listeners.envers.autoRegister">${enableAuditing}</prop>
+				<prop key="javax.persistence.validation.mode">none</prop>
+				<prop key="org.hibernate.envers.audit_table_prefix">${auditTablePrefix}</prop>
+			</props>
+		</property>
+		<property name="jpaPropertyMap">
+			<map>
+				<entry key="javax.persistence.validation.factory" value-ref="validator" />
+			</map>
+		</property>
+		<property name="jpaVendorAdapter" ref="jpaAdapter"></property>
+	</bean>
+
+	<bean id="validator"
+		class="org.springframework.validation.beanvalidation.LocalValidatorFactoryBean" />
+
+	<bean id="jpaAdapter"
+		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="database" value="${database}" />
+		<property name="showSql" value="true"></property>
+		<property name="databasePlatform" value="${database.dialect}"></property>
+		<property name="generateDdl" value="true" />
+	</bean>
+
+	<bean id="genericDAO" class="com.hcentive.utils.orm.dao.GenericDAOImpl"></bean>
+	
+	<bean id="incomeDao" class="com.hcentive.eligibility.ext.IncomeDaoImpl">
+		<property name="genericDAO" ref="genericDAO"/>	
+	</bean>
+	
+	<bean id="titleIIFTIDao" class="com.hcentive.eligibility.ext.TitleIIFTIDaoImpl">
+	</bean>
+	
+	<bean id="irsFTIDao" class="com.hcentive.eligibility.ext.IRSFTIDaoImpl">
+	</bean>
+	<bean id="configDataLoader" class="com.hcentive.rulesengine.service.ConfigDBDataDataLoaderImpl">
+	</bean>
+	<bean id="enrollmentPeriodService"
+		class="com.hcentive.utils.enrollment.period.service.EnrollmentPeriodServiceImpl">
+		<property name="genericDAO" ref="genericDAO" />
+	</bean>
+	
+	<bean id="ElgDeterminationImmigrationUtilService" class="com.hcentive.rulesengine.service.ElgDeterminationImmigrationUtilServiceImpl"></bean>
+	<bean id="eligibilityVerificationRecordResponseService"
+		class="com.hcentive.verification.utils.EligibilityVerificationRecordResponseServiceImpl">
+	</bean>
+	<bean id="eligibilityVerificationStatusService"
+		class="com.hcentive.verification.service.EligibilityVerificationStatusServiceImpl">
+		<property name="genericDAO" ref="genericDAO" />
+	</bean>
+	
+	<bean id="hhCompFactsBuilderService"
+		class="com.hcentive.rulesengine.hhComp.service.HHCompFactsBuilderServiceImpl">
+	</bean>
+	
+	<bean id="hhCompositionRuleFacade"
+		class="com.hcentive.rulesengine.hhComp.service.HHCompositionRuleFacadeImpl">
+	</bean>
+	
+	<bean id="fPLRepositoryService" class="com.hcentive.rulesengine.service.FPLRepositoryServiceImpl"></bean>
+	
+	<bean id ="eligibilityXMLLoader" class="com.hcentive.rulesengine.batch.eligibility.determination.EligibilityXMLLoader"></bean>
+	<bean id ="eligibilityXMLConstructor" class="com.hcentive.rulesengine.batch.eligibility.determination.EligibilityXMLConstructor"></bean>
+</beans>

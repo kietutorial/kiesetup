@@ -1,0 +1,253 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.StartDateType;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.utils.ext.HxDateUtils;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.ext.PostEligibilityDates.DateCategoryEnum;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import java.util.Calendar;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Due to Drools Working memory limitation - split post eligibility rules into 4 files as below
+//PostEligibilityDeterminationMedicaid.drl -- Groups till Post_Medicaid_Postpartum_2A_AG
+//PostEligibilityDeterminationMedicaid2.drl -- only Post_Medicaid_Postpartum_2C_AG
+//PostEligibilityDeterminationMedicaid3.drl -- only Post_Medicaid_Postpartum_3_AG
+//PostEligibilityDeterminationMedicaid4.drl -- Starting Post_Medicaid_Postpartum_2b_AG, 4, 4B, 5 till TMA
+
+
+//Main Rule
+rule "MAIN_MEDICAID_POST_ELG_02"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_POST_ELG_02 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_POST_ELG_02");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_ACK_02);
+		drools.setFocus("MEDICAID_POST_ELG_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_POST_ELG_02 : End");
+end
+
+
+//CR1606
+rule "MEDICAID_POST_ELG_STALE_ELG_SEC_01"
+salience 95060
+activation-group "MEDICAID_POST_ELG_STALE_1_AT"
+agenda-group "MEDICAID_POST_ELG_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_POST_ELG_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_POST_ELG_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_02);
+		logger.debug("Rule : MEDICAID_POST_ELG_STALE_ELG_SEC_01 : End");
+end
+
+rule "MEDICAID_POST_ELG_STALE_ELG_SEC_03"
+salience 95050
+activation-group "MEDICAID_POST_ELG_STALE_1_AT"
+agenda-group "MEDICAID_POST_ELG_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_POST_ELG_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_POST_ELG_STALE_ELG_SEC_03");
+		drools.setFocus("Medicaid_RULE_FLIP2_AG");
+		logger.debug("Rule : MEDICAID_POST_ELG_STALE_ELG_SEC_03 : End");
+end
+
+//CR 1307
+//Medicaid PostPartum 2c
+
+rule "Medicaid_RULE_FLIP_PD_2_1_AG"
+salience 2002
+activation-group "Medicaid_RULE_FLIP2_AT"
+agenda-group "Medicaid_RULE_FLIP2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(("Post_Medicaid_Postpartum_2C_3_4_AG".equals(isRunRequiredForSheet)
+														 || "Post_Medicaid_Postpartum_2C_3_2B_4_AG".equals(isRunRequiredForSheet)
+														 ));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_RULE_FLIP_PD_2_1_AG : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_RULE_FLIP_PD_2_1_AG");
+		drools.setFocus("Post_Medicaid_Postpartum_2C_AG");
+		logger.debug("Rule : Medicaid_RULE_FLIP_PD_2_1_AG : End");
+end
+
+rule "Medicaid_RULE_FLIP_PD_2_2_AG"
+salience 1990
+activation-group "Medicaid_RULE_FLIP2_AT"
+agenda-group "Medicaid_RULE_FLIP2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!("Post_Medicaid_Postpartum_2C_3_4_AG".equals(isRunRequiredForSheet)
+														 || "Post_Medicaid_Postpartum_2C_3_2B_4_AG".equals(isRunRequiredForSheet)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_RULE_FLIP_PD_2_2_AG : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_RULE_FLIP_PD_2_2_AG");
+		drools.setFocus("Post_Medicaid_STEP_2_AG");
+		logger.debug("Rule : Medicaid_RULE_FLIP_PD_2_2_AG : End");
+end
+
+
+rule "Post_Medicaid_Postpartum_2C_0"
+salience 77100
+activation-group "Post_Medicaid_Postpartum_2C_AT"
+agenda-group "Post_Medicaid_Postpartum_2C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isSameMonth(getPostPartumSaveDate(ProgramCode.MEDICAID), getInMemReleaseDate()),
+														!isPrevSelfIncarAndCurrentNoSelfIncar);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Medicaid_Postpartum_2C_0");
+		drools.setFocus("Post_Medicaid_STEP_2_AG");
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_0 : End");
+end
+
+rule "Post_Medicaid_Postpartum_2C_1"
+salience 77090
+activation-group "Post_Medicaid_Postpartum_2C_AT"
+agenda-group "Post_Medicaid_Postpartum_2C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isSameMonth(getPostPartumSaveDate(ProgramCode.MEDICAID), getInMemReleaseDate()),
+														isPrevSelfIncarAndCurrentNoSelfIncar,
+														!HXUtility.isSameMonth(currentDate, getPostPartumSaveDate(ProgramCode.MEDICAID)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Medicaid_Postpartum_2C_1");
+		drools.setFocus("Post_Medicaid_STEP_2_AG");
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_1 : End");
+end
+
+rule "Post_Medicaid_Postpartum_2C_2"
+salience 77080
+activation-group "Post_Medicaid_Postpartum_2C_AT"
+agenda-group "Post_Medicaid_Postpartum_2C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isSameMonth(getPostPartumSaveDate(ProgramCode.MEDICAID), getInMemReleaseDate()),
+														isPrevSelfIncarAndCurrentNoSelfIncar,
+														HXUtility.isSameMonth(currentDate, getPostPartumSaveDate(ProgramCode.MEDICAID)),
+														isDateAfter(currentDate, HXUtility.middleDayForCurrentMonth(currentDate)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Medicaid_Postpartum_2C_2");
+		//$eDeterminationfacts.updatePostPartumSaveDate(ProgramCode.MEDICAID, HxDateUtils.moveDatetoEndOfMonth(HxDateUtils.addTodate($eDeterminationfacts.getPostPartumSaveDate(ProgramCode.MEDICAID), Calendar.MONTH, 2))); //TODO
+		$eDeterminationfacts.setIsEndDateExtByTwoMonth(true);
+		drools.setFocus("Post_Medicaid_STEP_2_AG");				
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_2 : End");
+end
+
+rule "Post_Medicaid_Postpartum_2C_3"
+salience 77070
+activation-group "Post_Medicaid_Postpartum_2C_AT"
+agenda-group "Post_Medicaid_Postpartum_2C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isSameMonth(getPostPartumSaveDate(ProgramCode.MEDICAID), getInMemReleaseDate()),
+														isPrevSelfIncarAndCurrentNoSelfIncar,
+														HXUtility.isSameMonth(currentDate, getPostPartumSaveDate(ProgramCode.MEDICAID)),
+														!isDateAfter(currentDate, HXUtility.middleDayForCurrentMonth(currentDate)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Medicaid_Postpartum_2C_3");
+		//$eDeterminationfacts.updatePostPartumSaveDate(ProgramCode.MEDICAID,HxDateUtils.moveDatetoEndOfMonth(HxDateUtils.addTodate($eDeterminationfacts.getPostPartumSaveDate(ProgramCode.MEDICAID), Calendar.MONTH, 1))); //TODO
+		$eDeterminationfacts.setIsEndDateExtByOneMonth(true);
+		drools.setFocus("Post_Medicaid_STEP_2_AG");
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_3 : End");
+end
+
+rule "Post_Medicaid_Postpartum_2C_4"
+salience 77060
+activation-group "Post_Medicaid_Postpartum_2C_AT"
+agenda-group "Post_Medicaid_Postpartum_2C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXUtility.isSameMonth(getPostPartumSaveDate(ProgramCode.MEDICAID), getInMemReleaseDate()),
+														isDateAfter(currentDate, HXUtility.middleDayForCurrentMonth(currentDate)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Medicaid_Postpartum_2C_4");
+		//$eDeterminationfacts.updatePostPartumSaveDate(ProgramCode.MEDICAID, HxDateUtils.moveDatetoEndOfMonth(HxDateUtils.addTodate($eDeterminationfacts.getPostPartumSaveDate(ProgramCode.MEDICAID), Calendar.MONTH, 2))); //TODO
+		$eDeterminationfacts.setIsEndDateExtByTwoMonth(true);
+		drools.setFocus("Post_Medicaid_STEP_2_AG");
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_4 : End");
+end
+
+rule "Post_Medicaid_Postpartum_2C_5"
+salience 77050
+activation-group "Post_Medicaid_Postpartum_2C_AT"
+agenda-group "Post_Medicaid_Postpartum_2C_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXUtility.isSameMonth(getPostPartumSaveDate(ProgramCode.MEDICAID), getInMemReleaseDate()),
+														!isDateAfter(currentDate, HXUtility.middleDayForCurrentMonth(currentDate)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Medicaid_Postpartum_2C_5");
+		//$eDeterminationfacts.updatePostPartumSaveDate(ProgramCode.MEDICAID,HxDateUtils.moveDatetoEndOfMonth(HxDateUtils.addTodate($eDeterminationfacts.getPostPartumSaveDate(ProgramCode.MEDICAID), Calendar.MONTH, 1))); //TODO
+		$eDeterminationfacts.setIsEndDateExtByOneMonth(true);
+		drools.setFocus("Post_Medicaid_STEP_2_AG");
+		logger.debug("Rule : Post_Medicaid_Postpartum_2C_5 : End");
+end
+
+//Medicaid PostPartum 2c End
+
+//Rule completion
+rule "Post_Medicaid_STEP_2"
+salience 60000
+activation-group "Post_Medicaid_STEP_2_AT"
+agenda-group "Post_Medicaid_STEP_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Post_Medicaid_STEP_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Post_Medicaid_STEP_2");
+		$eDeterminationfacts.setPrevSectionACKName("RULE_EXEC_STEP_POST_ELG_02");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_POST_ELG_02);
+		logger.debug("Rule : Post_Medicaid_STEP_2 : End");
+end
+
+
+//Due to Drools Working memory limitation - split post eligibility rules into 4 files as below
+//PostEligibilityDeterminationMedicaid.drl -- Groups till Post_Medicaid_Postpartum_2A_AG
+//PostEligibilityDeterminationMedicaid2.drl -- only Post_Medicaid_Postpartum_2C_AG
+//PostEligibilityDeterminationMedicaid3.drl -- only Post_Medicaid_Postpartum_3_AG
+//PostEligibilityDeterminationMedicaid4.drl -- Starting Post_Medicaid_Postpartum_2b_AG, 4, 4B, 5 till TMA
+

@@ -1,0 +1,21 @@
+----
+Repository Stream for defect:
+Use from repository:
+	Issue Found in release NY-HX (CM) CommonDev-12.2 (2/9)
+	Planned for release: 13.2.1 (6/8)
+<share>\NY-HX\Development\build\2017\R13_2_1__6_8
+See document: C:\ELLIGIBILITY\tasks\508Compliance\defect75354\Streams.pdf
+
+
+Daily Status For Stream
+--------------------------------
+Look for Patrick Civill Email on Tue 4/25/2017 2:12 PM
+Subject:  Daily Status - Streams, Environments, Folders, Calendars
+
+o In the email body see the release
+R13.2.1	O&M	DIT1	-	NY-HX (CM) CommonDev-13.2.1
+(6/8)				<share>\NY-HX\Development\build\2017\R13_2_1__6_8
+
+o The change will be deployed to DIT1
+- Look for change there:
+http://nyxsvzalb039:9081/agent-dit1/boLogin

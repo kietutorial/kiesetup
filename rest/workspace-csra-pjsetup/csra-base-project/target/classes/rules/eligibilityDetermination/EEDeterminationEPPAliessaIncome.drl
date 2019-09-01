@@ -1,0 +1,1192 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.IncomeTypeUsed;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.rulesengine.domain.ElgRulesIndicatorBean.IncomeRunMode;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_EPP_INCOME"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_EPP_INCOME : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "MAIN_EPP_INCOME");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_02_ACK);
+		drools.setFocus("EPP_INCOME_STALE_1_AG");
+		logger.debug("Rule : MAIN_EPP_INCOME : End");
+end
+
+//CR1606
+rule "EPP_INCOME_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "EPP_INCOME_STALE_1_AT"
+agenda-group "EPP_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : EPP_INCOME_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_INCOME_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_INCOME_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "EPP_INCOME_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "EPP_INCOME_STALE_1_AT"
+agenda-group "EPP_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : EPP_INCOME_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_INCOME_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("EPP_FPL_Band_1_AG");
+		logger.debug("Rule : EPP_INCOME_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+rule "EPP_FPL_Band_1_1"
+salience 85700
+activation-group "EPP_FPL_Band_1_AT"
+agenda-group "EPP_FPL_Band_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_FPL_Band_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_FPL_Band_1_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setFplMin(configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setFplMax(configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4));
+		drools.setFocus("EPP_Income_1_AG");
+		logger.debug("Rule : EPP_FPL_Band_1_1 : End");
+end
+
+//BHP Income (1)
+rule "EPP_Income_1_1"
+salience 90000
+activation-group "EPP_Income_1_AT"
+agenda-group "EPP_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.MEDICAID));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.MED_ELG);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_1_1 : End");
+end
+
+
+rule "EPP_Income_1_2"
+salience 89990
+activation-group "EPP_Income_1_AT"
+agenda-group "EPP_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+											             !isInEligibleForProgram(ProgramCode.CHIP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.CHIP_ELG);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_1_2 : End");
+end
+
+rule "EPP_Income_1_3"
+salience 89980
+activation-group "EPP_Income_1_AT"
+agenda-group "EPP_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.MEDICAID),
+														isInEligibleForProgram(ProgramCode.CHIP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_1_3");
+		drools.setFocus("EPP_Income_2_AG");
+		logger.debug("Rule : EPP_Income_1_3 : End");
+end
+
+//Epp Income(2)
+
+rule "EPP_Income_2_1"
+salience 80000
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isFinancialAssistanceRequired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.NRFA);		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_2_1 : End");
+end
+
+rule "EPP_Income_2_2"
+salience 79990
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired, 
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.EPP_AI_MIN);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_2_2 : End");
+end
+
+rule "EPP_Income_2_3"
+salience 79980
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+		                                                (memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.EPP_AI_MAX);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_2_3 : End");
+end
+
+rule "EPP_Income_2_4"
+salience 79975
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),													    
+														isRunModeNoIncomeDataSource,
+														getRenewalPeriodForMemberHasPast());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPIDNA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRunMode(IncomeRunMode.NOINCOME);	
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_2_4 : End");
+end
+
+//CR1394
+rule "EPP_Income_2_4A"
+salience 79972
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),													    
+														!isRunModeNoIncomeDataSource,isIrsDataExists,currentlyAPTCIncomeClkExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_4A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_4A");
+	    $eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRunMode(IncomeRunMode.STANDARDINCOME);	
+       	drools.setFocus("EPP_Income_8_AG");
+		logger.debug("Rule : EPP_Income_2_4A : End");
+end
+
+rule "EPP_Income_2_4B"
+salience 79970
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),													    
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														!isCurrentlyEnrolledInEPP,
+														!isIncomeFromDataSource
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_4B : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_4B");
+		//$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPIDNA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRunMode(IncomeRunMode.STANDARDINCOME);
+		drools.setFocus("EPP_Income_3_AG");
+		logger.debug("Rule : EPP_Income_2_4B : End");
+end
+
+rule "EPP_Income_2_4C"
+salience 79968
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),													    
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														!isCurrentlyEnrolledInEPP,
+														isIncomeFromDataSource
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_4C : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_4C");
+		//$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.RPIDNA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRunMode(IncomeRunMode.DATASOURCEINCOME);
+		drools.setFocus("EPP_Income_3_AG");
+		logger.debug("Rule : EPP_Income_2_4C : End");
+end
+
+rule "EPP_Income_2_5"
+salience 79966
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),													    
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInEPP,
+														getMemberIsNowMandatoryForUpComingMonth(),
+														!isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.RPRIR);	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRunMode(IncomeRunMode.STANDARDINCOME);
+		drools.setFocus("EPP_Income_3_AG");
+		logger.debug("Rule : EPP_Income_2_5 : End");
+end
+
+rule "EPP_Income_2_5A"
+salience 79965
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),													    
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInEPP,
+														getMemberIsNowMandatoryForUpComingMonth(),
+														isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_5A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_5A");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.RPRIR);	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRunMode(IncomeRunMode.DATASOURCEINCOME);
+		drools.setFocus("EPP_Income_3_AG");
+		logger.debug("Rule : EPP_Income_2_5A : End");
+end
+
+rule "EPP_Income_2_6"
+salience 79963
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),													    
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInEPP,
+														!getMemberIsNowMandatoryForUpComingMonth(),
+														!isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.RPRISO);	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRunMode(IncomeRunMode.STANDARDINCOME);
+		drools.setFocus("EPP_Income_3_AG");
+		logger.debug("Rule : EPP_Income_2_6 : End");
+end
+
+rule "EPP_Income_2_6A"
+salience 79962
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),													    
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInEPP,
+														!getMemberIsNowMandatoryForUpComingMonth(),
+														isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_6A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_6A");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.RPRISO);	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRunMode(IncomeRunMode.DATASOURCEINCOME);
+		drools.setFocus("EPP_Income_3_AG");
+		logger.debug("Rule : EPP_Income_2_6A : End");
+end
+
+rule "EPP_Income_2_7"
+salience 79960
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),
+														!(isRunModeNoIncomeDataSource),
+														!(isIncomeFromDataSource));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_7");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRunMode(IncomeRunMode.STANDARDINCOME);
+		drools.setFocus("EPP_Income_3_AG");
+		logger.debug("Rule : EPP_Income_2_7 : End");
+end
+
+rule "EPP_Income_2_8"
+salience 79950
+activation-group "EPP_Income_2_AT"
+agenda-group "EPP_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MIN)),
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),
+														!(isRunModeNoIncomeDataSource),
+														isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_2_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_2_8");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRunMode(IncomeRunMode.DATASOURCEINCOME);
+		drools.setFocus("EPP_Income_3_AG");
+		logger.debug("Rule : EPP_Income_2_8 : End");
+end
+
+//EPP Income(3)
+
+rule "EPP_Income_3_1"
+salience 70000
+activation-group "EPP_Income_3_AT"
+agenda-group "EPP_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_3_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_3_1 : End");
+end
+
+rule "EPP_Income_3_2"
+salience 69990
+activation-group "EPP_Income_3_AT"
+agenda-group "EPP_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+		                                                 !(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                 !isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_3_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B5, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.HH_INCOME);
+		$eDeterminationfacts.resetEppAliessaInd();
+		drools.setFocus("EPP_Income_6_AG");
+		logger.debug("Rule : EPP_Income_3_2 : End");
+end
+
+rule "EPP_Income_3_3"
+salience 69980
+activation-group "EPP_Income_3_AT"
+agenda-group "EPP_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+		                                                 !(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                 isAIANSpecialBenefits);		
+	then	
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_3_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B4, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.HH_INCOME);
+		$eDeterminationfacts.resetEppAliessaInd();
+		drools.setFocus("EPP_Income_6_AG");
+		logger.debug("Rule : EPP_Income_3_3 : End");
+end
+
+rule "EPP_Income_3_4"
+salience 69970
+activation-group "EPP_Income_3_AT"
+agenda-group "EPP_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                 !(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                                 !isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_3_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_3_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B3, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.HH_INCOME);
+		$eDeterminationfacts.resetEppAliessaInd();
+		drools.setFocus("EPP_Income_6_AG");	
+		logger.debug("Rule : EPP_Income_3_4 : End");
+end
+
+rule "EPP_Income_3_5"
+salience 69960
+activation-group "EPP_Income_3_AT"
+agenda-group "EPP_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                 !(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                                 isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_3_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_3_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B2, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.HH_INCOME);
+		$eDeterminationfacts.resetEppAliessaInd();
+		drools.setFocus("EPP_Income_6_AG");
+		logger.debug("Rule : EPP_Income_3_5 : End");
+end
+
+
+
+rule "EPP_Income_3_6"
+salience 69950
+activation-group "EPP_Income_3_AT"
+agenda-group "EPP_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+														(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                               !(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4)),
+		                                               !getEppAliessaInd());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_3_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_3_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.INC_LT_BNA_138);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_3_6 : End");
+end
+
+rule "EPP_Income_3_7"
+salience 69940
+activation-group "EPP_Income_3_AT"
+agenda-group "EPP_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+														(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                               !(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4)),
+		                                                 getEppAliessaInd());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_3_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_3_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B1, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.HH_INCOME);
+		drools.setFocus("EPP_Income_6_AG");
+		logger.debug("Rule : EPP_Income_3_7 : End");
+end
+
+rule "EPP_Income_3_8"
+salience 69930
+activation-group "EPP_Income_3_AT"
+agenda-group "EPP_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+														(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                                (getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4)),
+		                                                !getEppAliessaInd());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_3_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_3_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.INC_LT_BNA_100);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_3_8 : End");
+end
+
+rule "EPP_Income_3_9"
+salience 69920
+activation-group "EPP_Income_3_AT"
+agenda-group "EPP_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+														(getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                                (getHhFpl() <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4)),
+		                                                 getEppAliessaInd());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_3_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_3_9");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B0, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.HH_INCOME);
+		drools.setFocus("EPP_Income_6_AG");
+		logger.debug("Rule : EPP_Income_3_9 : End");
+end
+
+
+//EPP Income(5)
+
+rule "EPP_Income_5_1"
+salience 50000
+activation-group "EPP_Income_5_AT"
+agenda-group "EPP_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(epp_income_90_Day_VerificationNoticeSent));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_5_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_5_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.IVO);
+		//TO DO
+		//Schedule Verification Notice
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.EPP_INCOME_90);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_5_1 : End");
+end
+
+rule "EPP_Income_5_2"
+salience 49990
+activation-group "EPP_Income_5_AT"
+agenda-group "EPP_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((epp_income_90_Day_VerificationNoticeSent),
+									!(epp_income_90_DayClockExpired));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_5_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_5_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.EPP_INCOME_90);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_5_2 : End");
+end
+
+rule "EPP_Income_5_3"
+salience 49980
+activation-group "EPP_Income_5_AT"
+agenda-group "EPP_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((epp_income_90_Day_VerificationNoticeSent),
+									(epp_income_90_DayClockExpired),
+									!(isIrsDataExists));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_5_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_5_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.IVOP_90);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setEppNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_5_3 : End");
+end
+
+rule "EPP_Income_5_4"
+salience 49970
+activation-group "EPP_Income_5_AT"
+agenda-group "EPP_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((epp_income_90_Day_VerificationNoticeSent),
+									(epp_income_90_DayClockExpired),
+									(isIrsDataExists));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_5_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_5_4");
+		drools.setFocus("EPP_Income_8_AG");
+		logger.debug("Rule : EPP_Income_5_4 : End");
+end
+
+//BHP Income(6)
+
+rule "EPP_Income_6_1"
+salience 60000
+activation-group "EPP_Income_6_AT"
+agenda-group "EPP_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isInEligibleForProgram(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_6_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_6_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_6_1 : End");
+end
+
+rule "EPP_Income_6_2"
+salience 59990
+activation-group "EPP_Income_6_AT"
+agenda-group "EPP_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.EPP),
+														isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_6_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_6_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_6_2 : End");
+end
+
+rule "EPP_Income_6_3"
+salience 59980
+activation-group "EPP_Income_6_AT"
+agenda-group "EPP_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.EPP),
+														!isIncomeFromDataSource,
+														isIncomeVerificationComplete);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_6_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_6_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);	
+		logger.debug("Rule : EPP_Income_6_3 : End");
+end
+	
+rule "EPP_Income_6_4"
+salience 59970
+activation-group "EPP_Income_6_AT"
+agenda-group "EPP_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.EPP),
+														!isIncomeFromDataSource,
+														!isIncomeVerificationComplete,
+														!(isReasonablyCompatableSources || isIrsDataExists),
+														attestedNoIncome);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_6_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_6_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_6_4 : End");
+end
+
+rule "EPP_Income_6_5"
+salience 59960
+activation-group "EPP_Income_6_AT"
+agenda-group "EPP_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.EPP),
+														!isIncomeFromDataSource,
+														!isIncomeVerificationComplete,
+														!(isReasonablyCompatableSources || isIrsDataExists),
+														!attestedNoIncome);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_6_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_6_5");
+		drools.setFocus("EPP_Income_5_AG");
+		logger.debug("Rule : EPP_Income_6_5 : End");
+end
+
+rule "EPP_Income_6_6"
+salience 59950
+activation-group "EPP_Income_6_AT"
+agenda-group "EPP_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.EPP),
+														!isIncomeFromDataSource,
+														!isIncomeVerificationComplete,
+														(isReasonablyCompatableSources || isIrsDataExists),
+														attestedUIBOnlyWithDSAvailableForUIBAndOrWage);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_6_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_6_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_6_6 : End");
+end
+
+// Enh 49889: Removing check for "isIncomeResonablyCompatable" instead checking for "isReasonablyCompatable10"
+rule "EPP_Income_6_7"
+salience 59940
+activation-group "EPP_Income_6_AT"
+agenda-group "EPP_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.EPP),
+														!isIncomeFromDataSource,
+														!isIncomeVerificationComplete,
+														(isReasonablyCompatableSources || isIrsDataExists),
+														!(attestedUIBOnlyWithDSAvailableForUIBAndOrWage),
+														isReasonablyCompatable10);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_6_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_6_7");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_6_7 : End");
+end
+
+// Enh 49889: Removing check for "isIncomeResonablyCompatable" instead checking for "isReasonablyCompatable10"
+rule "EPP_Income_6_8"
+salience 59930
+activation-group "EPP_Income_6_AT"
+agenda-group "EPP_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.EPP),
+														!isIncomeFromDataSource,
+														!isIncomeVerificationComplete,
+														(isReasonablyCompatableSources || isIrsDataExists),
+														!(attestedUIBOnlyWithDSAvailableForUIBAndOrWage),
+														!isReasonablyCompatable10,
+														(hhDSIncome > hhIncome || hhIRSDSIncome > hhIncome));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_6_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_6_8");
+		drools.setFocus("EPP_Income_5_AG");
+		logger.debug("Rule : EPP_Income_6_8 : End");
+end
+
+// Enh 49889: Removing check for "isIncomeResonablyCompatable" instead checking for "isReasonablyCompatable10"
+rule "EPP_Income_6_9"
+salience 59920
+activation-group "EPP_Income_6_AT"
+agenda-group "EPP_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isInEligibleForProgram(ProgramCode.EPP),
+														!isIncomeFromDataSource,
+														!isIncomeVerificationComplete,
+														(isReasonablyCompatableSources || isIrsDataExists),
+														!(attestedUIBOnlyWithDSAvailableForUIBAndOrWage),
+														!isReasonablyCompatable10,
+														!(hhDSIncome > hhIncome || hhIRSDSIncome > hhIncome));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_6_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_6_9");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_6_9 : End");
+end
+
+
+//BHP Income (8)
+rule "EPP_Income_8_1"
+salience 40000
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		
+		//EHN# 53119
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setEppOver90andDSnotEPlevelInd(Boolean.TRUE);
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_1 : End");
+end
+
+// Modified for CR1394
+rule "EPP_Income_8_2"
+salience 39990
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+		                                                !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                !currentlyAPTCIncomeClkExpired,!isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B5, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.resetEppAliessaInd();
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_2 : End");
+end
+
+// CR1394
+rule "EPP_Income_8_2A"
+salience 39985
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+		                                                !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                currentlyAPTCIncomeClkExpired,!isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_2A");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B5, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.EP_AFTER_APTC90CLK);
+		$eDeterminationfacts.resetEppAliessaInd();
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_2A : End");
+end
+
+// Modified for CR1394
+rule "EPP_Income_8_3"
+salience 39980
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+		                                                !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+                                                        !currentlyAPTCIncomeClkExpired,
+		                                                isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B4, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.resetEppAliessaInd();
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_3 : End");
+end
+
+//CR1394
+rule "EPP_Income_8_3A"
+salience 39975
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+		                                                !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                currentlyAPTCIncomeClkExpired,
+		                                                isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_3A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_3A");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B4, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.EP_AFTER_APTC90CLK);
+		$eDeterminationfacts.resetEppAliessaInd();
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_3A : End");
+end
+
+
+// Modified for CR1394
+rule "EPP_Income_8_4"
+salience 39970
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+								                        !currentlyAPTCIncomeClkExpired,
+		                                                !isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B3, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.resetEppAliessaInd();
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_4 : End");
+end
+
+//CR1394
+rule "EPP_Income_8_4A"
+salience 39965
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                                currentlyAPTCIncomeClkExpired,
+		                                                !isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_4A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_4A");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B3, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.EP_AFTER_APTC90CLK);
+		$eDeterminationfacts.resetEppAliessaInd();
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_4A : End");
+end
+
+
+// Modified for CR1394
+rule "EPP_Income_8_5"
+salience 39960
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														 (irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                 !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+                                                         !currentlyAPTCIncomeClkExpired,
+		                                                 isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B2, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.resetEppAliessaInd();
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_5 : End");
+end
+
+//CR1394
+rule "EPP_Income_8_5A"
+salience 39955
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														 (irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+		                                                 !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                                 currentlyAPTCIncomeClkExpired,
+		                                                 isAIANSpecialBenefits);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_5A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_5A");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B2, null);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.EP_AFTER_APTC90CLK);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.resetEppAliessaInd();
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_5A : End");
+end
+
+rule "EPP_Income_8_6"
+salience 39950
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														 (irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),	
+														 (irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                                 !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4)),
+		                                                 !getEppAliessaInd());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.INC_LT_BNA_138);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_6 : End");
+end
+
+// Modified for CR1394
+rule "EPP_Income_8_7"
+salience 39940
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                                !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4)),
+		                                                getEppAliessaInd(),
+                                                        !currentlyAPTCIncomeClkExpired);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B1, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_7 : End");
+end
+
+//CR1394
+rule "EPP_Income_8_7A"
+salience 39935
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+		                                                !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4)),
+		                                                getEppAliessaInd(),
+		                                                currentlyAPTCIncomeClkExpired);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_7A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_7A");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B1, null);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.EP_AFTER_APTC90CLK);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_7A : End");
+end
+
+// Modified for CR1394
+rule "EPP_Income_8_8"
+salience 39930
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+														(irsDSFpl < configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4)),
+		                                                 !getEppAliessaInd());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.INC_LT_BNA_100);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_8 : End");
+end
+
+// Modified for CR1394
+rule "EPP_Income_8_9"
+salience 39920
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+														(irsDSFpl < configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4)),
+		                                                 getEppAliessaInd(),
+                                                        !currentlyAPTCIncomeClkExpired);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_9");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B0, null);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_9 : End");
+end
+
+//CR1394
+rule "EPP_Income_8_9A"
+salience 39910
+activation-group "EPP_Income_8_AT"
+agenda-group "EPP_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_1)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_2)),
+														(irsDSFpl <= configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_3)),
+														(irsDSFpl < configGroupBean.getValueFor(RuleKey.EPP_FPL_LVL_4)),
+		                                                 getEppAliessaInd(),
+		                                                 currentlyAPTCIncomeClkExpired);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Income_8_9A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Income_8_9A");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, AidCategory.B0, null);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.EP_AFTER_APTC90CLK);
+		$eDeterminationfacts.setEppIncomeToUse(IncomeTypeUsed.IRS_DS_INCOME);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : EPP_Income_8_9A : End");
+end

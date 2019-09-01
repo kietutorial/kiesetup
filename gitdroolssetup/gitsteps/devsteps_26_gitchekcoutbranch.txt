@@ -1,0 +1,23 @@
+REPO
+-----
+ssh://kvenkat1@nyxsvlalb015/opt/was/git/NYSOHRulesRepository
+kvenkat1
+Nov@2017
+
+
+----
+cd to directory
+
+git fetch
+git checkout origin/executable_workflows_v102-20170918
+
+executable_workflows_v102-20170918
+
+Create new executable_workflows_v102-20170918 for v102, for some reason. The original executable_workflows_v102 was generating errors on commit. 
+
+All workflows have been implemented with the new MemberRuleFacts domain object. Plus added a util, WorkFlowUtil, to aid in validating the workflow.
+
+C:\GITSANDBOX_PROD\20171004v102a
+
+SOAPUI instruction on REST access to process flows. I saw issues after
+resetting my maven environment - removed pojo project. 

@@ -1,0 +1,441 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+import com.hcentive.eligibility.ext.PostEligibilityDates.DateCategoryEnum;
+import com.hcentive.override.eligibility.dataobject.OverrideToCHIPEligibilityBean;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+
+
+rule "MAIN_EPP_OVERRIDE"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_EPP_OVERRIDE : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "MAIN_EPP_OVERRIDE");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_OVERRIDE_ACK);
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		//drools.setFocus("EPP_OVR_GENERAL_1_AG");
+		logger.debug("Rule : MAIN_EPP_OVERRIDE : End");
+end
+
+// ******************************  NO CODE CHANGES MADE AS PART OF CR1606 SINCE SETFOCUS IS COMMENTED IN THIS DRL **** //
+/*ST
+//EPP Override(1)
+
+
+rule "EPP_Override_1_0"
+salience 90000
+activation-group "EPP_OVR_GENERAL_1_AT"
+agenda-group "EPP_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Override_1_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Override_1_0");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_MED);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : EPP_Override_1_0 : End");
+end
+
+
+rule "EPP_Override_1_1"
+salience 89990
+activation-group "EPP_OVR_GENERAL_1_AT"
+agenda-group "EPP_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Override_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Override_1_1");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_CHIP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : EPP_Override_1_1 : End");
+end
+
+
+rule "EPP_Override_1_2"
+salience 89980
+activation-group "EPP_OVR_GENERAL_1_AT"
+agenda-group "EPP_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Override_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Override_1_2");
+		drools.setFocus("EPP_OVR_TYPE_1_AG");
+		logger.debug("Rule : EPP_Override_1_2 : End");
+end
+
+
+rule "EPP_Override_1_3"
+salience 89970
+activation-group "EPP_OVR_GENERAL_1_AT"
+agenda-group "EPP_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.QHP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Override_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Override_1_3");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_QHP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : EPP_Override_1_3 : End");
+end
+
+
+rule "EPP_Override_1_4"
+salience 89960
+activation-group "EPP_OVR_GENERAL_1_AT"
+agenda-group "EPP_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNoOverrideAvailableForProgram());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Override_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Override_1_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : EPP_Override_1_4 : End");
+end
+
+
+rule "EPP_Override_1_5"
+salience 89950
+activation-group "EPP_OVR_GENERAL_1_AT"
+agenda-group "EPP_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoOverrideAvailableForProgram());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Override_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Override_1_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : EPP_Override_1_5 : End");
+end
+
+
+//EPP Override Type(1)
+
+
+rule "EPP_OVR_Types_1_1"
+salience 88000
+activation-group "EPP_OVR_TYPE_1_AT"
+agenda-group "EPP_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP), 
+														getEPPOverrideBean().getIsFullOverrideRequested());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_Types_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_Types_1_1");
+		
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.EPP, program_status.ELIGIBLE, null);
+		
+		drools.setFocus("EPP_OVR_FULL_ELG_DATES_1_AG");
+		
+		logger.debug("Rule : EPP_OVR_Types_1_1 : End");
+end
+
+
+rule "EPP_OVR_Types_1_2"
+salience 87990
+activation-group "EPP_OVR_TYPE_1_AT"
+agenda-group "EPP_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP), 
+														getEPPOverrideBean().getIsPartialOverrideRequested(), 
+														getEPPOverrideBean().getIsPartialOverrideReadyToRunForDrools());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_Types_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_Types_1_2");
+		
+		drools.setFocus("EPP_OVR_PART_ELG_DATES_1_AG");
+		
+		logger.debug("Rule : EPP_OVR_Types_1_2 : End");
+end
+
+
+rule "EPP_OVR_Types_1_3"
+salience 87980
+activation-group "EPP_OVR_TYPE_1_AT"
+agenda-group "EPP_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP), 
+														getEPPOverrideBean().getIsPartialOverrideRequested(), 
+														!getEPPOverrideBean().getIsPartialOverrideReadyToRunForDrools());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_Types_1_3 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_Types_1_3");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : EPP_OVR_Types_1_3 : End");
+end
+
+
+//EPP Override Full Elg Dates(1)
+
+
+rule "EPP_OVR_Full_Elg_Dates_1_1"
+salience 86000
+activation-group "EPP_OVR_FULL_ELG_DATES_1_AT"
+agenda-group "EPP_OVR_FULL_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP), 
+														!HXUtility.isNull(getEPPOverrideBean().getOverrideElgEffectiveStartDate()), 
+														!HXUtility.isNull(getEPPOverrideBean().getOverrideElgEffectiveEndDate()));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_Full_Elg_Dates_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_Full_Elg_Dates_1_1");
+		
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.EPP).getOverrideElgEffectiveStartDate());
+		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.EPP, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.EPP).getOverrideElgEffectiveEndDate());
+				
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP, HXUtility.getCurrentDate());
+		
+		drools.setFocus("EPP_OVR_FULL_REASON_CODES_1_AG");
+		
+		logger.debug("Rule : EPP_OVR_Full_Elg_Dates_1_1 : End");
+end
+
+
+//EPP Override Part Elg Dates(1)
+
+
+rule "EPP_OVR_part_Elg_Dates_1_1"
+salience 85000
+agenda-group "EPP_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP), 
+														!HXUtility.isNull(getEPPOverrideBean().getOverrideElgEffectiveStartDate()), 
+														HXUtility.isNull(getEPPOverrideBean().getOverrideElgEffectiveEndDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_part_Elg_Dates_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_part_Elg_Dates_1_1");
+				
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.EPP).getOverrideElgEffectiveStartDate());
+		
+		logger.debug("Rule : EPP_OVR_part_Elg_Dates_1_1 : End");
+end
+
+
+rule "EPP_OVR_part_Elg_Dates_1_2"
+salience 84990
+agenda-group "EPP_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP), 
+														HXUtility.isNull(getEPPOverrideBean().getOverrideElgEffectiveStartDate()), 
+														!HXUtility.isNull(getEPPOverrideBean().getOverrideElgEffectiveEndDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_part_Elg_Dates_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_part_Elg_Dates_1_2");
+		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.EPP, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.EPP).getOverrideElgEffectiveEndDate());
+		
+		logger.debug("Rule : EPP_OVR_part_Elg_Dates_1_2 : End");
+end
+
+
+rule "EPP_OVR_part_Elg_Dates_1_END"
+salience 84980
+agenda-group "EPP_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_part_Elg_Dates_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_part_Elg_Dates_1_END");
+		
+		drools.setFocus("EPP_OVR_PART_REASON_CODES_1_AG");
+		
+		logger.debug("Rule : EPP_OVR_part_Elg_Dates_1_END : End");
+end
+
+
+//EPP Override Full Reason Codes(1)
+
+
+rule "EPP_OVR_Full_Reason_Codes_1_1"
+salience 78000
+activation-group "EPP_OVR_FULL_REASON_CODES_1_AT"
+agenda-group "EPP_OVR_FULL_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP), 
+														!HXUtility.isEmpty(getEPPOverrideBean().getAllReasonCodes()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_Full_Reason_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_Full_Reason_Codes_1_1");
+		
+		$eDeterminationfacts.setReasonCodes(ProgramCode.EPP, $eDeterminationfacts.getEPPOverrideBean().getAllReasonCodes());
+		
+		drools.setFocus("EPP_OVR_FULL_EPP_FPL_1_AG");
+		
+		logger.debug("Rule : EPP_OVR_Full_Reason_Codes_1_1 : End");
+end
+
+
+//EPP Override Part Reason Codes(1)
+
+
+rule "EPP_OVR_Part_Reason_Codes_1_1"
+salience 77000
+agenda-group "EPP_OVR_PART_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP), 
+														!HXUtility.isEmpty(getEPPOverrideBean().getAllReasonCodes()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_Part_Reason_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_Part_Reason_Codes_1_1");
+		
+		$eDeterminationfacts.setReasonCodes(ProgramCode.EPP, $eDeterminationfacts.getEPPOverrideBean().getAllReasonCodes());
+		
+		logger.debug("Rule : EPP_OVR_Part_Reason_Codes_1_1 : End");
+end
+
+
+rule "EPP_OVR_Part_Reason_Codes_1_END"
+salience 76990
+agenda-group "EPP_OVR_PART_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_Part_Reason_Codes_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_Part_Reason_Codes_1_END");
+		
+		drools.setFocus("EPP_OVR_PART_EPP_FPL_1_AG");
+		
+		logger.debug("Rule : EPP_OVR_Part_Reason_Codes_1_END : End");
+end
+
+
+//EPP Override Full EPP FPL (1)
+
+
+rule "EPP_OVR_Full_EPP_FPL_1_1"
+salience 73000
+activation-group "EPP_OVR_FULL_EPP_FPL_1_AT"
+agenda-group "EPP_OVR_FULL_EPP_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP),
+														!HXUtility.isNull(getEPPOverrideBean().getEPPFPL()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_Full_EPP_FPL_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_Full_EPP_FPL_1_1");
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.FULL_OVR_FPL, $eDeterminationfacts.getEPPOverrideBean().getEPPFPL() +"");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : EPP_OVR_Full_EPP_FPL_1_1 : End");
+end
+
+
+//Chip Override Part Post Eligibility (1)
+
+
+rule "EPP_OVR_Part_EPP_Fpl_1_1"
+salience 73000
+agenda-group "EPP_OVR_PART_EPP_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP),
+														!HXUtility.isNull(getEPPOverrideBean().getEPPFPL()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_Part_EPP_Fpl_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_Part_EPP_Fpl_1_1");
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.PART_OVR_FPL, $eDeterminationfacts.getEPPOverrideBean().getEPPFPL() +"");
+		
+		logger.debug("Rule : EPP_OVR_Part_EPP_Fpl_1_1 : End");
+end
+
+
+rule "EPP_OVR_Part_EPP_Fpl_1_END"
+salience 72970
+agenda-group "EPP_OVR_PART_EPP_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_OVR_Part_EPP_Fpl_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_OVR_Part_EPP_Fpl_1_END");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : EPP_OVR_Part_EPP_Fpl_1_END : End");
+end
+
+ST*/

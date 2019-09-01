@@ -1,0 +1,258 @@
+C:\ShopCommonDev15.2_1\ShopCommonDev15.2_1WorkSpace
+
+Assumptions
+----------------------------
+o All required softwares have been installed in:
+C:\dev\CSCommonDev\softwares
+o Eclipse project was created at:
+C:\dev\CSCommonDev
+* See C:\ELLIGIBILITY\devsetup\docs\DevSoftwareInstall00-dev.doc for full instructions
+* See my full setup instructions: 
+C:\A-ELLIGIBILITY\devsetup\docs\DevSoftwareInstall00-dev.txt			
+			
+Create Your Repository Connection and Location
+------------------------------------------------
+From eclipse: Select [Team A tab]
+- Create a Repository Connection
+URI: https://clm.emedny.org/ccm/
+Name: clm.emedny.org/ccm/
+UserID: pchauvet
+Password: xxxx
+Finish
+
+- Repository Connection-pchauvet.emedny.org/ccm/
+Right Click new created Connection:
+pchauvet@clm.emedny.org - Manage Connected Project Areas
+Check NY-HX(CM)
+Finish
+A new repository appears:
+NY-HX(CM) [clm.emedny.org]
+
+
+o Create Repository Workspace
+-------------------------------------------
+Select Tab: Team Artifacts
+Select NY-HX(CM) [clm.emedny.org] and open child Trees
+Select Source Control expand to:
+Select latest repo:  NY-HX CommonDev-13.3 (NY-HX (CM))
+Right-Click - New - Repository Workspace
+Repository Workspace Name: pchauvet-NY-HX-CommonDev-13.3
+Next
+Use current repository pchauvet@clm.emedny.org
+Next - Private
+Deselect All
+Select Root project: Documents, HX_Stack
+un-check the check box  (Load repository workspace after creation)
+Finish
+
+
+Load My Repository Workspace 
+--------------------------------------------------- 
+Select Tab: Team Artifacts
+Go to My Repository Workspace expand
+Select  pchauvet-NY-HX-CommonDev-13.3 Workspace
+Right Click - Load
+Select "Load the root folders of components as project"
+Next
+Deselect All
+Select Root project: Documents, HX_Stack
+Finish
+
+
+Import Existing Maven Projects
+-------------------------------------------
+o Go to Project Explorer
+o Select File – Import - Maven - Existing Maven Project 
+- provide the location of just downloaded HX_Stack folder location:
+C:\dev\CSCommonDev\HX_Stack\modules
+- inside the workspace. It will scan the folder and show all the maven projects. 
+o Select the Add projects to working set: Documents
+o Please select these projects from C:\dev\CSCommonDev\HX_Stack\modules and
+Deselect All
+
+agent
+agent-web-hix
+
+common-web
+customerservice
+eligibility
+
+employer-web
+enrollment
+
+hx-common-services
+hx-entity-commons
+hx-notice-service
+hx-service-common
+	
+individual-hix
+individual-web
+
+notifications
+paper-application
+
+rules-engine
+shop
+
+user-management
+utilities/immi-serv-resp-data-correction
+
+Select Next, Next
+If the maven m2e info shows, Next
+Continue with import - Click Ok
+If License, Agree to License
+Finish
+Restart eclipse
+
+o Select the Add projects to working set: Documents
+o Please select these projects from:
+C:\dev\CSCommonDev\HX_Stack\applications
+Deselect All
+
+applications/cs-agent-hix-portal
+
+applications/employer-hix-portal
+
+applications/individual-hix-jobs
+applications/individual-hix-portal
+
+applications/paper-application-jobs
+
+Select Next
+Finish
+
+
+Set Up Build Environment
+-------------------------------------
+Get scripts from U:\devenvironemntinit\fromSandeepB\SetUp
+Get and copy these two batch files to: C:\dev\CSCommonDev
+1_env.bat – This is the environment variable file. It needs to be copied inside workspace folder.It needs to be updated as per current workspace location and respective maven and tomcat location.
+00_Build All – EVERYTHING.bat – This file should also be at the same location as above and updated with workspace location.
+
+
+o Set 1_env.bat to deployment environment:
+SET JAVA_HOME=C:\dev\softwares\IBM-JDK161
+SET MAVEN_HOME=C:\dev\softwares\apache-maven-3.0.4
+SET M2_HOME=C:\dev\softwares\apache-maven-3.0.4
+SET HCENTIVE_VERSION=core-4.0.0
+SET HCENTIVE_CS_BUILD_PROFILE=tomcat
+SET HCENTIVE_EE_WAR_VERSION=2.5.17
+SET MVN_EXCEPTION_ARG= -e
+SET MVN_DEBUG_ARG=
+SET MAVEN_IGNORE_TEST=true
+SET HCENTIVE_HOME=C:\dev\CSCommonDev\HX_Stack
+SET TOMCAT_HOME=C:\dev\softwares\apache-tomcat-7.0.35_Prod
+SET CATALINA_HOME=%TOMCAT_HOME%
+SET EXTERNAL_JARS_PATH=Z:\Development\rohit\Z_MY_Build\Support Files\JARS
+SET ITEXT_PATH=Z:\Development\rohit\Z_MY_Build\Support Files\JARS
+
+o For 00_Build All – EVERYTHING.batch
+- add this to the first line:
+call "C:\dev\CSCommonDev\1_env.bat"
+
+
+Set the Tomcat For The Individual App Properties
+---------------------------------------------------------
+o There are to applications to be configure: agents and individual
+- individual processes the individual applicant information
+- agents is the back office for dev of application information - back office
+- For individual get the individual.xml and directory resources: Individual_Config_Template
+- For agents get the agents.xml and directory resources: Agent_Config_Template
+
+o Get from directory:
+U:\devenvironemntinit\fromSandeepB\SetUp
+
+o Copy both directory Agent_Config_Template and Individual_Config_Template to the directory:
+C:\dev\CSCommonDev\HX_Stack\
+
+o For Individual deployment
+- Change the file: C:\dev\CSCommonDev\Individual_Config_Template\application.properties
+config.folder=C:/dev/CSCommonDev/HX_Stack/config
+
+o For Agents deployment
+- Change the file: C:\CSCommonDev\HX_Stack\Agent_Config_Template\application.properties
+config.folder=C:/dev/CSCommonDev/HX_Stack/config
+
+o Get xml files from: U:\devenvironemntinit\fromSandeepB\SetUp
+o Place the *.xml in in the tomcat directory: C:\dev\softwares\apache-tomcat-7.0.35\conf\Catalina\localhost
+- Changed individual.xml if deploying individual:
+- Move the agent.xml to ./agent directory
+<Context path="/individual" 
+	docBase="C:\dev\CSCommonDev\HX_Stack\applications\individual-hix-portal\target\individual-webapp-public-7.4.1">
+
+	<Environment 
+		name="indv_config_path" 
+		override="false" 
+		type="java.lang.String" 
+		value="C:/dev/CSCommonDev/HX_Stack/Individual_Config_Template">
+	</Environment>
+
+	- At the bottom of file:
+	<Loader className="org.apache.catalina.loader.VirtualWebappLoader"
+          virtualClasspath="C:/dev/softwares/apache-tomcat-7.0.35/applib/*.jar"/>
+
+- If using agents.xml
+- Changed agents.xml:
+<Context path="/agent" 
+	docBase="C:\dev\CSCommonDev\HX_Stack\applications\cs-agent-hix-portal\target\cs-agent-hix-portal-7.4.1">  
+	
+	<Environment name="agent_config_path" 
+			override="false"
+			type="java.lang.String" 
+			value="C:\dev\CSCommonDev\HX_Stack\Agent_Config_Template">
+	</Environment>
+
+	- At the bottom of file:
+	<Loader className="org.apache.catalina.loader.VirtualWebappLoader"
+          virtualClasspath="C:/dev/softwares/apache-tomcat-7.0.35/applib/*.jar"/>
+	
+
+Create The Encrypted Property File For ALF
+---------------------------------------------
+o Copy encryptions file
+Copy U:\devenvironemntinit\fromSandeepB\SetUp2\alfresco-encrypt.properties
+to C:/dev/softwares/
+
+o Change the original JASYPT encryption 
+from:
+app.alf_user_name=ENC(MoaSHZAPEg5ESptC7qOPVWAbWevRTxUX)
+app.alf_user_password=ENC(ab3BXbPj9dxfZa0ngC2zHzIhlw9Ygmec)
+to:
+app.alf_user_name=csc_user
+app.alf_user_password=csc_user
+
+Note: Normally JASYPT needs the ENC, it was removed to allow connection on LOCAL deploy
+
+	
+Build Application
+----------------------------------
+- Go to command line shell
+cd C:\dev\CSCommonDev
+Execute 00_Build All – EVERYTHING.bat
+
+
+Start the Apache Serve In Tomcat
+--------------------------------------------
+- Go to eclipse click the "Start Tomcat" icon
+- Sever should start
+
+
+Access Local Deployed Web Application
+--------------------------------------------
+For individual app:
+http://localhost:8080/individual/signin
+
+For agent app:
+http://localhost:8080/agent/boLogin
+
+
+My Personal Build Files\JARS
+----------------------------------------------------
+o I want to see how the build creates a single build
+o I created my own build scripts located at C:\ELLIGIBILITY\devsetup\fromSandeepB\Myscripts
+- I creted the environment file: 2_env.cmd
+- I created a single build file: b.cmd
+- I created a build allfile: ball.cmd
+
+o Place all these files in: 
+C:\dev\CSCommonDev

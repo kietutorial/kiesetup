@@ -1,0 +1,2763 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.utils.ext.HxDateUtils;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_EPP_SUMMARY"
+salience 49610
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_EPP_SUMMARY : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "MAIN_EPP_SUMMARY");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04_ACK);
+		drools.setFocus("EPP_SUMMARY_STALE_1_AG");
+		logger.debug("Rule : MAIN_EPP_SUMMARY : End");
+end
+
+
+//CR1606
+rule "EPP_SUMMARY_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "EPP_SUMMARY_STALE_1_AT"
+agenda-group "EPP_SUMMARY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : EPP_SUMMARY_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SUMMARY_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_SUMMARY_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "EPP_SUMMARY_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "EPP_SUMMARY_STALE_1_AT"
+agenda-group "EPP_SUMMARY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : EPP_SUMMARY_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SUMMARY_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("EPP_Summary_1_AG");
+		logger.debug("Rule : EPP_SUMMARY_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//////////////////////////////////////////////////////Income////////////////////////////////////////////////
+//EPP Summary(1)
+
+rule "EPP_Summary_1_1"
+salience 49600
+activation-group "EPP_Summary_1_AT"
+agenda-group "EPP_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_1_1");		
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.NOFCR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_1_1 : End");
+end
+
+/*
+// Commented this rule for Enh 48191 : Tushar M
+
+rule "EPP_Summary_1_2"
+salience 49595
+activation-group "EPP_Summary_1_AT"
+agenda-group "EPP_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID), 
+														isReceivingHomeCareOrPersonCareService);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_1_2");		
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.HCPCR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_1_2 : End");
+end
+*/
+
+rule "EPP_Summary_1_3"
+salience 49590
+activation-group "EPP_Summary_1_AT"
+agenda-group "EPP_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														//!isReceivingHomeCareOrPersonCareService,
+														isProgramStatusInEligible(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_1_3");
+		drools.setFocus("EPP_Summary_3_AG");
+		drools.setFocus("EPP_Summary_8_AG");
+		drools.setFocus("EPP_Summary_7_AG");
+		logger.debug("Rule : EPP_Summary_1_3 : End");
+end
+
+
+rule "EPP_Summary_1_4"
+salience 49580
+activation-group "EPP_Summary_1_AT"
+agenda-group "EPP_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														//!isReceivingHomeCareOrPersonCareService,
+														isProgramStatusSuspend(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_1_4");
+		drools.setFocus("EPP_Summary_2_AG");
+		logger.debug("Rule : EPP_Summary_1_4 : End");
+end
+
+rule "EPP_Summary_1_5"
+salience 49570
+activation-group "EPP_Summary_1_AT"
+agenda-group "EPP_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														//!isReceivingHomeCareOrPersonCareService,
+														isProgramStatusPending(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_1_5");
+		drools.setFocus("EPP_Summary_2_AG");
+		logger.debug("Rule : EPP_Summary_1_5 : End");
+end
+
+
+rule "EPP_Summary_1_6"
+salience 49560
+activation-group "EPP_Summary_1_AT"
+agenda-group "EPP_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														//!isReceivingHomeCareOrPersonCareService,
+														!isProgramStatusInEligible(ProgramCode.EPP),
+														!isProgramStatusSuspend(ProgramCode.EPP),
+														!isProgramStatusPending(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_1_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.ELIGIBLE, null);
+		drools.setFocus("EPP_Summary_2_AG");
+		drools.setFocus("EPP_Summary_5_AG");
+		logger.debug("Rule : EPP_Summary_1_6 : End");
+end
+
+
+//EPP Summary(2)
+
+rule "EPP_Summary_2_1"
+salience 49600
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.SSN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_1 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_1");
+		logger.debug("Rule : EPP_Summary_2_1 : End");
+end
+
+
+rule "EPP_Summary_2_2"
+salience 49590
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_2 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_2");
+		logger.debug("Rule : EPP_Summary_2_2 : End");
+end
+
+rule "EPP_Summary_2_3"
+salience 49580
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.IMMIGRATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_3 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_3");
+		logger.debug("Rule : EPP_Summary_2_3 : End");
+end
+
+
+rule "EPP_Summary_2_4"
+salience 49570
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.INCARCERATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_4 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_4");
+		logger.debug("Rule : EPP_Summary_2_4 : End");
+end
+
+rule "EPP_Summary_2_5"
+salience 49560
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.STATE_RESIDENCY));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.STATE_RESIDENCY);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_5");
+		//drools.setFocus("EPP_Summary_3_AG");
+		logger.debug("Rule : EPP_Summary_2_5 : End");
+end
+
+rule "EPP_Summary_2_6"
+salience 49550
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.AMERICAN_INDIAN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_6 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.AMERICAN_INDIAN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_6");
+		logger.debug("Rule : EPP_Summary_2_6 : End");
+end
+
+rule "EPP_Summary_2_7"
+salience 49540
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.INCOME));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_7 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_7");
+		logger.debug("Rule : EPP_Summary_2_7 : End");
+end
+
+rule "EPP_Summary_2_8"
+salience 49530
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationTypeMEC(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_8 : Begin");
+		$eDeterminationfacts.activateMECClocks(ProgramCode.EPP);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_8");
+		logger.debug("Rule : EPP_Summary_2_8 : End");
+end
+
+rule "EPP_Summary_2_9"
+salience 49520
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.ESI));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_9 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.ESI);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_9");
+		logger.debug("Rule : EPP_Summary_2_9 : End");
+end
+
+rule "EPP_Summary_2_10"
+salience 49510
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.ESI_WAIT_PERIOD));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_10 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.ESI_WAIT_PERIOD);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_10");
+		logger.debug("Rule : EPP_Summary_2_10 : End");
+end
+
+
+rule "EPP_Summary_2_11"
+salience 49500
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP,
+														EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_11");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		logger.debug("Rule : EPP_Summary_2_11 : End");
+end
+
+rule "EPP_Summary_2_12"
+salience 49490
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isNonDeterminsiticClockSetForProgramAndClockName(ProgramCode.EPP,
+														getClockName(HXConstants.EPP_DECEASED_CLCOK)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.EPP).getCancelNonDeterministicDeceasedClock()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_12");
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.EPP, $eDeterminationfacts.getClockName(HXConstants.EPP_DECEASED_CLCOK));
+		logger.debug("Rule : EPP_Summary_2_12 : End");
+end
+
+//CR1455 Changes Start
+rule "EPP_Summary_2_12A"
+salience 49495
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.EPP, EligibilityVerificationTypeEnum.IMMG_GRANTDATE));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_12A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_12A");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.IMMG_GRANTDATE);
+		logger.debug("Rule : EPP_Summary_2_12A : End");
+end
+//CR1455 Changes End
+
+
+
+rule "EPP_Summary_2_13"
+salience 49480
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_13");
+		logger.debug("Rule : EPP_Summary_2_13 : End");
+end
+
+
+
+rule "EPP_Summary_2_14"
+salience 49470
+agenda-group "EPP_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_2_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_2_14");
+		drools.setFocus("EPP_Summary_4_AG");
+		logger.debug("Rule : EPP_Summary_2_14 : End");
+end
+
+//EPP Summary(3)
+
+rule "EPP_Summary_3_1"
+salience 49600
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.SSN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_1 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_1");
+		logger.debug("Rule : EPP_Summary_3_1 : End");
+end
+
+
+rule "EPP_Summary_3_2"
+salience 49590
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_2 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_2");
+		logger.debug("Rule : EPP_Summary_3_2 : End");
+end
+
+rule "EPP_Summary_3_3"
+salience 49580
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.IMMIGRATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_3 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_3");
+		logger.debug("Rule : EPP_Summary_3_3 : End");
+end
+
+
+rule "EPP_Summary_3_4"
+salience 49570
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.INCARCERATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_4 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_4");
+		logger.debug("Rule : EPP_Summary_3_4 : End");
+end
+
+rule "EPP_Summary_3_5"
+salience 49560
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.STATE_RESIDENCY));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_5 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.STATE_RESIDENCY);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_5");
+		logger.debug("Rule : EPP_Summary_3_5 : End");
+end
+
+rule "EPP_Summary_3_6"
+salience 49550
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.AMERICAN_INDIAN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_6 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.AMERICAN_INDIAN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_6");
+		logger.debug("Rule : EPP_Summary_3_6 : End");
+end
+
+rule "EPP_Summary_3_7"
+salience 49540
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														EligibilityVerificationTypeEnum.INCOME));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_7 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_7");
+		logger.debug("Rule : EPP_Summary_3_7 : End");
+end
+
+rule "EPP_Summary_3_8"
+salience 49530
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationTypeMEC(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_8 : Begin");
+		$eDeterminationfacts.inActivateMECClocks(ProgramCode.EPP);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_8");
+		logger.debug("Rule : EPP_Summary_3_8 : End");
+end
+
+rule "EPP_Summary_3_9"
+salience 49520
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_TRI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_9 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_TRI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_9");
+		logger.debug("Rule : EPP_Summary_3_9 : End");
+end
+
+rule "EPP_Summary_3_10"
+salience 49510
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_10 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_PEACE_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_10");
+		logger.debug("Rule : EPP_Summary_3_10 : End");
+end
+
+rule "EPP_Summary_3_11"
+salience 49500
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_11 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_AMERI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_11");
+		logger.debug("Rule : EPP_Summary_3_11 : End");
+end
+
+rule "EPP_Summary_3_12"
+salience 49490
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.ESI));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_12");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.ESI);
+		logger.debug("Rule : EPP_Summary_3_12 : End");
+end
+
+rule "EPP_Summary_3_13"
+salience 49480
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.ESI_WAIT_PERIOD));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_13");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.ESI_WAIT_PERIOD);
+		logger.debug("Rule : EPP_Summary_3_13 : End");
+end
+
+
+rule "EPP_Summary_3_14"
+salience 49420
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP,
+														EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_14");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		logger.debug("Rule : EPP_Summary_3_14 : End");
+end
+
+
+
+
+rule "EPP_Summary_3_15"
+salience 49410
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonDeterminsiticClockSetForProgramAndClockName(ProgramCode.EPP,
+														getClockName(HXConstants.EPP_DECEASED_CLCOK)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_15 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_15");
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.EPP, $eDeterminationfacts.getClockName(HXConstants.EPP_DECEASED_CLCOK));
+		logger.debug("Rule : EPP_Summary_3_15 : End");
+end
+
+//CR1455 Changes Start
+rule "EPP_Summary_3_15A"
+salience 49405
+agenda-group "EPP_Summary_3_15A"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.MEDICAID, 
+														EligibilityVerificationTypeEnum.IMMG_GRANTDATE));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_15A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_15A");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.IMMG_GRANTDATE);
+		logger.debug("Rule : EPP_Summary_3_15A : End");
+end
+//CR1455 Changes End
+
+rule "EPP_Summary_3_16"
+salience 49400
+agenda-group "EPP_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_3_16 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_3_16");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_3_16 : End");
+end
+
+//EPP Summary(4)
+
+rule "EPP_Summary_4_1"
+salience 49600
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.INCARCERATION_1),
+														is1DayRerunScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4_1 : End");
+end
+
+
+rule "EPP_Summary_4_2"
+salience 49590
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.INCARCERATION_1),
+														!is1DayRerunScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4_2 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, ClockNameEnum.INCARCERATION_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4_2 : End");
+end
+
+rule "EPP_Summary_4_3"
+salience 49580
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.INCARCERATION_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4_3 : End");
+end
+
+//Summary_4v1_4 TRICARE
+rule "EPP_Summary_4v1_4"
+salience 49575
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_TRI_TERMIN_1),
+														isTricareTerminationClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4v1_4 : Begin");
+		logger.debug("No action..");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4v1_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4v1_4 : End");
+end
+
+
+
+rule "EPP_Summary_4v1_5"
+salience 49570
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_TRI_TERMIN_1),
+														!isTricareTerminationClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4v1_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, ClockNameEnum.MEC_TRI_TERMIN_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4v1_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4v1_5 : End");
+end
+
+
+rule "EPP_Summary_4v1_6"
+salience 49565
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_TRI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4v1_6 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_TRI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4v1_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4v1_6 : End");
+end
+
+
+//Summary_4v2_4 PeaceCorps
+rule "EPP_Summary_4v2_4"
+salience 49560
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1),
+														isPeaceCorpsTerminationClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4v2_4 : Begin");
+		logger.debug("No action..");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4v2_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4v2_4 : End");
+end
+
+
+
+rule "EPP_Summary_4v2_5"
+salience 49555
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1),
+														!isPeaceCorpsTerminationClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4v2_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, ClockNameEnum.MEC_PEACE_TERMIN_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4v2_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4v2_5 : End");
+end
+
+
+rule "EPP_Summary_4v2_6"
+salience 49550
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4v2_6 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_PEACE_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4v2_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4v2_6 : End");
+end
+
+//Summary_4v3_4 AmeriCorps
+rule "EPP_Summary_4v3_4"
+salience 49545
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1),
+														isAmeriCorpsTerminationClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4v3_4 : Begin");
+		logger.debug("No action..");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4v3_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4v3_4 : End");
+end
+
+
+
+rule "EPP_Summary_4v3_5"
+salience 49540
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1),
+														!isAmeriCorpsTerminationClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4v3_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.EPP, ClockNameEnum.MEC_AMERI_TERMIN_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4v3_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4v3_5 : End");
+end
+
+
+rule "EPP_Summary_4v3_6"
+salience 49535
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4v3_6 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.EPP, EligibilityVerificationTypeEnum.MEC_AMERI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4v3_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4v3_6 : End");
+end
+
+
+//EPP Summary(4) Cont...
+
+rule "EPP_Summary_4_7"
+salience 49530
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.SPL_WAIT_PRD_END_1),
+														isSpecialWaitingPeriod_1_DayClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4_7");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4_7 : End");
+end
+
+
+
+rule "EPP_Summary_4_8"
+salience 49525
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.SPL_WAIT_PRD_END_1),
+														!isSpecialWaitingPeriod_1_DayClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4_8");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4_8 : End");
+end
+
+
+rule "EPP_Summary_4_9"
+salience 49520
+activation-group "EPP_Summary_4_AT"
+agenda-group "EPP_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.EPP, 
+														ClockNameEnum.SPL_WAIT_PRD_END_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_4_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_4_9");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_4_9 : End");
+end
+
+
+
+//EPP Summary (5)
+//Note: Rule completeion step is done in sheet 4 as ruleset 4 will execute at the end
+
+rule "EPP_Summary_5_1"
+salience 47000
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+		                                                !isElgStartDateAvailable(ProgramCode.EPP),
+														!getEppAliessaInd(),
+														!isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_1");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.EPP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_1 : End");
+end
+
+
+rule "EPP_Summary_5_2"
+salience 46990
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														!isElgStartDateAvailable(ProgramCode.EPP),
+														!getEppAliessaInd(),
+														isPrevEPPEligible,
+														!(isLSCThruNonRenewalBatch));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_2");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.EPP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_2 : End");
+end
+
+rule "EPP_Summary_5_3"
+salience 46985
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														!isElgStartDateAvailable(ProgramCode.EPP),
+														!getEppAliessaInd(),
+														isPrevEPPEligible,
+														(isLSCThruNonRenewalBatch));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_3");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.EPP);
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.EPP,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.EPP));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_3 : End");
+end
+
+rule "EPP_Summary_5_4"
+salience 46980
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														!isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														!((isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal))),
+														!isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_4");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, $eDeterminationfacts.getProgram(ProgramCode.EPP).getEligibilityRunDate());
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.EPP, $eDeterminationfacts.getAliessaTransistionEndDate());
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_4 : End");
+end
+
+
+rule "EPP_Summary_5_5"
+salience 46975
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														!isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														((isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal))),
+														!isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_5");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, $eDeterminationfacts.getProgram(ProgramCode.EPP).getEligibilityRunDate());
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_5 : End");
+end
+
+rule "EPP_Summary_5_5A"
+salience 46973
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														!isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														isPrevEPPEligible,
+														!(isLSCThruNonRenewalBatch));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_5A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_5A");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.EPP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_5A : End");
+end
+
+rule "EPP_Summary_5_5B"
+salience 46972
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														!isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														isPrevEPPEligible,
+														isLSCThruNonRenewalBatch);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_5B : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_5B");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.EPP);
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.EPP,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.EPP));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_5B : End");
+end
+
+rule "EPP_Summary_5_6"
+salience 46970
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														!isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														!isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														!isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_6");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, $eDeterminationfacts.getProgram(ProgramCode.EPP).getEligibilityRunDate());
+		//$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.EPP,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.EPP));
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_6 : End");
+end
+
+rule "EPP_Summary_5_7"
+salience 46960
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														!isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														!isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														isPrevEPPEligible,
+														!(isLSCThruNonRenewalBatch));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_7");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, $eDeterminationfacts.getProgram(ProgramCode.EPP).getEligibilityRunDate());
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_7 : End");
+end
+
+rule "EPP_Summary_5_8"
+salience 46955
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+		                                                !isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														!isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														isPrevEPPEligible,
+														(isLSCThruNonRenewalBatch));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_8");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, $eDeterminationfacts.getProgram(ProgramCode.EPP).getEligibilityRunDate());
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.EPP,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.EPP));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_8 : End");
+end
+
+rule "EPP_Summary_5_9"
+salience 46950
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.EPP),
+		                                                !isElgStartDateAvailable(ProgramCode.EPP),
+														!getEppAliessaInd(),
+														!isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_9 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_9");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_9 : End");
+end
+
+rule "EPP_Summary_5_10"
+salience 46940
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.EPP),
+		                                                !isElgStartDateAvailable(ProgramCode.EPP),
+														!getEppAliessaInd(),
+														isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_10 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_10");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_10 : End");
+end
+
+rule "EPP_Summary_5_11"
+salience 46930
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.EPP),
+														!isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														!isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_11 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_11");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, $eDeterminationfacts.getProgram(ProgramCode.EPP).getEligibilityRunDate());
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_11 : End");
+end
+
+rule "EPP_Summary_5_12"
+salience 46920
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.EPP),
+														!isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_12 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_12");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, $eDeterminationfacts.getProgram(ProgramCode.EPP).getEligibilityRunDate());
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_12 : End");
+end
+
+rule "EPP_Summary_5_13"
+salience 46910
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														!((isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal))),
+														!isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_13 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_13");
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.EPP, $eDeterminationfacts.getAliessaTransistionEndDate());
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_13 : End");
+end
+
+
+rule "EPP_Summary_5_14"
+salience 46900
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														((isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal))),
+														!isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_14 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_14");
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_14 : End");
+end
+
+rule "EPP_Summary_5_14A"
+salience 46897
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														isPrevEPPEligible,
+														!(isLSCThruNonRenewalBatch));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_14A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_14A");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.EPP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_14A : End");
+end
+
+rule "EPP_Summary_5_14B"
+salience 46893
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														isPrevEPPEligible,
+														isLSCThruNonRenewalBatch);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_14B : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_14B");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.EPP);
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.EPP,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.EPP));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_14B : End");
+end
+
+rule "EPP_Summary_5_15"
+salience 46890
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														!isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														!isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_15 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_15");
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_15 : End");
+end
+
+rule "EPP_Summary_5_16"
+salience 46880
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+														isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														!isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														isPrevEPPEligible,
+														!(isLSCThruNonRenewalBatch));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_16 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_16");
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.EPP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_16 : End");
+end
+
+rule "EPP_Summary_5_17"
+salience 46870
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.EPP),
+		                                                isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														!isDateAfterRunForDate(getAliessaTransistionEndDate()),
+														isPrevEPPEligible,
+														(isLSCThruNonRenewalBatch));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_17 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_17");		
+		$eDeterminationfacts.setElgEndDateAsPrevElgResultEndDate(ProgramCode.EPP,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.EPP));
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_17 : End");
+end
+
+rule "EPP_Summary_5_18"
+salience 46860
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.EPP),
+														isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														!isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_18 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_18");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_18 : End");
+end
+
+rule "EPP_Summary_5_19"
+salience 46850
+activation-group "EPP_Summary_5_AT"
+agenda-group "EPP_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.EPP),
+														isElgStartDateAvailable(ProgramCode.EPP),
+														getEppAliessaInd(),
+														isPrevEPPEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_5_19 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_5_19");
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.EPP,new java.util.Date());
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_5_19 : End");
+end
+
+//EPP Summary(7)
+
+rule "EPP_Summary_7_0"
+salience 44000
+activation-group "EPP_Summary_7_AT"
+agenda-group "EPP_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(madeIneligibleDueToBeingDeceased,
+														isMemberMarkedDeceasedInPrevRun);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_7_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_7_0");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, $eDeterminationfacts.getPrevElgStartDateForDeceasedMember(ProgramCode.EPP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.EPP, $eDeterminationfacts.getPrevElgEndDateForDeceasedMember(ProgramCode.EPP));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getPrevElgEndDateForDeceasedMember(ProgramCode.EPP)));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED_IN_PRV_RUN, "1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_7_0 : End");
+end
+
+rule "EPP_Summary_7_1"
+salience 43997
+activation-group "EPP_Summary_7_AT"
+agenda-group "EPP_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(madeIneligibleDueToBeingDeceased,
+														HXUtility.isDate2GreaterThanDate1(getPreviousElgStartDate(ProgramCode.EPP), getLogicalDateOfDeceased()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_7_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_7_1");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.EPP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.EPP, $eDeterminationfacts.getLogicalDateOfDeceased());
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_7_1 : End");
+end
+
+rule "EPP_Summary_7_1A"
+salience 43995
+activation-group "EPP_Summary_7_AT"
+agenda-group "EPP_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(madeIneligibleDueToBeingDeceased,
+														HXUtility.isDate2GreaterThanOrEqualToDate1(getLogicalDateOfDeceased(), getPreviousElgStartDate(ProgramCode.EPP)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_7_1A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_7_1A");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.EPP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.EPP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.EPP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.EPP));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getPreviousElgStartDate(ProgramCode.EPP)));
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_7_1A : End");
+end
+
+rule "EPP_Summary_7_2"
+salience 43990
+activation-group "EPP_Summary_7_AT"
+agenda-group "EPP_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!madeIneligibleDueToBeingDeceased);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_7_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_7_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_7_2 : End");
+end
+
+//EPP Summary(8)
+rule "EPP_Summary_8_0"
+salience 49405
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_0");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_0 : End");
+end
+
+rule "EPP_Summary_8_1"
+salience 49400
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														isReceivingNursingCareReferral(ProgramCode.MEDICAID));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1 : End");
+end
+
+//modified by hari start
+rule "EPP_Summary_8_1A"
+salience 49390
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isMemberPregnant,
+														(isMedicareEligible || isMedicarePartIndReceived()),
+														getIsEPPAliessaInPrevElg());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalSysParentChildCareTakerMedicareInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setLscSysParentChildCaretakerIndTPHI(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1A : End");
+end
+
+rule "EPP_Summary_8_1B"
+salience 49380
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isCaretakerRelativeFlag,
+														(isMedicareEligible || isMedicarePartIndReceived()),
+														getIsEPPAliessaInPrevElg());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1B : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1B");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalSysParentChildCareTakerMedicareInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setLscSysParentChildCaretakerIndTPHI(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1B : End");
+end
+
+rule "EPP_Summary_8_1C"
+salience 49370
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isMemberParent,
+														(isMedicareEligible || isMedicarePartIndReceived()),
+														getIsEPPAliessaInPrevElg());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1C : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1C");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalSysParentChildCareTakerMedicareInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setLscSysParentChildCaretakerIndTPHI(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1C : End");
+end
+
+rule "EPP_Summary_8_1D"
+salience 49360
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isMemberPregnant,
+														(isEnrolledInEPPEsiMEC || isEnrolledTPHI));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1D : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1D");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalSysParentChildCareTakerTPHIInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setLscSysParentChildCaretakerIndTPHI(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1D : End");
+end
+
+rule "EPP_Summary_8_1E"
+salience 49350
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isCaretakerRelativeFlag,
+														(isEnrolledInEPPEsiMEC || isEnrolledTPHI));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1E : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1E");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalSysParentChildCareTakerTPHIInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setLscSysParentChildCaretakerIndTPHI(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1E : End");
+end
+
+rule "EPP_Summary_8_1F"
+salience 49340
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isMemberParent,
+														(isEnrolledInEPPEsiMEC || isEnrolledTPHI));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1F : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1F");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalSysParentChildCareTakerTPHIInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setLscSysParentChildCaretakerIndTPHI(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1F : End");
+end
+
+rule "EPP_Summary_8_1G"
+salience 49330
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														(isEnrolledInEPPEsiMEC || isEnrolledTPHI));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1G : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1G");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalSysParentChildCareTakerTPHIInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setLscSysParentChildCaretakerIndTPHI(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1G : End");
+end
+
+
+rule "EPP_Summary_8_1H"
+salience 49320
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														!isMemberChild,
+														isDisabledOrBlind,
+														(isEnrolledInEPPEsiMEC || isEnrolledTPHI));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1H : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1H");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalSysParentChildCareTakerTPHIInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setLscSysParentChildCaretakerIndTPHI(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1H : End");
+end
+
+
+rule "EPP_Summary_8_1I"
+salience 49310
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														isMemberPregnant);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1I : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1I");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalNotAptcParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1I : End");
+end
+
+rule "EPP_Summary_8_1J"
+salience 49300
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														isCaretakerRelativeFlag);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1J : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1J");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalNotAptcParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1J : End");
+end
+
+rule "EPP_Summary_8_1K"
+salience 49290
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														isMemberParent);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1K : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1K");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalNotAptcParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1K : End");
+end
+
+rule "EPP_Summary_8_1L"
+salience 49280
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1L : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1L");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalNotAptcParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1L : End");
+end
+
+rule "EPP_Summary_8_1M"
+salience 49270
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isMemberChild,
+														isDisabledOrBlind);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_1M : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_1M");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalNotAptcDisableBlindInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_1M : End");
+end
+
+//modified by hari- end
+
+rule "EPP_Summary_8_2"
+salience 49260
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														isMemberPregnant,
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_2");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setAutoReferralInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_2 : End");
+end
+
+
+
+rule "EPP_Summary_8_3"
+salience 49250
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isMemberPregnant,
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_3");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setDabCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_3 : End");
+end
+
+rule "EPP_Summary_8_4"
+salience 49240
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														// CR 1333 
+														//isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														isCaretakerRelativeFlag,
+														// CR 1333
+														(isEnrolledInEPPEsiMEC || isEnrolledTPHI));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_4");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setSpendDownInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_4 : End");
+end
+
+
+rule "EPP_Summary_8_5"
+salience 49230
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														isCaretakerRelativeFlag,
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_5");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setAutoReferralInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_5 : End");
+end
+
+rule "EPP_Summary_8_6"
+salience 49220
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isCaretakerRelativeFlag,
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_6");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setDabCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_6 : End");
+end
+
+rule "EPP_Summary_8_7"
+salience 49210
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														isCaretakerRelativeFlag);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_7");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setSpendDownInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_7 : End");
+end
+
+rule "EPP_Summary_8_8"
+salience 49200
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														// CR 1333 Removed
+														//!isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														isMemberParent,
+														// CR 1333
+														(isEnrolledInEPPEsiMEC || isEnrolledTPHI));
+
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_8");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setSpendDownInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_8 : End");
+end
+
+
+rule "EPP_Summary_8_9"
+salience 49190
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														isMemberParent,
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_9 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_9");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setAutoReferralInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_9 : End");
+end
+
+rule "EPP_Summary_8_10"
+salience 49180
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														isMemberParent,
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_10 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_10");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setDabCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_10 : End");
+end
+
+rule "EPP_Summary_8_11"
+salience 49170
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														isMemberParent);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_11 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_11");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setSpendDownInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_11 : End");
+end
+
+rule "EPP_Summary_8_12"
+salience 49160
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														isMemberChild,
+														!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														// CR 1333
+														(isEnrolledInEPPEsiMEC || isEnrolledTPHI));
+
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_12 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_12");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setSpendDownInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_12 : End");
+end
+
+rule "EPP_Summary_8_13"
+salience 49150
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														isMemberChild,
+														!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_13 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_13");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setDabCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_13 : End");
+end
+
+rule "EPP_Summary_8_14"
+salience 49140
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														isMemberChild,
+														!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_14 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_14");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setSpendDownInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_14 : End");
+end
+
+rule "EPP_Summary_8_15"
+salience 49130
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														// CR 1333 Removed 
+														//!isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														isMemberChild,
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														// CR 1333 Removed
+														//isLivingWithparentOrStepParent,
+														(isEnrolledInEPPEsiMEC || isEnrolledTPHI));
+
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_15 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_15");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setSpendDownInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_15 : End");
+end
+
+rule "EPP_Summary_8_16"
+salience 49120
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														isMemberChild,
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														isLivingWithparentOrStepParent,
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_16 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_16");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setAutoReferralInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_16 : End");
+end
+
+rule "EPP_Summary_8_17"
+salience 49115
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														isMemberChild,
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														isLivingWithparentOrStepParent,
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_17 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_17");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setDabCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_17 : End");
+end
+
+rule "EPP_Summary_8_18"
+salience 49110
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														isMemberChild,
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)));
+														// CR 1333
+														//isLivingWithparentOrStepParent);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_18 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_18");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setParentChildCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setSpendDownInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_18 : End");
+end
+
+rule "EPP_Summary_8_18A"
+salience 49105
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														isMemberChild,
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														!isLivingWithparentOrStepParent,
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_18A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_18A");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setUnder64NotCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setAutoReferralInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_18A : End");
+end
+
+rule "EPP_Summary_8_18B"
+salience 49100
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														isMemberChild,
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														!isLivingWithparentOrStepParent,
+														(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_18B : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_18B");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setDabUnder64NotCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_18B : End");
+end
+
+rule "EPP_Summary_8_19"
+salience 49095
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														isMemberChild,
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														!isLivingWithparentOrStepParent,
+														!(isMedicareEligible || isMedicarePartIndReceived()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_19 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_19");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_19 : End");
+end
+/*
+The fact Renewal (Batch) and no income data source is available
+introduced as part of CR 1269 for Renewal improvements
+*/
+rule "EPP_Summary_8_19A"
+salience 49090
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														(!isNoIncomeDataSource),
+														(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														!isMemberChild,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_19A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_19A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setRenewalNotAptcOver65NotCaretakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_19A : End");
+end
+
+rule "EPP_Summary_8_19B"
+salience 49085
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														!(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+													 	(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														!isMemberChild,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_19B : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_19B");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setLscSysOver65NotCaretakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_19B : End");
+end
+
+rule "EPP_Summary_8_20"
+salience 49080
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														!(isProposedElgForRenewal || (isManualRenewal && isAcctInLast45DaysOfRenewal)),
+														!(isCurrentlyEnrolledInMedicaid || isCurrentlyEnrolledInEPP),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														!isMemberChild,
+														(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_20 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_20");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setOver65NotCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setAutoReferralInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_20 : End");
+end
+
+rule "EPP_Summary_8_21"
+salience 49070
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														!isMemberChild,
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),
+														!isProposedElgForRenewal,
+														(isMedicareEligible || isMedicarePartIndReceived()),
+														!isDisabledOrBlind);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_21 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_21");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setUnder64NotCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setAutoReferralInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_21 : End");
+end
+
+rule "EPP_Summary_8_22"
+salience 49060
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														!isMemberChild,
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),
+														!isProposedElgForRenewal,
+														(isMedicareEligible || isMedicarePartIndReceived()),
+														!isDisabledOrBlind);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_22 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_22");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setDabUnder64NotCareTakerInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_22 : End");
+end
+
+
+rule "EPP_Summary_8_23"
+salience 49050
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														// CR 1333 Removed
+														//!isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														!isMemberChild,
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),
+														!((isMedicareEligible || isMedicarePartIndReceived())) ,
+														isDisabledOrBlind,
+														// CR 1333
+														(isEnrolledInEPPEsiMEC || isEnrolledTPHI));
+
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_23 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_23");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setDabSpenddownInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setSpendDownInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_23 : End");
+end
+
+
+rule "EPP_Summary_8_24"
+salience 49040
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														!isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														!isMemberChild,
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),
+														(isMedicareEligible || isMedicarePartIndReceived()),
+														isDisabledOrBlind);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_24 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_24");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setDabSpenddownInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setAutoReferralInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_24 : End");
+end
+
+rule "EPP_Summary_8_25"
+salience 49030
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														isReasonCodeAvailable(ProgramCode.EPP, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														!isMemberChild,
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),
+														!(isMedicareEligible || isMedicarePartIndReceived()),
+														isDisabledOrBlind);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_25 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_25");
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setDabSpenddownInd(Boolean.TRUE);
+		$eDeterminationfacts.getLDSSIndicatorForProgram(ProgramCode.EPP).setSpendDownInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_25 : End");
+end
+
+rule "EPP_Summary_8_26"
+salience 49020
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getSkipAllReferralsInd()),
+														!isReceivingNursingCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.MEDICAID),
+														isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.OI.Value()),
+														!isCaretakerRelativeFlag,
+														!isMemberParent,
+														!isMemberChild,
+														!(memberAge >= configGroupBean.getValueFor(RuleKey.EPP_AGE_MAX)),
+														!(isMedicareEligible || isMedicarePartIndReceived()),
+														!isDisabledOrBlind);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Summary_8_26 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_26");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_26 : End");
+end
+
+rule "EPP_Summary_8_27"
+salience 49010
+activation-group "EPP_Summary_8_AT"
+agenda-group "EPP_Summary_8_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(); 													
+	then
+		logger.debug("Rule : EPP_Summary_8_27 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Summary_8_27");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : EPP_Summary_8_27 : End");	
+end

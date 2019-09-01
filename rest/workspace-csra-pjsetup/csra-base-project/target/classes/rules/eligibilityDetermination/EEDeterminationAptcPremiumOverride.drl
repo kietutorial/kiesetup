@@ -1,0 +1,483 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+import com.hcentive.eligibility.ext.PostEligibilityDates.DateCategoryEnum;
+import com.hcentive.override.eligibility.dataobject.OverrideToCHIPEligibilityBean;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+
+
+rule "MAIN_APTC_PREMIUM_OVERRIDE"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_APTC_PREMIUM_OVERRIDE : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "MAIN_APTC_PREMIUM_OVERRIDE");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_ACK);
+		drools.setFocus("APTC_PREMIUM_OVR_GENERAL_1_AG");
+		logger.debug("Rule : MAIN_APTC_PREMIUM_OVERRIDE : End");
+end
+
+
+//Aptc Premium Override(1)
+
+
+rule "APTC_PREMIUM_Override_1_0"
+salience 90000
+activation-group "APTC_PREMIUM_OVR_GENERAL_1_AT"
+agenda-group "APTC_PREMIUM_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_Override_1_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_Override_1_0");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.APTC_PREMIUM, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_MED);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : APTC_PREMIUM_Override_1_0 : End");
+end
+
+
+rule "APTC_PREMIUM_Override_1_1"
+salience 89990
+activation-group "APTC_PREMIUM_OVR_GENERAL_1_AT"
+agenda-group "APTC_PREMIUM_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_Override_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_Override_1_1");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.APTC_PREMIUM, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_CHIP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : APTC_PREMIUM_Override_1_1 : End");
+end
+
+
+rule "APTC_PREMIUM_Override_1_2"
+salience 89980
+activation-group "APTC_PREMIUM_OVR_GENERAL_1_AT"
+agenda-group "APTC_PREMIUM_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.EPP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_Override_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_Override_1_2");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.APTC_PREMIUM, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_EPP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : APTC_PREMIUM_Override_1_2 : End");
+end
+
+
+rule "APTC_PREMIUM_Override_1_3"
+salience 89970
+activation-group "APTC_PREMIUM_OVR_GENERAL_1_AT"
+agenda-group "APTC_PREMIUM_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_Override_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_Override_1_3");
+		drools.setFocus("APTC_PREMIUM_OVR_TYPE_1_AG");
+		logger.debug("Rule : APTC_PREMIUM_Override_1_3 : End");
+end
+
+
+rule "APTC_PREMIUM_Override_1_4"
+salience 89960
+activation-group "APTC_PREMIUM_OVR_GENERAL_1_AT"
+agenda-group "APTC_PREMIUM_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														!getAptcOverrideBean().getIsAptcPremiumEligible());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_Override_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_Override_1_4");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.APTC_PREMIUM, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_APTC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : APTC_PREMIUM_Override_1_4 : End");
+end
+
+
+rule "APTC_PREMIUM_Override_1_5"
+salience 89950
+activation-group "APTC_PREMIUM_OVR_GENERAL_1_AT"
+agenda-group "APTC_PREMIUM_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.QHP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_Override_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_Override_1_5");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.APTC_PREMIUM, program_status.INELIGIBLE, ProgramReasonCode.ELG_OVR_QHP);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : APTC_PREMIUM_Override_1_5 : End");
+end
+
+
+rule "APTC_PREMIUM_Override_1_6"
+salience 89940
+activation-group "APTC_PREMIUM_OVR_GENERAL_1_AT"
+agenda-group "APTC_PREMIUM_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNoOverrideAvailableForProgram());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_Override_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_Override_1_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : APTC_PREMIUM_Override_1_6 : End");
+end
+
+
+rule "APTC_PREMIUM_Override_1_7"
+salience 89930
+activation-group "APTC_PREMIUM_OVR_GENERAL_1_AT"
+agenda-group "APTC_PREMIUM_OVR_GENERAL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoOverrideAvailableForProgram());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_Override_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_Override_1_7");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		logger.debug("Rule : APTC_PREMIUM_Override_1_7 : End");
+end
+
+
+//Aptc Premium Override Type(1)
+
+
+rule "APTC_PREMIUM_OVR_Types_1_1"
+salience 88000
+activation-group "APTC_PREMIUM_OVR_TYPE_1_AT"
+agenda-group "APTC_PREMIUM_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible(),
+														getAptcOverrideBean().getIsFullOverrideRequested());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_Types_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_Types_1_1");
+		
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.APTC_PREMIUM, program_status.ELIGIBLE, null);
+		$eDeterminationfacts.updateProgram(ProgramCode.APTC_PREMIUM, AidCategory.H2, null); 
+		
+		drools.setFocus("APTC_PREMIUM_OVR_FULL_ELG_DATES_1_AG");
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_Types_1_1 : End");
+end
+
+
+rule "APTC_PREMIUM_OVR_Types_1_2"
+salience 87990
+activation-group "APTC_PREMIUM_OVR_TYPE_1_AT"
+agenda-group "APTC_PREMIUM_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible(),
+														getAptcOverrideBean().getIsPartialOverrideRequested(), 
+														getAptcOverrideBean().getIsPartialOverrideReadyToRunForDrools());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_Types_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_Types_1_2");
+		
+		drools.setFocus("APTC_PREMIUM_OVR_PART_ELG_DATES_1_AG");
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_Types_1_2 : End");
+end
+
+
+rule "APTC_PREMIUM_OVR_Types_1_3"
+salience 87980
+activation-group "APTC_PREMIUM_OVR_TYPE_1_AT"
+agenda-group "APTC_PREMIUM_OVR_TYPE_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible(),
+														getAptcOverrideBean().getIsPartialOverrideRequested(), 
+														!getAptcOverrideBean().getIsPartialOverrideReadyToRunForDrools());		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_Types_1_3 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_Types_1_3");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_Types_1_3 : End");
+end
+
+
+//Aptc Premium Override Full Elg Dates(1)
+
+
+rule "APTC_PREMIUM_OVR_Full_Elg_Dates_1_1"
+salience 86000
+activation-group "APTC_PREMIUM_OVR_FULL_ELG_DATES_1_AT"
+agenda-group "APTC_PREMIUM_OVR_FULL_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible(),
+														!HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveStartDate()), 
+														!HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveEndDate()));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_Full_Elg_Dates_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_Full_Elg_Dates_1_1");
+		
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.APTC_PREMIUM, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.APTC).getOverrideElgEffectiveStartDate());
+		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.APTC_PREMIUM, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.APTC).getOverrideElgEffectiveEndDate());
+				
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.APTC_PREMIUM, HXUtility.getCurrentDate());
+		
+		drools.setFocus("APTC_PREMIUM_OVR_FULL_REASON_CODES_1_AG");
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_Full_Elg_Dates_1_1 : End");
+end
+
+
+//Aptc Premium Override Part Elg Dates(1)
+
+
+rule "APTC_PREMIUM_OVR_part_Elg_Dates_1_1"
+salience 85000
+agenda-group "APTC_PREMIUM_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible(),
+														!HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveStartDate()), 
+														HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveEndDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_part_Elg_Dates_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_part_Elg_Dates_1_1");
+				
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.APTC_PREMIUM, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.APTC).getOverrideElgEffectiveStartDate());
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_part_Elg_Dates_1_1 : End");
+end
+
+
+rule "APTC_PREMIUM_OVR_part_Elg_Dates_1_2"
+salience 84990
+agenda-group "APTC_PREMIUM_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible(),
+														HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveStartDate()), 
+														!HXUtility.isNull(getAptcOverrideBean().getOverrideElgEffectiveEndDate()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_part_Elg_Dates_1_2 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_part_Elg_Dates_1_2");
+		
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.APTC_PREMIUM, 
+				$eDeterminationfacts.getOverrideBean(ProgramCode.APTC).getOverrideElgEffectiveEndDate());
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_part_Elg_Dates_1_2 : End");
+end
+
+
+rule "APTC_PREMIUM_OVR_part_Elg_Dates_1_END"
+salience 84980
+agenda-group "APTC_PREMIUM_OVR_PART_ELG_DATES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_part_Elg_Dates_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_part_Elg_Dates_1_END");
+		
+		drools.setFocus("APTC_PREMIUM_OVR_PART_REASON_CODES_1_AG");
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_part_Elg_Dates_1_END : End");
+end
+
+
+//Aptc Premium Override Full Reason Codes(1)
+
+
+rule "APTC_PREMIUM_OVR_Full_Reason_Codes_1_1"
+salience 78000
+activation-group "APTC_PREMIUM_OVR_FULL_REASON_CODES_1_AT"
+agenda-group "APTC_PREMIUM_OVR_FULL_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible(),
+														!HXUtility.isEmpty(getAptcOverrideBean().getAllReasonCodes()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_Full_Reason_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_Full_Reason_Codes_1_1");
+		
+		$eDeterminationfacts.setReasonCodes(ProgramCode.APTC_PREMIUM, $eDeterminationfacts.getAptcOverrideBean().getAllReasonCodes());
+		
+		drools.setFocus("APTC_PREMIUM_OVR_FULL_APTC_FPL_1_AG");
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_Full_Reason_Codes_1_1 : End");
+end
+
+
+//Aptc Premium Override Part Reason Codes(1)
+
+
+rule "APTC_PREMIUM_OVR_Part_Reason_Codes_1_1"
+salience 77000
+agenda-group "APTC_PREMIUM_OVR_PART_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible(),
+														!HXUtility.isEmpty(getAptcOverrideBean().getAllReasonCodes()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_Part_Reason_Codes_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_Part_Reason_Codes_1_1");
+		
+		$eDeterminationfacts.setReasonCodes(ProgramCode.APTC_PREMIUM, $eDeterminationfacts.getAptcOverrideBean().getAllReasonCodes());
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_Part_Reason_Codes_1_1 : End");
+end
+
+
+rule "APTC_PREMIUM_OVR_Part_Reason_Codes_1_END"
+salience 76990
+agenda-group "APTC_PREMIUM_OVR_PART_REASON_CODES_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														getAptcOverrideBean().getIsAptcPremiumEligible());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_Part_Reason_Codes_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_Part_Reason_Codes_1_END");
+		
+		drools.setFocus("APTC_PREMIUM_OVR_PART_APTC_FPL_1_AG");
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_Part_Reason_Codes_1_END : End");
+end
+
+
+//APTC PREMIUM Override Full APTC FPL (1)
+
+
+rule "APTC_PREMIUM_OVR_Full_APTC_FPL_1_1"
+salience 73000
+activation-group "APTC_PREMIUM_OVR_FULL_APTC_FPL_1_AT"
+agenda-group "APTC_PREMIUM_OVR_FULL_APTC_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														!HXUtility.isNull(getAptcOverrideBean().getAptcFPL()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_Full_APTC_FPL_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_Full_APTC_FPL_1_1");
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.FULL_OVR_FPL, $eDeterminationfacts.getAptcOverrideBean().getAptcFPL() +"");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_Full_APTC_FPL_1_1 : End");
+end
+
+
+//APTC Override Part Post Eligibility (1)
+
+
+rule "APTC_PREMIUM_OVR_Part_APTC_Fpl_1_1"
+salience 73000
+agenda-group "APTC_PREMIUM_OVR_PART_APTC_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC),
+														!HXUtility.isNull(getAptcOverrideBean().getAptcFPL()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_Part_APTC_Fpl_1_1 : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_Part_APTC_Fpl_1_1");
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.PART_OVR_FPL, $eDeterminationfacts.getAptcOverrideBean().getAptcFPL() +"");
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_Part_APTC_Fpl_1_1 : End");
+end
+
+
+rule "APTC_PREMIUM_OVR_Part_APTC_Fpl_1_END"
+salience 72970
+agenda-group "APTC_PREMIUM_OVR_PART_APTC_FPL_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isOverrideAvailableForProgram(ProgramCode.APTC));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : APTC_PREMIUM_OVR_Part_APTC_Fpl_1_END : Begin");
+		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.APTC_PREMIUM, "APTC_PREMIUM_OVR_Part_APTC_Fpl_1_END");
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.APTC_PREMIUM, HXConstants.RULE_EXEC_STEP_OVERRIDE_COMPLETE);
+		
+		logger.debug("Rule : APTC_PREMIUM_OVR_Part_APTC_Fpl_1_END : End");
+end

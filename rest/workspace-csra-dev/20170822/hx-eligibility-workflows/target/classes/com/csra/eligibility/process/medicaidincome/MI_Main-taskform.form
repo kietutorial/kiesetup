@@ -1,0 +1,85 @@
+
+<form id="498478498">
+<property name="name" value="MI_Main-taskform.form"/>
+<property name="displayMode" value="default"/>
+<property name="status" value="0"/>
+<field position="0" name="eligibilityMain_preCheckStale" type="CheckBoxPrimitiveBoolean" id="1408025489">
+<property name="fieldRequired" value="false"/>
+<property name="label" value="quot;enquot;,quot;preCheckStale (eligibilityMain)quot;"/>
+<property name="readonly" value="false"/>
+<property name="outputBinding" value="eligibilityMain/preCheckStale"/>
+<property name="fieldClass" value="boolean"/>
+</field>
+<field position="1" name="eligibilityMain_pregnant" type="CheckBoxPrimitiveBoolean" id="830772082">
+<property name="fieldRequired" value="false"/>
+<property name="label" value="quot;enquot;,quot;pregnant (eligibilityMain)quot;"/>
+<property name="readonly" value="false"/>
+<property name="outputBinding" value="eligibilityMain/pregnant"/>
+<property name="fieldClass" value="boolean"/>
+</field>
+<field position="2" name="member_age" type="InputTextPrimitiveInteger" id="576604997">
+<property name="fieldRequired" value="false"/>
+<property name="label" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;age (member)quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="errorMessage" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="title" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="readonly" value="false"/>
+<property name="defaultValueFormula" value="=55"/>
+<property name="outputBinding" value="member/age"/>
+<property name="fieldClass" value="int"/>
+</field>
+<field position="3" name="member_dob" type="InputDate" id="1706330081">
+<property name="fieldRequired" value="false"/>
+<property name="label" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;dob (member)quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="errorMessage" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="title" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="readonly" value="false"/>
+<property name="defaultValueFormula" value="=02/02/1962"/>
+<property name="outputBinding" value="member/dob"/>
+<property name="fieldClass" value="java.util.Date"/>
+</field>
+<field position="4" name="member_firstName" type="InputText" id="167436470">
+<property name="fieldRequired" value="false"/>
+<property name="label" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;firstName (member)quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="errorMessage" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="title" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="readonly" value="false"/>
+<property name="isHTML" value="false"/>
+<property name="hideContent" value="false"/>
+<property name="defaultValueFormula" value="=&quot;Fnamexx&quot;"/>
+<property name="outputBinding" value="member/firstName"/>
+<property name="fieldClass" value="java.lang.String"/>
+</field>
+<field position="5" name="member_houseHoldIncome" type="InputTextPrimitiveDouble" id="1343905638">
+<property name="fieldRequired" value="false"/>
+<property name="label" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;houseHoldIncome (member)quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="errorMessage" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="title" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="readonly" value="false"/>
+<property name="defaultValueFormula" value="=55000"/>
+<property name="outputBinding" value="member/houseHoldIncome"/>
+<property name="fieldClass" value="double"/>
+</field>
+<field position="6" name="member_lastName" type="InputText" id="766613074">
+<property name="fieldRequired" value="false"/>
+<property name="label" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;lastName (member)quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="errorMessage" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="title" value="quot;caquot;,quot;quot;quot;dequot;,quot;quot;quot;enquot;,quot;quot;quot;esquot;,quot;quot;quot;frquot;,quot;quot;quot;jaquot;,quot;quot;quot;ptquot;,quot;quot;quot;zhquot;,quot;quot;"/>
+<property name="readonly" value="false"/>
+<property name="isHTML" value="false"/>
+<property name="hideContent" value="false"/>
+<property name="defaultValueFormula" value="=&quot;Lnamexx&quot;"/>
+<property name="outputBinding" value="member/lastName"/>
+<property name="fieldClass" value="java.lang.String"/>
+</field>
+<field position="7" name="eligibilityResult_reason" type="InputText" id="216566446">
+<property name="fieldRequired" value="false"/>
+<property name="groupWithPrevious" value="false"/>
+<property name="label" value="quot;enquot;,quot;reason (eligibilityResult)quot;"/>
+<property name="readonly" value="false"/>
+<property name="outputBinding" value="eligibilityResult/reason"/>
+<property name="fieldClass" value="java.lang.String"/>
+</field>
+<dataHolder supportedType="className" inputId="" name="#E9E371" type="dataModelerEntry" outId="eligibilityMain" value="com.csra.eligibility.domain.process.EligibilityMain" id="eligibilityMain"/>
+<dataHolder supportedType="className" inputId="" name="#BBBBBB" type="dataModelerEntry" outId="eligibilityResult" value="com.csra.eligibility.domain.rulefact.EligibilityResult" id="eligibilityResult"/>
+<dataHolder supportedType="className" inputId="" name="#FF54A7" type="dataModelerEntry" outId="member" value="com.csra.eligibility.domain.entity.member.Member" id="member"/>
+</form>

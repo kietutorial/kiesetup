@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2009 - 2012 hCentive Inc. All rights reserved.
+
+-->
+<taglib version="2.0" xmlns="http://java.sun.com/xml/ns/j2ee"
+ xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://java.sun.com/xml/ns/j2ee http://java.sun.com/xml/ns/j2ee/web-jsptaglibrary_2_0.xsd">
+ <tlib-version>2.0</tlib-version>
+ <short-name>CustomerELFunctions</short-name>
+   <uri>com.hcentive.utils.customElFunctions</uri>   
+ <function>
+  <name>indexInList</name>
+  <function-class>com.hcentive.utils.web.ELCustomFunctions</function-class>
+  <function-signature>
+    java.lang.Integer indexInList( java.lang.Object , java.util.List)
+    </function-signature>
+ </function>
+ <function>
+  <name>indexInMapKeys</name>
+  <function-class>com.hcentive.utils.web.ELCustomFunctions</function-class>
+  <function-signature>
+    java.lang.Integer indexInMapKeys( java.lang.Object , java.util.Map)
+    </function-signature>
+ </function>
+ <function>
+  <name>indexInMapValues</name>
+  <function-class>com.hcentive.utils.web.ELCustomFunctions</function-class>
+  <function-signature>
+    java.lang.Integer indexInMapValues( java.lang.Object , java.util.Map)
+    </function-signature>
+ </function>
+ <function>
+  <name>randomNumber</name>
+  <function-class>com.hcentive.utils.web.ELCustomFunctions</function-class>
+  <function-signature>
+    java.lang.String randomNumber(java.lang.Integer)
+    </function-signature>
+ </function>
+</taglib>

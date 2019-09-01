@@ -1,0 +1,1687 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+
+
+global org.slf4j.Logger logger;
+
+//Main Rule
+
+rule "MAIN_CHIP_VERIFY_SEC2"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_CHIP_VERIFY_SEC2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_VERIFY_SEC2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_03_ACK);
+		drools.setFocus("CHIP_VERIFY_SEC2_STALE_1_AG");
+		logger.debug("Rule : MAIN_CHIP_VERIFY_SEC2 : End");
+end
+
+
+//CR1606
+rule "CHIP_VERIFY_SEC2_STALE_ELG_SEC_01"
+salience 95060
+activation-group "CHIP_VERIFY_SEC2_STALE_1_AT"
+agenda-group "CHIP_VERIFY_SEC2_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CHIP_VERIFY_SEC2_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "CHIP_VERIFY_SEC2_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC2_03);
+		logger.debug("Rule : CHIP_VERIFY_SEC2_STALE_ELG_SEC_01 : End");
+end
+
+rule "CHIP_VERIFY_SEC2_STALE_ELG_SEC_03"
+salience 95050
+activation-group "CHIP_VERIFY_SEC2_STALE_1_AT"
+agenda-group "CHIP_VERIFY_SEC2_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CHIP_VERIFY_SEC2_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "CHIP_VERIFY_SEC2_STALE_ELG_SEC_03");
+		drools.setFocus("Chip_RULE_FLIP_AG");
+		logger.debug("Rule : CHIP_VERIFY_SEC2_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+rule "Chip_RULE_FLIP_INCAR"
+salience 2002
+activation-group "Chip_RULE_FLIP_AT"
+agenda-group "Chip_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Chip_INCAR_1_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_RULE_FLIP_INCAR : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_RULE_FLIP_INCAR");
+		drools.setFocus("Chip_INCAR_1_AG");
+		logger.debug("Rule : Chip_RULE_FLIP_INCAR : End");
+end 
+
+rule "Chip_RULE_FLIP_IMIG"
+salience 2001
+activation-group "Chip_RULE_FLIP_AT"
+agenda-group "Chip_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!("Chip_INCAR_1_AG".equals(isRunRequiredForSheet)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_RULE_FLIP_IMIG : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_RULE_FLIP_IMIG");
+		drools.setFocus("Chip_IMIG_1_AG");
+		logger.debug("Rule : Chip_RULE_FLIP_IMIG : End");
+end
+
+
+//Chip immigration(1)
+
+rule "Chip_Immigration_1_1"
+salience 60000
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_1");
+		drools.setFocus("Chip_INCAR_1_AG");
+		logger.debug("Rule : Chip_Immigration_1_1 : End");
+end
+
+//CR522
+
+rule "Chip_Immigration_1V1_0"
+salience 59999
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														isCSVLPOvrideLessThanThldDaysOrKeyChg);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1V1_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1V1_0");
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1V1_0 : End");
+end
+
+rule "Chip_Immigration_1V1_1"
+salience 59998
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														HXConstants.INDICATOR_YES.equals(vlpUSCitizenCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1V1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1V1_1");
+		drools.setFocus("Chip_IMIG_2B_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1V1_1 : End");
+end
+
+//Added for enhancement [36560]
+
+rule "Chip_Immigration_1V1_2"
+salience 59997
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														isHIXRestricted);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1V1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1V1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP,program_status.INELIGIBLE, ProgramReasonCode.CISF);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");				
+		logger.debug("Rule : Chip_Immigration_1V1_2 : End");
+end
+
+rule "Chip_Immigration_1_1A"
+salience 59995
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														(isMissing_Alien_and_I94_data && !isCSVLPOverride));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_1A");
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_1A : End");
+end
+
+rule "Chip_Immigration_1_2"
+salience 59990
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														isFailureToProvideImmiDocInd);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP,program_status.INELIGIBLE, ProgramReasonCode.FVIS);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_2 : End");
+end
+
+rule "Chip_Immigration_1_2_1"
+salience 59985
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														getIsHIXPrucol(),
+														!getIsPrucolVerReqInd());														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_2_1");
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_2_1 : End");
+end
+
+rule "Chip_Immigration_1_2A"
+salience 59983
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														getIsHIXPrucol(),
+														getIsPrucolVerReqInd());														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_2A");
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_2A : End");
+end
+
+rule "Chip_Immigration_1_3"
+salience 59980
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_3");
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_3 : End");
+end
+
+//added as part of usecase-6 CR 1234 Rule "I"
+rule "Chip_Immigration_1_4"
+salience 59970
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+	    // Modified the condition for the defect 54550 
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														isVLPStepThreeComplete,
+														HXUtility.isEmpty(residualPrucolOverride), 
+														(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setImmigCSManualResolveInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_4 : End");
+end
+//END CR 1234 usecase-6
+
+//added as part of defect 54550
+rule "Chip_Immigration_1_4A"
+salience 59967
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														!isVLPStepThreeComplete,
+														isVLPStepTwo,
+														HXUtility.isEmpty(residualPrucolOverride), 
+														(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_4A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_4A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setResidualPrucolProcessInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_4A : End");
+end
+
+
+//Added for CR 1234 for usecase 7
+rule "Chip_Immigration_1_4B"
+salience 59965
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														!isVLPStepTwo,
+														!isVLPStepThreeComplete,
+														!(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_4B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_4B");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setStartClockNoNoticeInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_2_AG");	
+		drools.setFocus("Chip_IMIG_1a_AG");	
+		logger.debug("Rule : Chip_Immigration_1_4B : End");
+end
+
+
+rule "Chip_Immigration_1_5"
+salience 59960
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														!isVLPStepTwo,
+														HXUtility.isEmpty(residualPrucolOverride),
+														(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));													
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_5");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setResidualPrucolProcessInd(Boolean.TRUE);
+		//modified the action order as part of CR 1234
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_5 : End");
+end
+
+rule "Chip_Immigration_1_6"
+salience 59955
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														isVLPStepTwo,
+														HXUtility.isEmpty(residualPrucolOverride));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_6");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setImmigCSManualResolveInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_6 : End");
+end
+
+rule "Chip_Immigration_1_7"
+salience 59950
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														HXConstants.RESIDUAL_PRUCOL_OVERRIDE_YES.equals(residualPrucolOverride));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_7");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_7 : End");
+end
+
+rule "Chip_Immigration_1_8"
+salience 59940
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														HXConstants.RESIDUAL_PRUCOL_OVERRIDE_NO.equals(residualPrucolOverride));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_8");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_8 : End");
+end
+
+/* As per 56236 commenting chip rule VLP P and QNC N
+rule "Chip_Immigration_1_9"
+salience 59930
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_N.equals(isHIXQualifiedNonCitizen));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_9");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_9 : End");
+end
+*/
+rule "Chip_Immigration_1_10"
+salience 59920
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isVLPStepTwo,
+														!(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_10");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_10 : End");
+end
+
+rule "Chip_Immigration_1_11"
+salience 59910
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														!isVLPStepTwo,
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_11");
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_11 : End");
+end
+
+rule "Chip_Immigration_1_12"
+salience 59905
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_PENDING.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isVLPStepTwo
+														);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_12");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setImmigCSManualResolveInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_12 : End");
+end
+
+
+
+rule "Chip_Immigration_1_13"
+salience 59900
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isHIXDACAEmploymentAuthorized);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_13");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_13 : End");
+end
+
+rule "Chip_Immigration_1_14"
+salience 59890
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_14");
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_14 : End");
+end
+
+rule "Chip_Immigration_1_15"
+salience 59885
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isAvailableInNonCitCoaCode);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_15 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_15");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_15 : End");
+end
+
+rule "Chip_Immigration_1_16"
+salience 59880
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isAvailableInNonCitCoaCode,
+														!isHIXDACAEmploymentAuthorized);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_16 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_16");
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_16 : End");
+end
+
+rule "Chip_Immigration_1_17"
+salience 59870
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_N.equals(isHIXQualifiedNonCitizen));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_17 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_17");
+		//Enhancement 30241 - QNC N will not make chip ineligible
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd(Boolean.TRUE);
+		//$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.CISF);
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_17 : End");
+end
+
+rule "Chip_Immigration_1_18"
+salience 59860
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_VERIFIED.equals(isMemberHIXLawfullyPresent));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_18 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_18");
+		drools.setFocus("Chip_IMIG_4_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_18 : End");
+end
+
+// As per the Defect 59968 removed QNC check when VLP is N
+rule "Chip_Immigration_1_19"
+salience 59850
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_NOT_VERIFIED.equals(isMemberHIXLawfullyPresent));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_19 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_19");
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_19 : End");
+end
+/* As per the Defect 58677 removed VLP=N and QNC=P combination
+rule "Chip_Immigration_1_19A"
+salience 59845
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isHIXRestricted,
+														HXConstants.HIX_LAWFUL_PRESENCE_NOT_VERIFIED.equals(isMemberHIXLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_19A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_19A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setImmigCSManualResolveInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_2_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_19A : End");
+end
+
+*/
+
+rule "Chip_Immigration_1_20"
+salience 59840
+activation-group "Chip_IMIG_1_AT"
+agenda-group "Chip_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.OTHER.equals(citizenshipType));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1_20 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1_20");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd(Boolean.TRUE);
+		drools.setFocus("Chip_INCAR_1_AG");
+		drools.setFocus("Chip_IMIG_1a_AG");
+		logger.debug("Rule : Chip_Immigration_1_20 : End");
+end
+
+
+// Added for CR1151
+//Chip Immigration (1a)
+
+rule "Chip_Immigration_1a_1"
+salience 59830
+activation-group "Chip_IMIG_1a_AT"
+agenda-group "Chip_IMIG_1a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMedicaidDeemedCitizenship);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1a_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1a_1");
+		$eDeterminationfacts.getMember().setIsMedicaidDeemedCitizen(Boolean.FALSE); 
+		logger.debug("Rule : Chip_Immigration_1a_1 : End");
+end
+
+
+rule "Chip_Immigration_1a_2"
+salience 59820
+activation-group "Chip_IMIG_1a_AT"
+agenda-group "Chip_IMIG_1a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMedicaidDeemedCitizenship));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_1a_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_1a_2");
+		logger.debug("Rule : Chip_Immigration_1a_2 : End");
+end
+
+//Chip Immigration(2)
+
+
+rule "Chip_Immigration_2_2"
+salience 57995
+activation-group "Chip_IMIG_2_AT"
+agenda-group "Chip_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		drools.setFocus("Chip_INCAR_1_AG");
+		logger.debug("Rule : Chip_Immigration_2_2 : End");
+end
+
+rule "Chip_Immigration_2_3"
+salience 57990
+activation-group "Chip_IMIG_2_AT"
+agenda-group "Chip_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isCSVLPOverride);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipUndocumentInd(Boolean.TRUE);
+		drools.setFocus("Chip_IMIG_4_AG");
+		logger.debug("Rule : Chip_Immigration_2_3 : End");
+end
+
+rule "Chip_Immigration_2_4"
+salience 57985
+activation-group "Chip_IMIG_2_AT"
+agenda-group "Chip_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isCSVLPOverride,
+														isMissing_Alien_and_I94_data,
+														!isImigVerificationNoticeSent);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_4");
+		drools.setFocus("Chip_INCAR_1_AG");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.ISNV_NO_ALN_I94);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setIsMissing_Alien_and_I94_data(true);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS, ClockNameEnum.IMMIGRATION_90);		
+		logger.debug("Rule : Chip_Immigration_2_4 : End");
+end
+
+rule "Chip_Immigration_2_5"
+salience 57980
+activation-group "Chip_IMIG_2_AT"
+agenda-group "Chip_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isCSVLPOverride,
+														isMissing_Alien_and_I94_data,
+														isImigVerificationNoticeSent,
+														!isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_5");
+		drools.setFocus("Chip_INCAR_1_AG");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.ISNV_NO_ALN_I94);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS, ClockNameEnum.IMMIGRATION_90);	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setIsMissing_Alien_and_I94_data(true);
+		logger.debug("Rule : Chip_Immigration_2_5 : End");
+end
+
+rule "Chip_Immigration_2_6"
+salience 57975
+activation-group "Chip_IMIG_2_AT"
+agenda-group "Chip_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isCSVLPOverride,
+														isMissing_Alien_and_I94_data,
+														isImigVerificationNoticeSent,
+														isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6");
+		drools.setFocus("Chip_INCAR_1_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ISNV_NO_ALN_I94_90);
+		logger.debug("Rule : Chip_Immigration_2_6 : End");
+end
+
+//Added for CRR 1234 for usecase 7
+rule "Chip_Immigration_2_6A"
+salience 57974
+activation-group "Chip_IMIG_2_AT"
+agenda-group "Chip_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isCSVLPOverride,
+														!(isMissing_Alien_and_I94_data),
+														!isImigVerificationNoticeSent);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2_6A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6A");
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS, ClockNameEnum.IMMIGRATION_90);
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).getIsStartClockNoNoticeInd())) 
+		{
+			// Need to trigger Schedule 90 Day notice Trigger
+			$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.ISNV_S1);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6A_1");
+		} else if(!HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).getIsStartClockNoNoticeInd())) 
+		{
+			// Need to trigger Schedule Verification Notice Trigger & Schedule 90 Day notice Trigger
+			$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.ISNV);	
+			$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6A_2");	
+		}
+		drools.setFocus("Chip_IMIG_4_AG");
+		logger.debug("Rule : Chip_Immigration_2_6A : End");
+end
+
+
+//Added for CRR 1234 for usecase 7
+rule "Chip_Immigration_2_6B"
+salience 57973
+activation-group "Chip_IMIG_2_AT"
+agenda-group "Chip_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isCSVLPOverride,
+														!(isMissing_Alien_and_I94_data),
+														!isStartClockNoNoticeInd,
+														isCurrentStep2DataInd,
+														isImigVerificationNoticeSent,
+														!isimigClockExpired
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2_6B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6B");
+		$eDeterminationfacts.resetClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS, ClockNameEnum.IMMIGRATION_90);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.ISNV);		
+		drools.setFocus("Chip_IMIG_4_AG");
+		logger.debug("Rule : Chip_Immigration_2_6B : End");
+		
+end
+
+
+//Added for CRR 1234 for usecase 7
+rule "Chip_Immigration_2_6C"
+salience 57971
+activation-group "Chip_IMIG_2_AT"
+agenda-group "Chip_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isCSVLPOverride,
+														!(isMissing_Alien_and_I94_data),
+														isImigVerificationNoticeSent,
+														!isimigClockExpired
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2_6C : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6C");
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS, ClockNameEnum.IMMIGRATION_90);
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).getIsStartClockNoNoticeInd())) 
+		{
+			// Need to trigger Schedule 90 Day notice Trigger
+			$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.ISNV_S1);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6C_1");
+		} else if(!HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).getIsStartClockNoNoticeInd())) 
+		{
+			// Need to trigger Schedule Verification Notice Trigger & Schedule 90 Day notice Trigger
+			$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.ISNV);	
+			$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6C_2");	
+		}
+		// Need to check as we  are not setting the clocks and also check the focus
+		drools.setFocus("Chip_IMIG_4_AG");
+		logger.debug("Rule : Chip_Immigration_2_6C : End");
+		
+end
+
+
+//Added for CRR 1234 for usecase 7
+rule "Chip_Immigration_2_6D"
+salience 57970
+activation-group "Chip_IMIG_2_AT"
+agenda-group "Chip_IMIG_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isCSVLPOverride,
+														!(isMissing_Alien_and_I94_data),
+														isImigVerificationNoticeSent,
+														isimigClockExpired
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2_6D : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6D");
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).getIsStartClockNoNoticeInd())) 
+		{
+			// Need to trigger Schedule 90 Day notice Trigger
+			$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ISNV_S1_90);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6D_1");
+		} else if(!HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).getIsStartClockNoNoticeInd())) 
+		{
+			// Need to trigger Schedule Verification Notice Trigger & Schedule 90 Day notice Trigger
+			$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ISNVP_90);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2_6D_2");
+				
+		}
+		// Need to check as we  are not setting the clocks and also check the focus
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		drools.setFocus("Chip_INCAR_1_AG");	
+		logger.debug("Rule : Chip_Immigration_2_6C : End");
+		
+end
+
+
+//Chip Immigration(2B)
+
+rule "Chip_Immigration_2B_0"
+salience 68000
+activation-group "Chip_IMIG_2B_AT"
+agenda-group "Chip_IMIG_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2B_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2B_0");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		drools.setFocus("Chip_INCAR_1_AG");
+		logger.debug("Rule : Chip_Immigration_2B_0 : End");
+end
+
+rule "Chip_Immigration_2B_1"
+salience 67995
+activation-group "Chip_IMIG_2B_AT"
+agenda-group "Chip_IMIG_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isCitiDiscrepancyVerificationNoticeSent);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2B_1 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.CD_IMMIG);
+		//TO DO
+		//Schedule Verification Notice Trigger
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY, ClockNameEnum.CITIZENSHIP_DISCREPANCY_90);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2B_1");
+		drools.setFocus("Chip_INCAR_1_AG");
+		logger.debug("Rule : Chip_Immigration_2B_1 : End");
+end
+
+rule "Chip_Immigration_2B_2"
+salience 67990
+activation-group "Chip_IMIG_2B_AT"
+agenda-group "Chip_IMIG_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isCitiDiscrepancyVerificationNoticeSent,
+														!isCitiDiscrepancyClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2B_2 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.CD_IMMIG);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY, ClockNameEnum.CITIZENSHIP_DISCREPANCY_90);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2B_2");
+		drools.setFocus("Chip_INCAR_1_AG");
+		logger.debug("Rule : Chip_Immigration_2B_2 : End");
+end
+
+rule "Chip_Immigration_2B_3"
+salience 67980
+activation-group "Chip_IMIG_2B_AT"
+agenda-group "Chip_IMIG_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isCitiDiscrepancyVerificationNoticeSent,
+														isCitiDiscrepancyClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_2B_3 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.CDP_90_IMMIG);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_2B_3");
+		drools.setFocus("Chip_INCAR_1_AG");
+		logger.debug("Rule : Chip_Immigration_2B_3 : End");
+end
+
+//Chip Immigration(3)
+
+rule "Chip_Immigration_3_1"
+salience 56000
+activation-group "Chip_IMIG_3_AT"
+agenda-group "Chip_IMIG_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isHIX5YearBanMet);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_3_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.FYIB);
+		//drools.setFocus("Chip_INCAR_1_AG");
+		drools.setFocus("Chip_IMIG_4_AG");
+		logger.debug("Rule : Chip_Immigration_3_1 : End");
+end
+
+rule "Chip_Immigration_3_2"
+salience 55995
+activation-group "Chip_IMIG_3_AT"
+agenda-group "Chip_IMIG_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHIX5YearBanMet);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_3_2");
+		//drools.setFocus("Chip_INCAR_1_AG");
+		drools.setFocus("Chip_IMIG_4_AG");
+		logger.debug("Rule : Chip_Immigration_3_2 : End");
+end
+
+
+//Chip Immigration (4)
+
+rule "Chip_Immigration_4_1"
+salience 54000
+activation-group "Chip_IMIG_4_AT"
+agenda-group "Chip_IMIG_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(HXConstants.INDICATOR_YES.equals(vlpUSCitizenCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_4_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_4_1");
+		drools.setFocus("Chip_IMIG_2B_AG");
+		logger.debug("Rule : Chip_Immigration_4_1 : End");
+end
+
+rule "Chip_Immigration_4_2"
+salience 54000
+activation-group "Chip_IMIG_4_AT"
+agenda-group "Chip_IMIG_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!HXConstants.INDICATOR_YES.equals(vlpUSCitizenCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Immigration_4_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Immigration_4_2");
+		drools.setFocus("Chip_INCAR_1_AG");
+		logger.debug("Rule : Chip_Immigration_4_2 : End");
+end
+
+
+//Chip Incarceration(1)
+
+rule "Chip_Incarceration_1_1"
+salience 8000
+activation-group "Chip_INCAR_1_AT"
+agenda-group "Chip_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isHXIncarcerated, 
+														!isNonIncarcerationVerified,
+														!selfIdentifiedIncarcerationInCurrentApp);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_1_1");
+		drools.setFocus("Chip_INCAR_3_AG");
+		logger.debug("Rule : Chip_Incarceration_1_1 : End");
+end
+
+rule "Chip_Incarceration_1_2"
+salience 7990
+activation-group "Chip_INCAR_1_AT"
+agenda-group "Chip_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isHXIncarcerated,
+														selfIdentifiedIncarcerationInCurrentApp);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ICVSI);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_1_2 : End");
+end
+
+rule "Chip_Incarceration_1_3"
+salience 7980
+activation-group "Chip_INCAR_1_AT"
+agenda-group "Chip_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isHXIncarcerated, 
+														isNonIncarcerationVerified,
+														!selfIdentifiedIncarcerationInCurrentApp);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_1_3");
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_1_3 : End");
+end
+
+
+rule "Chip_Incarceration_1_4"
+salience 7970
+activation-group "Chip_INCAR_1_AT"
+agenda-group "Chip_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHXIncarcerated,
+														doesUserAgreeIncarceration);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.ICUA);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_1_4 : End");
+end
+
+rule "Chip_Incarceration_1_4A"
+salience 7965
+activation-group "Chip_INCAR_1_AT"
+agenda-group "Chip_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHXIncarcerated,
+														!doesUserAgreeIncarceration,
+														isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_1_4A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_1_4A");
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setManualRenewalInd(Boolean.TRUE);
+		//$eDeterminationfacts.updateProgram(ProgramCode.CHIP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP,program_status.INELIGIBLE, ProgramReasonCode.IAR);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_1_4A : End");
+end
+
+rule "Chip_Incarceration_1_5"
+salience 7960
+activation-group "Chip_INCAR_1_AT"
+agenda-group "Chip_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHXIncarcerated,
+														!doesUserAgreeIncarceration,
+														!isProposedElgForRenewal,
+														!isNonIncarcerationVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_1_5");
+		drools.setFocus("Chip_INCAR_2_AG");
+		logger.debug("Rule : Chip_Incarceration_1_5 : End");
+end
+
+rule "Chip_Incarceration_1_6"
+salience 7950
+activation-group "Chip_INCAR_1_AT"
+agenda-group "Chip_INCAR_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHXIncarcerated,
+														!doesUserAgreeIncarceration,
+														!isProposedElgForRenewal,
+														isNonIncarcerationVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_1_6");
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_1_6 : End");
+end
+
+
+//Chip Incarceration(2)
+
+rule "Chip_Incarceration_2_1"
+salience 7000
+activation-group "Chip_INCAR_2_AT"
+agenda-group "Chip_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(fedIncarcerationStatus,
+														!(isIncarceration_90_NoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IC);
+		//TO DO
+		//Schedule Verification Notice Trigger				
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_2_1 : End");
+end
+
+rule "Chip_Incarceration_2_2"
+salience 6990
+activation-group "Chip_INCAR_2_AT"
+agenda-group "Chip_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(fedIncarcerationStatus,
+														(isIncarceration_90_NoticeSent),
+														!(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_2_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IC);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_2_2 : End");
+end
+
+rule "Chip_Incarceration_2_3"
+salience 6980
+activation-group "Chip_INCAR_2_AT"
+agenda-group "Chip_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(fedIncarcerationStatus,
+														(isIncarceration_90_NoticeSent),
+														(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_2_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.IC_90);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_2_3 : End");
+end
+
+rule "Chip_Incarceration_2_4"
+salience 6970
+activation-group "Chip_INCAR_2_AT"
+agenda-group "Chip_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!fedIncarcerationStatus,
+														!(is1DayRerunSet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_2_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.PENDING, ProgramReasonCode.IC);
+		//TO DO
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_1);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_2_4 : End");
+end
+
+rule "Chip_Incarceration_2_5"
+salience 6960
+activation-group "Chip_INCAR_2_AT"
+agenda-group "Chip_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!fedIncarcerationStatus,
+														(is1DayRerunSet),
+														!(is1DayRerunExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_2_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.PENDING, ProgramReasonCode.IC);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_1);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_2_5 : End");
+end
+
+rule "Chip_Incarceration_2_6"
+salience 6950
+activation-group "Chip_INCAR_2_AT"
+agenda-group "Chip_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!fedIncarcerationStatus,
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														!(isIncarceration_90_NoticeSent),
+														!(isHXIncarcerated));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_2_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_2_6");
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_2_6 : End");
+end
+
+rule "Chip_Incarceration_2_7"
+salience 6945
+activation-group "Chip_INCAR_2_AT"
+agenda-group "Chip_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!fedIncarcerationStatus,
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														!(isIncarceration_90_NoticeSent),
+														(isHXIncarcerated));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_2_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_2_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IC);
+		//TO DO
+		//Schedule Verification Notice Trigger				
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_2_7 : End");
+end
+
+rule "Chip_Incarceration_2_8"
+salience 6940
+activation-group "Chip_INCAR_2_AT"
+agenda-group "Chip_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!fedIncarcerationStatus,
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														(isIncarceration_90_NoticeSent),
+														!(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_2_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_2_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IC);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_2_8 : End");
+end
+
+rule "Chip_Incarceration_2_9"
+salience 6935
+activation-group "Chip_INCAR_2_AT"
+agenda-group "Chip_INCAR_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!fedIncarcerationStatus,
+														(is1DayRerunSet),
+														(is1DayRerunExpired),
+														(isIncarceration_90_NoticeSent),
+														(isIncarceration90ClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_2_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_2_9");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.IC_90);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_2_9 : End");
+end
+
+// Chip Incarceration (3)
+
+
+rule "Chip_Incarceration_3_1"
+salience 5000
+activation-group "Chip_INCAR_3_AT"
+agenda-group "Chip_INCAR_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isIncarceration_SelfIdentified_90_NoticeSent);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_3_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IC_90_VN);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_3_1 : End");
+end
+
+
+rule "Chip_Incarceration_3_2"
+salience 4090
+activation-group "Chip_INCAR_3_AT"
+agenda-group "Chip_INCAR_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isIncarceration_SelfIdentified_90_NoticeSent,
+														!isIncarcerationSelfIdentified90ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_3_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.IC_90_VN);
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS, ClockNameEnum.INCARCERATION_90);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_3_2 : End");
+end
+
+
+rule "Chip_Incarceration_3_3"
+salience 4080
+activation-group "Chip_INCAR_3_AT"
+agenda-group "Chip_INCAR_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isIncarceration_SelfIdentified_90_NoticeSent,
+														isIncarcerationSelfIdentified90ClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Incarceration_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Incarceration_3_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setChipNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP,program_status.INELIGIBLE, ProgramReasonCode.ICVSIP_90);
+		drools.setFocus("Chip_RESID_1_AG");
+		logger.debug("Rule : Chip_Incarceration_3_3 : End");
+end
+
+
+// Chip Residency (1)
+
+rule "Chip_Residency_1_1"
+salience 6000
+activation-group "Chip_RESID_1_AT"
+agenda-group "Chip_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isResidencyVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Residency_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Residency_1_1");		
+		drools.setFocus("Chip_AIAN_1_AG");
+		logger.debug("Rule : Chip_Residency_1_1 : End");
+end
+
+rule "Chip_Residency_1_2"
+salience 5990
+activation-group "Chip_RESID_1_AT"
+agenda-group "Chip_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isResidencyVerified,
+														!isMovingToNY);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Residency_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Residency_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.NNYSR);
+		drools.setFocus("Chip_AIAN_1_AG");
+		logger.debug("Rule : Chip_Residency_1_2 : End");
+end
+
+rule "Chip_Residency_1_3"
+salience 5980
+activation-group "Chip_RESID_1_AT"
+agenda-group "Chip_RESID_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isResidencyVerified,
+														isMovingToNY);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Residency_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Residency_1_3");
+		//drools.setFocus("Chip_RESID_2_AG");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.NNYSR);
+		drools.setFocus("Chip_AIAN_1_AG");
+		logger.debug("Rule : Chip_Residency_1_3 : End");
+end
+
+// Chip Residency(2)
+/*
+
+rule "Chip_Residency_2_1"
+salience 3000
+activation-group "Chip_RESID_2_AT"
+agenda-group "Chip_RESID_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isResidencyVerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Residency_2_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Residency_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP,program_status.PENDING, ProgramReasonCode.RSNV);
+		//TO DO
+		//Schedule Verification Notice Trigger
+		$eDeterminationfacts.setClocks(ProgramCode.CHIP, EligibilityVerificationTypeEnum.STATE_RESIDENCY, ClockNameEnum.STATE_RESIDENCY_90);
+		drools.setFocus("Chip_AIAN_1_AG");
+		logger.debug("Rule : Chip_Residency_2_1 : End");
+end
+
+rule "Chip_Residency_2_2"
+salience 2990
+activation-group "Chip_RESID_2_AT"
+agenda-group "Chip_RESID_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isResidencyVerificationNoticeSent),
+														!(isResidencyClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Residency_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Residency_2_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.PENDING, ProgramReasonCode.RSNV);
+		drools.setFocus("Chip_AIAN_1_AG");
+		logger.debug("Rule : Chip_Residency_2_2 : End");
+end
+
+rule "Chip_Residency_2_3"
+salience 2980
+activation-group "Chip_RESID_2_AT"
+agenda-group "Chip_RESID_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isResidencyVerificationNoticeSent),
+														(isResidencyClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Residency_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Residency_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.RSNV_90);
+		drools.setFocus("Chip_AIAN_1_AG");
+		logger.debug("Rule : Chip_Residency_2_3 : End");
+end
+*/
+
+// Chip AIAN(1)
+
+rule "Chip_AIAN_1_1"
+salience 4000
+activation-group "Chip_AIAN_1_AT"
+agenda-group "Chip_AIAN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAIOrAN);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_AIAN_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_AIAN_1_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC2_03);
+		logger.debug("Rule : Chip_AIAN_1_1 : End");
+end
+
+rule "Chip_AIAN_1_2"
+salience 3990
+activation-group "Chip_AIAN_1_AT"
+agenda-group "Chip_AIAN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAIOrAN);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_AIAN_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_AIAN_1_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC2_03);
+		logger.debug("Rule : Chip_AIAN_1_2 : End");
+end

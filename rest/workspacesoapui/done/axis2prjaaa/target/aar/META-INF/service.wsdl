@@ -1,0 +1,228 @@
+<?xml version="1.0" encoding="UTF-8"?><wsdl:definitions xmlns:wsdl="http://schemas.xmlsoap.org/wsdl/" xmlns:ax27="http://dto.reservation.sample.com/xsd" xmlns:ns="http://reservation.sample.com" xmlns:ax25="http://exception.reservation.sample.com/xsd" xmlns:xs="http://www.w3.org/2001/XMLSchema" xmlns:ns1="http://org.apache.axis2/xsd" xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/" xmlns:soap12="http://schemas.xmlsoap.org/wsdl/soap12/" xmlns:http="http://schemas.xmlsoap.org/wsdl/http/" xmlns:mime="http://schemas.xmlsoap.org/wsdl/mime/" xmlns:wsaw="http://www.w3.org/2006/05/addressing/wsdl" targetNamespace="http://reservation.sample.com">
+    <wsdl:types>
+        <xs:schema attributeFormDefault="qualified" elementFormDefault="qualified" targetNamespace="http://dto.reservation.sample.com/xsd">
+            <xs:complexType name="Reservation">
+                <xs:sequence>
+                    <xs:element minOccurs="0" name="guestName" nillable="true" type="xs:string"/>
+                    <xs:element minOccurs="0" name="reservationID" type="xs:int"/>
+                    <xs:element minOccurs="0" name="reserved_from" nillable="true" type="xs:date"/>
+                    <xs:element minOccurs="0" name="reserved_to" nillable="true" type="xs:date"/>
+                    <xs:element minOccurs="0" name="roomNumber" type="xs:int"/>
+                </xs:sequence>
+            </xs:complexType>
+        </xs:schema>
+        <xs:schema attributeFormDefault="qualified" elementFormDefault="qualified" targetNamespace="http://exception.reservation.sample.com/xsd">
+            <xs:complexType name="ReservationManagementException">
+                <xs:sequence>
+                    <xs:element minOccurs="0" name="message" nillable="true" type="xs:string"/>
+                </xs:sequence>
+            </xs:complexType>
+        </xs:schema>
+        <xs:schema xmlns:ax26="http://exception.reservation.sample.com/xsd" xmlns:ax28="http://dto.reservation.sample.com/xsd" attributeFormDefault="qualified" elementFormDefault="qualified" targetNamespace="http://reservation.sample.com">
+            <xs:import namespace="http://exception.reservation.sample.com/xsd"/>
+            <xs:import namespace="http://dto.reservation.sample.com/xsd"/>
+            <xs:element name="ReservationServiceReservationManagementException">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element minOccurs="0" name="ReservationManagementException" nillable="true" type="ax26:ReservationManagementException"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="removeReservation">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="reservationID" type="xs:int"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="getReservationDetails">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="RoomNumber" type="xs:int"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="getReservationDetailsResponse">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element minOccurs="0" name="return" nillable="true" type="ax28:Reservation"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="addReservation">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="roomNumber" type="xs:int"/>
+                        <xs:element minOccurs="0" name="guestName" nillable="true" type="xs:string"/>
+                        <xs:element minOccurs="0" name="reserved_from" nillable="true" type="xs:date"/>
+                        <xs:element minOccurs="0" name="reserved_to" nillable="true" type="xs:date"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+            <xs:element name="addReservationResponse">
+                <xs:complexType>
+                    <xs:sequence>
+                        <xs:element name="return" type="xs:boolean"/>
+                    </xs:sequence>
+                </xs:complexType>
+            </xs:element>
+        </xs:schema>
+    </wsdl:types>
+    <wsdl:message name="addReservationRequest">
+        <wsdl:part name="parameters" element="ns:addReservation"/>
+    </wsdl:message>
+    <wsdl:message name="addReservationResponse">
+        <wsdl:part name="parameters" element="ns:addReservationResponse"/>
+    </wsdl:message>
+    <wsdl:message name="ReservationServiceReservationManagementException">
+        <wsdl:part name="parameters" element="ns:ReservationServiceReservationManagementException"/>
+    </wsdl:message>
+    <wsdl:message name="removeReservationRequest">
+        <wsdl:part name="parameters" element="ns:removeReservation"/>
+    </wsdl:message>
+    <wsdl:message name="getReservationDetailsRequest">
+        <wsdl:part name="parameters" element="ns:getReservationDetails"/>
+    </wsdl:message>
+    <wsdl:message name="getReservationDetailsResponse">
+        <wsdl:part name="parameters" element="ns:getReservationDetailsResponse"/>
+    </wsdl:message>
+    <wsdl:portType name="ReservationServicePortType">
+        <wsdl:operation name="addReservation">
+            <wsdl:input message="ns:addReservationRequest" wsaw:Action="urn:addReservation"/>
+            <wsdl:output message="ns:addReservationResponse" wsaw:Action="urn:addReservationResponse"/>
+            <wsdl:fault message="ns:ReservationServiceReservationManagementException" name="ReservationServiceReservationManagementException" wsaw:Action="urn:addReservationReservationServiceReservationManagementException"/>
+        </wsdl:operation>
+        <wsdl:operation name="removeReservation">
+            <wsdl:input message="ns:removeReservationRequest" wsaw:Action="urn:removeReservation"/>
+            <wsdl:output message="ns:null" wsaw:Action="urn:removeReservationResponse"/>
+            <wsdl:fault message="ns:ReservationServiceReservationManagementException" name="ReservationServiceReservationManagementException" wsaw:Action="urn:removeReservationReservationServiceReservationManagementException"/>
+        </wsdl:operation>
+        <wsdl:operation name="getReservationDetails">
+            <wsdl:input message="ns:getReservationDetailsRequest" wsaw:Action="urn:getReservationDetails"/>
+            <wsdl:output message="ns:getReservationDetailsResponse" wsaw:Action="urn:getReservationDetailsResponse"/>
+            <wsdl:fault message="ns:ReservationServiceReservationManagementException" name="ReservationServiceReservationManagementException" wsaw:Action="urn:getReservationDetailsReservationServiceReservationManagementException"/>
+        </wsdl:operation>
+    </wsdl:portType>
+    <wsdl:binding name="ReservationServiceSoap11Binding" type="ns:ReservationServicePortType">
+        <soap:binding transport="http://schemas.xmlsoap.org/soap/http" style="document"/>
+        <wsdl:operation name="addReservation">
+            <soap:operation soapAction="urn:addReservation" style="document"/>
+            <wsdl:input>
+                <soap:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output>
+                <soap:body use="literal"/>
+            </wsdl:output>
+            <wsdl:fault name="ReservationServiceReservationManagementException">
+                <soap:fault use="literal" name="ReservationServiceReservationManagementException"/>
+            </wsdl:fault>
+        </wsdl:operation>
+        <wsdl:operation name="removeReservation">
+            <soap:operation soapAction="urn:removeReservation" style="document"/>
+            <wsdl:input>
+                <soap:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output>
+                <soap:body use="literal"/>
+            </wsdl:output>
+            <wsdl:fault name="ReservationServiceReservationManagementException">
+                <soap:fault use="literal" name="ReservationServiceReservationManagementException"/>
+            </wsdl:fault>
+        </wsdl:operation>
+        <wsdl:operation name="getReservationDetails">
+            <soap:operation soapAction="urn:getReservationDetails" style="document"/>
+            <wsdl:input>
+                <soap:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output>
+                <soap:body use="literal"/>
+            </wsdl:output>
+            <wsdl:fault name="ReservationServiceReservationManagementException">
+                <soap:fault use="literal" name="ReservationServiceReservationManagementException"/>
+            </wsdl:fault>
+        </wsdl:operation>
+    </wsdl:binding>
+    <wsdl:binding name="ReservationServiceSoap12Binding" type="ns:ReservationServicePortType">
+        <soap12:binding transport="http://schemas.xmlsoap.org/soap/http" style="document"/>
+        <wsdl:operation name="addReservation">
+            <soap12:operation soapAction="urn:addReservation" style="document"/>
+            <wsdl:input>
+                <soap12:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output>
+                <soap12:body use="literal"/>
+            </wsdl:output>
+            <wsdl:fault name="ReservationServiceReservationManagementException">
+                <soap12:fault use="literal" name="ReservationServiceReservationManagementException"/>
+            </wsdl:fault>
+        </wsdl:operation>
+        <wsdl:operation name="removeReservation">
+            <soap12:operation soapAction="urn:removeReservation" style="document"/>
+            <wsdl:input>
+                <soap12:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output>
+                <soap12:body use="literal"/>
+            </wsdl:output>
+            <wsdl:fault name="ReservationServiceReservationManagementException">
+                <soap12:fault use="literal" name="ReservationServiceReservationManagementException"/>
+            </wsdl:fault>
+        </wsdl:operation>
+        <wsdl:operation name="getReservationDetails">
+            <soap12:operation soapAction="urn:getReservationDetails" style="document"/>
+            <wsdl:input>
+                <soap12:body use="literal"/>
+            </wsdl:input>
+            <wsdl:output>
+                <soap12:body use="literal"/>
+            </wsdl:output>
+            <wsdl:fault name="ReservationServiceReservationManagementException">
+                <soap12:fault use="literal" name="ReservationServiceReservationManagementException"/>
+            </wsdl:fault>
+        </wsdl:operation>
+    </wsdl:binding>
+    <wsdl:binding name="ReservationServiceHttpBinding" type="ns:ReservationServicePortType">
+        <http:binding verb="POST"/>
+        <wsdl:operation name="addReservation">
+            <http:operation location="addReservation"/>
+            <wsdl:input>
+                <mime:content type="application/xml" part="parameters"/>
+            </wsdl:input>
+            <wsdl:output>
+                <mime:content type="application/xml" part="parameters"/>
+            </wsdl:output>
+            <wsdl:fault name="ReservationServiceReservationManagementException"/>
+        </wsdl:operation>
+        <wsdl:operation name="removeReservation">
+            <http:operation location="removeReservation"/>
+            <wsdl:input>
+                <mime:content type="application/xml" part="parameters"/>
+            </wsdl:input>
+            <wsdl:output>
+                <mime:content type="application/xml" part="parameters"/>
+            </wsdl:output>
+            <wsdl:fault name="ReservationServiceReservationManagementException"/>
+        </wsdl:operation>
+        <wsdl:operation name="getReservationDetails">
+            <http:operation location="getReservationDetails"/>
+            <wsdl:input>
+                <mime:content type="application/xml" part="parameters"/>
+            </wsdl:input>
+            <wsdl:output>
+                <mime:content type="application/xml" part="parameters"/>
+            </wsdl:output>
+            <wsdl:fault name="ReservationServiceReservationManagementException"/>
+        </wsdl:operation>
+    </wsdl:binding>
+    <wsdl:service name="ReservationService">
+        <wsdl:port name="ReservationServiceHttpSoap11Endpoint" binding="ns:ReservationServiceSoap11Binding">
+            <soap:address location="http://localhost:8080/axis2/services/ReservationService"/>
+        </wsdl:port>
+        <wsdl:port name="ReservationServiceHttpSoap12Endpoint" binding="ns:ReservationServiceSoap12Binding">
+            <soap12:address location="http://localhost:8080/axis2/services/ReservationService"/>
+        </wsdl:port>
+        <wsdl:port name="ReservationServiceHttpEndpoint" binding="ns:ReservationServiceHttpBinding">
+            <http:address location="http://localhost:8080/axis2/services/ReservationService"/>
+        </wsdl:port>
+    </wsdl:service>
+</wsdl:definitions>

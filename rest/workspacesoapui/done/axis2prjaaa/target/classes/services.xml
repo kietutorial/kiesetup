@@ -1,0 +1,200 @@
+<serviceGroup name="HotelReservation2">
+	<service name="GuestManagementService">
+		<description>
+			Guest management web service
+		</description>
+		<schema schemaNamespace="http://sample.com/reservation/guest/types"
+			elementFormDefaultQualified="true">
+			<mapping namespace="http://sample.com/reservation/guest/types"
+				package="com.sample.reservation.dto" />
+		</schema>
+		<messageReceivers>
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</messageReceivers>
+		<parameter name="ServiceClass">com.sample.reservation.GuestManagementService
+		</parameter>
+		<operation name="addGuest">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="getGuestDetails">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="deleteGuest">
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+		</operation>
+	</service>
+
+	<service name="RoomManagementService" targetNamespace="http://sample.com/reservation/room">
+		<description>
+			Room service
+		</description>
+		<schema schemaNamespace="http://sample.com/reservation/room/types"
+			elementFormDefaultQualified="true">
+			<mapping namespace="http://sample.com/reservation/room/types"
+				package="com.sample.reservation.dto" />
+		</schema>
+		<messageReceivers>
+
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+
+		</messageReceivers>
+		<parameter name="ServiceClass">com.sample.reservation.RoomManagementService
+		</parameter>
+		<operation name="addRoom">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="getRoomDetails">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="deleteRoom">
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+		</operation>
+	</service>
+
+	<service name="ReservationService" targetNamespace="http://sample.com/reservation/res">
+		<description>
+			Reservation web service
+		</description>
+		<schema schemaNamespace="http://sample.com/reservation/res/types"
+			elementFormDefaultQualified="true">
+			<mapping namespace="http://sample.com/reservation/res/types"
+				package="com.sample.reservation.dto" />
+		</schema>
+		<messageReceivers>
+			<messageReceiver mep="http://www.w3.org/2004/08/wsdl/in-only"
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+			<messageReceiver mep="http://www.w3.org/2004/08/wsdl/in-out"
+				class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+			<messageReceiver mep="http://www.w3.org/ns/wsdl/in-only"
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+			<messageReceiver mep="http://www.w3.org/ns/wsdl/in-out"
+				class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</messageReceivers>
+		<parameter name="ServiceClass">com.sample.reservation.ReservationService
+		</parameter>
+		<operation name="addReservation">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="getReservationDetails">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="removeReservation">
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+		</operation>
+	</service>
+
+
+</serviceGroup>
+<serviceGroup name="HotelReservation2">
+	<service name="GuestManagementService">
+		<description>
+			Guest management web service
+		</description>
+		<schema schemaNamespace="http://sample.com/reservation/guest/types"
+			elementFormDefaultQualified="true">
+			<mapping namespace="http://sample.com/reservation/guest/types"
+				package="com.sample.reservation.dto" />
+		</schema>
+		<messageReceivers>
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</messageReceivers>
+		<parameter name="ServiceClass">com.sample.reservation.GuestManagementService
+		</parameter>
+		<operation name="addGuest">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="getGuestDetails">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="deleteGuest">
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+		</operation>
+	</service>
+
+	<service name="RoomManagementService" targetNamespace="http://sample.com/reservation/room">
+		<description>
+			Room service
+		</description>
+		<schema schemaNamespace="http://sample.com/reservation/room/types"
+			elementFormDefaultQualified="true">
+			<mapping namespace="http://sample.com/reservation/room/types"
+				package="com.sample.reservation.dto" />
+		</schema>
+		<messageReceivers>
+
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+
+		</messageReceivers>
+		<parameter name="ServiceClass">com.sample.reservation.RoomManagementService
+		</parameter>
+		<operation name="addRoom">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="getRoomDetails">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="deleteRoom">
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+		</operation>
+	</service>
+
+	<service name="ReservationService" targetNamespace="http://sample.com/reservation/res">
+		<description>
+			Reservation web service
+		</description>
+		<schema schemaNamespace="http://sample.com/reservation/res/types"
+			elementFormDefaultQualified="true">
+			<mapping namespace="http://sample.com/reservation/res/types"
+				package="com.sample.reservation.dto" />
+		</schema>
+		<messageReceivers>
+			<messageReceiver mep="http://www.w3.org/2004/08/wsdl/in-only"
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+			<messageReceiver mep="http://www.w3.org/2004/08/wsdl/in-out"
+				class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+			<messageReceiver mep="http://www.w3.org/ns/wsdl/in-only"
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+			<messageReceiver mep="http://www.w3.org/ns/wsdl/in-out"
+				class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</messageReceivers>
+		<parameter name="ServiceClass">com.sample.reservation.ReservationService
+		</parameter>
+		<operation name="addReservation">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="getReservationDetails">
+			<messageReceiver class="org.apache.axis2.rpc.receivers.RPCMessageReceiver" />
+		</operation>
+		<operation name="removeReservation">
+			<messageReceiver
+				class="org.apache.axis2.rpc.receivers.RPCInOnlyMessageReceiver" />
+		</operation>
+	</service>
+
+
+</serviceGroup>

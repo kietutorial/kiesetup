@@ -1,0 +1,3227 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+import com.hcentive.rulesengine.domain.ElgRulesIndicatorBean.IncomeRunMode;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+/*
+The rule flow from Sheet 8 is modified from 8->9->10->5  to 
+10->5->8/10->8
+*/
+
+//Main Rule
+rule "MAIN_MEDICAID_INCOME"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		//eval(true);		
+	then
+		logger.debug("Rule : MAIN_MEDICAID_INCOME : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_INCOME");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_02_ACK);
+		drools.setFocus("MEDICAID_INCOME_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_INCOME : End");
+end
+
+
+//CR1606
+rule "MEDICAID_INCOME_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "MEDICAID_INCOME_STALE_1_AT"
+agenda-group "MEDICAID_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_INCOME_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_INCOME_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : MEDICAID_INCOME_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "MEDICAID_INCOME_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "MEDICAID_INCOME_STALE_1_AT"
+agenda-group "MEDICAID_INCOME_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_INCOME_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_INCOME_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Medicaid_FPL_Band_1_AG");
+		logger.debug("Rule : MEDICAID_INCOME_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+rule "Medicaid_FPL_Band_1_1"
+salience 85700
+activation-group "Medicaid_FPL_Band_1_AT"
+agenda-group "Medicaid_FPL_Band_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_FPL_Band_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_FPL_Band_1_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFplMin(0d);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFplMax(configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX));
+		drools.setFocus("Medicaid_Income_1_AG");
+		logger.debug("Rule : Medicaid_FPL_Band_1_1 : End");
+end
+
+rule "Medicaid_FPL_Band_1_2"
+salience 85690
+activation-group "Medicaid_FPL_Band_1_AT"
+agenda-group "Medicaid_FPL_Band_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_FPL_Band_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_FPL_Band_1_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFplMin(0d);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFplMax(configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX));	
+		drools.setFocus("Medicaid_Income_1_AG");
+		logger.debug("Rule : Medicaid_FPL_Band_1_2 : End");
+end
+
+rule "Medicaid_FPL_Band_1_3"
+salience 85680
+activation-group "Medicaid_FPL_Band_1_AT"
+agenda-group "Medicaid_FPL_Band_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!isMemberPregnant,
+														(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_FPL_Band_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_FPL_Band_1_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFplMin(0d);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFplMax(configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MID));
+		drools.setFocus("Medicaid_Income_1_AG");
+		logger.debug("Rule : Medicaid_FPL_Band_1_3 : End");
+end
+
+rule "Medicaid_FPL_Band_1_4"
+salience 85670
+activation-group "Medicaid_FPL_Band_1_AT"
+agenda-group "Medicaid_FPL_Band_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!isMemberPregnant,
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_FPL_Band_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_FPL_Band_1_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFplMin(0d);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFplMax(configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+		drools.setFocus("Medicaid_Income_1_AG");
+		logger.debug("Rule : Medicaid_FPL_Band_1_4 : End");
+end
+
+rule "Medicaid_FPL_Band_1_5"
+salience 85660
+activation-group "Medicaid_FPL_Band_1_AT"
+agenda-group "Medicaid_FPL_Band_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!isMemberPregnant,
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+														!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_FPL_Band_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_FPL_Band_1_5");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFplMin(0d);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFplMax(configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+		drools.setFocus("Medicaid_Income_1_AG");
+		logger.debug("Rule : Medicaid_FPL_Band_1_5 : End");
+end
+
+
+
+//Medicaid Income(1)
+
+rule "Medicaid_Income_1_0"
+salience 90010
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgRunThruBatchForMADeemedNBWithExclusion);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_0");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.FLSCMADNB);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNewbornNoShowInd(Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_1_0 : End");
+end
+
+rule "Medicaid_Income_1_1"
+salience 90000
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isFinancialAssistanceRequired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_1 : Begin");		
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.NRFA);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_1_1 : End");
+end
+
+rule "Medicaid_Income_1_2"
+salience 89990
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,!(isRunModeNoIncomeDataSource), !(isIncomeFromDataSource));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_2 : Begin");
+		logger.debug("No-Action Go-On : Medicaid_Income_1_2");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRunMode(IncomeRunMode.STANDARDINCOME);	
+		drools.setFocus("Medicaid_Income_12_AG");
+		logger.debug("Rule : Medicaid_Income_1_2 : End");
+end
+
+
+rule "Medicaid_Income_1_3"
+salience 89980
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														!(isRunModeNoIncomeDataSource),
+													 	isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_3 : Begin");
+		logger.debug("No-Action Go-On : Medicaid_Income_1_3");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRunMode(IncomeRunMode.DATASOURCEINCOME);	
+		// chandra need to use different drl to set the value of use datasource income
+		drools.setFocus("Medicaid_Income_12_AG");	
+		logger.debug("Rule : Medicaid_Income_1_3 : End");
+end
+
+
+rule "Medicaid_Income_1_4"
+salience 89970
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isRunModeNoIncomeDataSource,
+														getRenewalPeriodForMemberHasPast());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_4 : Begin");
+		logger.debug("No-Action Go-On : Medicaid_Income_1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPIDNA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRunMode(IncomeRunMode.NOINCOME);	
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_4");		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_1_4 : End");
+		
+end
+
+rule "Medicaid_Income_1_4A"
+salience 89965
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														!isCurrentlyEnrolledInMedicaid,
+														!isIncomeFromDataSource
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_4A : Begin");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPIDNA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRunMode(IncomeRunMode.STANDARDINCOME);	
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_4A");		
+		drools.setFocus("Medicaid_Income_12_AG");
+		logger.debug("Rule : Medicaid_Income_1_4A : End");
+		
+end
+
+rule "Medicaid_Income_1_4B"
+salience 89962
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														!isCurrentlyEnrolledInMedicaid,
+														isIncomeFromDataSource
+														);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_4B : Begin");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.RPIDNA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRunMode(IncomeRunMode.DATASOURCEINCOME);	
+		drools.setFocus("Medicaid_Income_12_AG");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_4B");		
+		logger.debug("Rule : Medicaid_Income_1_4B : End");
+		
+end
+
+rule "Medicaid_Income_1_5"
+salience 89960
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInMedicaid,
+														getMemberIsNowMandatoryForUpComingMonth(),
+														!isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_5 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPRIR);	
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_5");	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRunMode(IncomeRunMode.STANDARDINCOME);	
+		drools.setFocus("Medicaid_Income_12_AG");	
+		logger.debug("Rule : Medicaid_Income_1_5 : End");
+		
+end
+
+rule "Medicaid_Income_1_5A"
+salience 89955
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInMedicaid,
+														getMemberIsNowMandatoryForUpComingMonth(),
+														isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_5A : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPRIR);	
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_5A");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRunMode(IncomeRunMode.DATASOURCEINCOME);	
+		drools.setFocus("Medicaid_Income_12_AG");
+		logger.debug("Rule : Medicaid_Income_1_5A : End");
+		
+end
+
+rule "Medicaid_Income_1_6"
+salience 89950
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInMedicaid,
+														!getMemberIsNowMandatoryForUpComingMonth(),
+														!isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_6");		
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPRISO);	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRunMode(IncomeRunMode.STANDARDINCOME);	
+		drools.setFocus("Medicaid_Income_12_AG");
+		logger.debug("Rule : Medicaid_Income_1_6 : End");
+		
+end
+
+rule "Medicaid_Income_1_6A"
+salience 89940
+activation-group "Medicaid_Income_1_AT"
+agenda-group "Medicaid_Income_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isFinancialAssistanceRequired,
+														isRunModeNoIncomeDataSource,
+														!getRenewalPeriodForMemberHasPast(),
+														isCurrentlyEnrolledInMedicaid,
+														!getMemberIsNowMandatoryForUpComingMonth(),
+														isIncomeFromDataSource);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_1_6A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_1_6A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.RPRISO);	
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setRunMode(IncomeRunMode.DATASOURCEINCOME);	
+		drools.setFocus("Medicaid_Income_12_AG");
+		logger.debug("Rule : Medicaid_Income_1_6A : End");
+		
+end
+
+//Medicaid Income(2)
+
+rule "Medicaid_Income_2_1"
+salience 88000
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(hhIncome <= lifeLevelIncomeForHhCount));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_1 : Begin");
+		logger.debug("No-Action Go-On : Medicaid_Income_2_1");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_1");
+		drools.setFocus("Medicaid_Income_3_AG");
+		logger.debug("Rule : Medicaid_Income_2_1 : End");
+end
+
+rule "Medicaid_Income_2_2"
+salience 87990
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhIncome <= lifeLevelIncomeForHhCount), 
+														(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+														 !isIrsDataExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_2 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.LIF);
+		$eDeterminationfacts.updateLifeLevelIndForProgram(ProgramCode.MEDICAID,Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyTwo, null);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_2");
+		drools.setFocus("Medicaid_Income_3b_AG");
+		logger.debug("Rule : Medicaid_Income_2_2 : End");
+end
+
+
+
+rule "Medicaid_Income_2_3"
+salience 87980
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhIncome <= lifeLevelIncomeForHhCount), 
+														(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+														 isIrsDataExists,
+														 !currentlyAPTCIncomeClkExpiredOrEPandClkExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_3 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.LIF);
+		$eDeterminationfacts.updateLifeLevelIndForProgram(ProgramCode.MEDICAID,Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyTwo, null);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_3");
+		drools.setFocus("Medicaid_Income_3b_AG");
+		logger.debug("Rule : Medicaid_Income_2_3 : End");
+end
+
+
+rule "Medicaid_Income_2_4"
+salience 87970
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhIncome <= lifeLevelIncomeForHhCount), 
+														(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+														 isIrsDataExists,
+														 currentlyAPTCIncomeClkExpiredOrEPandClkExpired,
+														 !(irsDSFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_4 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.LIF);
+		$eDeterminationfacts.updateLifeLevelIndForProgram(ProgramCode.MEDICAID,Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyTwo, null);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_4");
+		drools.setFocus("Medicaid_Income_3b_AG");
+		logger.debug("Rule : Medicaid_Income_2_4 : End");
+end
+
+rule "Medicaid_Income_2_5"
+salience 87960
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhIncome <= lifeLevelIncomeForHhCount), 
+														(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+														 isIrsDataExists,
+														 currentlyAPTCIncomeClkExpiredOrEPandClkExpired,
+														 irsDSFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_5 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.INCLK_EXP_DS_AT_MA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_2_5 : End");
+end
+
+rule "Medicaid_Income_2_6"
+salience 87955
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhIncome <= lifeLevelIncomeForHhCount), 
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)), 
+														!doesMemberHasADependentChild);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_6 : Begin");
+		logger.debug("No-Action Go-On : Medicaid_Income_2_3");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_6");
+		drools.setFocus("Medicaid_Income_3_AG");
+		logger.debug("Rule : Medicaid_Income_2_6 : End");
+end
+
+rule "Medicaid_Income_2_6A"
+salience 87950
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhIncome <= lifeLevelIncomeForHhCount), 
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)), 
+														doesMemberHasADependentChild,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)),
+														!isCaretakerRelativeFlag);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_6A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_6A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OVRMAGAL);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_2_6A : End");
+end
+
+rule "Medicaid_Income_2_7"
+salience 87940
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhIncome <= lifeLevelIncomeForHhCount), 
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)), 
+														doesMemberHasADependentChild,
+														!isIrsDataExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_7 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.LIF);
+		$eDeterminationfacts.updateLifeLevelIndForProgram(ProgramCode.MEDICAID,Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyTwo, null);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_7");
+		drools.setFocus("Medicaid_Income_3b_AG");
+		logger.debug("Rule : Medicaid_Income_2_7 : End");
+end
+
+rule "Medicaid_Income_2_8"
+salience 87930
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhIncome <= lifeLevelIncomeForHhCount), 
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)), 
+														doesMemberHasADependentChild,
+														isIrsDataExists,
+														!currentlyAPTCIncomeClkExpiredOrEPandClkExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_8 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.LIF);
+		$eDeterminationfacts.updateLifeLevelIndForProgram(ProgramCode.MEDICAID,Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyTwo, null);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_8");
+		drools.setFocus("Medicaid_Income_3b_AG");
+		logger.debug("Rule : Medicaid_Income_2_8 : End");
+end
+
+rule "Medicaid_Income_2_9"
+salience 87920
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhIncome <= lifeLevelIncomeForHhCount), 
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)), 
+														doesMemberHasADependentChild,
+														isIrsDataExists,
+														currentlyAPTCIncomeClkExpiredOrEPandClkExpired,
+														!(irsDSFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_9 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.LIF);
+		$eDeterminationfacts.updateLifeLevelIndForProgram(ProgramCode.MEDICAID,Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyTwo, null);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_9");
+		drools.setFocus("Medicaid_Income_3b_AG");
+		logger.debug("Rule : Medicaid_Income_2_9 : End");
+end
+
+rule "Medicaid_Income_2_10"
+salience 87910
+activation-group "Medicaid_Income_2_AT"
+agenda-group "Medicaid_Income_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhIncome <= lifeLevelIncomeForHhCount), 
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)), 
+														doesMemberHasADependentChild,
+														isIrsDataExists,
+														currentlyAPTCIncomeClkExpiredOrEPandClkExpired,
+														irsDSFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_2_10 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.INCLK_EXP_DS_AT_MA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_2_10");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_2_10 : End");
+end
+
+//Medicaid Income(3)
+
+// Added for CR1394
+rule "Medicaid_Income_3_1A"
+salience 86040
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMemberPregnant,isIrsDataExists,currentlyAPTCIncomeClkExpiredOrEPandClkExpired,
+		irsDSFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_1A : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.INCLK_EXP_DS_AT_MA);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_1A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+	    $eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_3_1A : End");
+end
+
+// Added for CR1394
+rule "Medicaid_Income_3_1B"
+salience 86030
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),isIrsDataExists,currentlyAPTCIncomeClkExpiredOrEPandClkExpired,
+		irsDSFpl < configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_1B : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.INCLK_EXP_DS_AT_MA);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_1B");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+	    $eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_3_1B : End");
+end
+
+// Added for CR1394 & updated for defect 64881
+rule "Medicaid_Income_3_1C"
+salience 86020
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberPregnant,!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+		!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+		isIrsDataExists,currentlyAPTCIncomeClkExpiredOrEPandClkExpired,HXConstants.LAWFUL_PRESENCE_PENDING.equals(isMemberLawfullyPresent),
+        HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+		irsDSFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_PRUCOL_FPL_MAX));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_1C : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.INCLK_EXP_DS_AT_MA);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_1C");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+	    $eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_3_1C : End");
+end
+
+// Added for CR1394
+rule "Medicaid_Income_3_1D"
+salience 86010
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+		!isMemberPregnant,!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+		!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+		isIrsDataExists,currentlyAPTCIncomeClkExpiredOrEPandClkExpired,
+		irsDSFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_1D : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.INCLK_EXP_DS_AT_MA);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_1D");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+	    $eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_3_1D : End");
+end
+
+rule "Medicaid_Income_3_1"
+salience 86000
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_1 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_1");
+		drools.setFocus("Medicaid_Income_7b_AG");
+		logger.debug("Rule : Medicaid_Income_3_1 : End");
+end
+
+rule "Medicaid_Income_3_2"
+salience 85990
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX)),
+														(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.FourtyFour, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_INFANT_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX) +"");
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_3_2 : End");
+end
+
+rule "Medicaid_Income_3_3"
+salience 85980
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX)),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														isMemberPregnant);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.FourtyThree, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_PREGNANT_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX) +"");
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_3_3 : End");
+end
+
+rule "Medicaid_Income_3_3A"
+salience 85975
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX)),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!isMemberPregnant, !(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH)),
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														isIrsDataExists,currentlyAPTCIncomeClkExpired,
+		                                                irsDSFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_3A : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+	    $eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+	    logger.debug("Rule : Medicaid_Income_3_3A : End");
+end
+
+rule "Medicaid_Income_3_4"
+salience 85970
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX)),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!isMemberPregnant,
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		drools.setFocus("Medicaid_Income_7b_AG");
+		logger.debug("Rule : Medicaid_Income_3_4 : End");
+end
+
+rule "Medicaid_Income_3_5"
+salience 85960
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX)),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!isMemberPregnant,
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH)),
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_5");
+		//This is removed as the setting is moved to sheet 4 [streamlining with the FDD] ~ddamoda
+		//$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+		drools.setFocus("Medicaid_Income_4_AG");
+		logger.debug("Rule : Medicaid_Income_3_5 : End");
+end
+
+
+rule "Medicaid_Income_3_6"
+salience 85940
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX)),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!isMemberPregnant,
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH)),
+														!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MID)),
+														(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_6");
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MID));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MEDI_KID_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MID) +"");
+		drools.setFocus("Medicaid_Income_6_AG");
+		logger.debug("Rule : Medicaid_Income_3_6 : End");
+end
+
+
+rule "Medicaid_Income_3_7"
+salience 85920
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX)),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!isMemberPregnant,
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH)),
+														!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MID)),
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_7");
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_ADULT_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN) +"");
+		drools.setFocus("Medicaid_Income_7_AG");
+		logger.debug("Rule : Medicaid_Income_3_7 : End");
+end
+
+
+rule "Medicaid_Income_3_8"
+salience 85910
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX)),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!isMemberPregnant,
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH)),
+														!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MID)),
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_8 : Begin");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_8");
+		drools.setFocus("Medicaid_Income_11_AG");
+		logger.debug("Rule : Medicaid_Income_3_8 : End");
+end
+
+
+rule "Medicaid_Income_3_9"
+salience 85905
+activation-group "Medicaid_Income_3_AT"
+agenda-group "Medicaid_Income_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX)),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!isMemberPregnant,
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH)),
+														!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)),
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MID)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3_9 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3_9");
+		drools.setFocus("Medicaid_Income_7b_AG");
+		logger.debug("Rule : Medicaid_Income_3_9 : End");
+end
+
+//Medicaid Income(3b)
+
+rule "Medicaid_Income_3b_1"
+salience 85700
+activation-group "Medicaid_Income_3b_AT"
+agenda-group "Medicaid_Income_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3b_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3b_1");
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_INFANT_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX) +"");
+		
+		//This piece of code has been moved from medicaid_income_2_2 & medicaid_income_2_4 for defect - 15311
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_14_1");
+		} else {
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.THIRTY);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_14_2");
+		}
+		
+		drools.setFocus("Medicaid_Income_10_AG");
+		
+		logger.debug("Rule : Medicaid_Income_3b_1 : End");
+end
+
+rule "Medicaid_Income_3b_2"
+salience 85690
+activation-group "Medicaid_Income_3b_AT"
+agenda-group "Medicaid_Income_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														(isMemberPregnant));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3b_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3b_2");
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_PREGNANT_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MAX) +"");
+		
+		//This piece of code has been moved from medicaid_income_2_2 & medicaid_income_2_4 for defect - 15311
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_14_1");
+		} else {
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.THIRTY);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_14_2");
+		}
+		
+		drools.setFocus("Medicaid_Income_10_AG");
+		
+		logger.debug("Rule : Medicaid_Income_3b_2 : End");
+end
+
+rule "Medicaid_Income_3b_3"
+salience 85680
+activation-group "Medicaid_Income_3b_AT"
+agenda-group "Medicaid_Income_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!(isMemberPregnant),
+														(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3b_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3b_3");
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MID));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MEDI_KID_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MID) +"");
+		
+		//This piece of code has been moved from medicaid_income_2_2 & medicaid_income_2_4 for defect - 15311
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_14_1");
+		} else {
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.THIRTY);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_14_2");
+		}
+		
+		drools.setFocus("Medicaid_Income_10_AG");
+		
+		logger.debug("Rule : Medicaid_Income_3b_3 : End");
+end
+
+rule "Medicaid_Income_3b_4"
+salience 85670
+activation-group "Medicaid_Income_3b_AT"
+agenda-group "Medicaid_Income_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!(isMemberPregnant),
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+														(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3b_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3b_4");
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_YOUTH_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH) +"");
+		
+		//This piece of code has been moved from medicaid_income_2_2 & medicaid_income_2_4 for defect - 15311
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_14_1");
+		} else {
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.THIRTY);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_14_2");
+		}
+		
+		drools.setFocus("Medicaid_Income_10_AG");
+		
+		logger.debug("Rule : Medicaid_Income_3b_4 : End");
+end
+
+rule "Medicaid_Income_3b_5"
+salience 85660
+activation-group "Medicaid_Income_3b_AT"
+agenda-group "Medicaid_Income_3b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_INFANT)),
+														!(isMemberPregnant),
+														!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN)),
+														!(memberAge > configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MIN) && memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_YOUTH_MAX)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_3b_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_3b_5");
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_ADULT_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN) +"");
+		
+		//This piece of code has been moved from medicaid_income_2_2 & medicaid_income_2_4 for defect - 15311
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_14_1");
+		} else {
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.THIRTY);
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_14_2");
+		}
+		
+		drools.setFocus("Medicaid_Income_10_AG");
+		
+		logger.debug("Rule : Medicaid_Income_3b_5 : End");
+end
+
+//Medicaid Income(4)
+
+rule "Medicaid_Income_4_0"
+salience 85600
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMemberParent,
+														!(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_0");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H1, CoverageCode.THIRTY);
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_ADULT_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN) +"");
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_4_0 : End");
+end
+
+rule "Medicaid_Income_4_0A"
+salience 85500
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMemberParent,
+														(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_0A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_0A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H1, CoverageCode.THIRTY);
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_YTH_W_P_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH) +"");
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_4_0A : End");
+end
+
+rule "Medicaid_Income_4_1"
+salience 85000
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberParent,
+														isLivingWithparentOrStepParent,
+														(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H1, CoverageCode.THIRTY);
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_YTH_W_P_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH) +"");
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_4_1 : End");
+end
+
+rule "Medicaid_Income_4_1A"
+salience 84995
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberParent,
+														isLivingWithparentOrStepParent,
+														!(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_1A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.Ninty, CoverageCode.THIRTY);
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_YTH_W_P_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH) +"");
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_4_1A : End");
+end
+
+rule "Medicaid_Income_4_2"
+salience 84990
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberParent,
+														!isLivingWithparentOrStepParent,
+														isLivingWithSiblingOrGrandParent,
+														(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H1, CoverageCode.THIRTY);
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_YTH_W_S_G_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH) +"");
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_4_2 : End");
+end
+
+rule "Medicaid_Income_4_2A"
+salience 84985
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberParent,
+														!isLivingWithparentOrStepParent,
+														isLivingWithSiblingOrGrandParent,
+														!(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_2A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.Ninty, CoverageCode.THIRTY);
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_YTH_W_S_G_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH) +"");
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_4_2A : End");
+end
+
+rule "Medicaid_Income_4_3"
+salience 84980
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberParent,
+														!isLivingWithparentOrStepParent,
+														!isLivingWithSiblingOrGrandParent, 
+														isLivingWithUncleAuntOrNephewNiece,
+														(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H1, CoverageCode.THIRTY);
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_YTH_W_UANN_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH) +"");
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_4_3 : End");
+end
+
+rule "Medicaid_Income_4_3A"
+salience 84980
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberParent,
+														!isLivingWithparentOrStepParent,
+														!isLivingWithSiblingOrGrandParent, 
+														isLivingWithUncleAuntOrNephewNiece,
+														!(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_3A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_3A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.Ninty, CoverageCode.THIRTY);
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_YTH_W_UANN_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_YOUTH) +"");
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_4_3A : End");
+end
+
+rule "Medicaid_Income_4_4"
+salience 84970
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberParent,
+														!isLivingWithparentOrStepParent,
+														!isLivingWithSiblingOrGrandParent, 
+														!isLivingWithUncleAuntOrNephewNiece,
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_CHILD_FPL_MIN)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.Ninty, CoverageCode.THIRTY);
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_ADULT_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN) +"");
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_4_4 : End");
+end
+
+//  TBD CR1394
+/*rule "Medicaid_Income_4_5"
+salience 84960
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isLivingWithparentOrStepParent,
+														!isLivingWithSiblingOrGrandParent, 
+														!isLivingWithUncleAuntOrNephewNiece,
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_CHILD_FPL_MIN)),
+														(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_5");
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		drools.setFocus("Medicaid_Income_5b_AG");
+		logger.debug("Rule : Medicaid_Income_4_5 : End");
+end*/
+
+rule "Medicaid_Income_4_5"
+salience 84960
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberParent,
+														!isLivingWithparentOrStepParent,
+														!isLivingWithSiblingOrGrandParent, 
+														!isLivingWithUncleAuntOrNephewNiece,
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_CHILD_FPL_MIN)),
+														(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_5");
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OI);
+		drools.setFocus("Medicaid_Income_5b_AG");
+		logger.debug("Rule : Medicaid_Income_4_5 : End");
+end
+
+rule "Medicaid_Income_4_6"
+salience 84950
+activation-group "Medicaid_Income_4_AT"
+agenda-group "Medicaid_Income_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isMemberParent,
+														!isLivingWithparentOrStepParent,
+														!isLivingWithSiblingOrGrandParent, 
+														!isLivingWithUncleAuntOrNephewNiece,
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_CHILD_FPL_MIN)),
+														!(hhFpl > configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_4_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_4_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H0, CoverageCode.THIRTY);
+		$eDeterminationfacts.updateIncomeThresHold(ProgramCode.MEDICAID, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN));
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.MED_ADULT_FPL, configGroupBean.getValueFor(RuleKey.MEDICAID_FPL_MIN) +"");
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_4_6 : End");
+end
+
+//Medicaid Income(5)
+
+rule "Medicaid_Income_5_1"
+salience 83000
+activation-group "Medicaid_Income_5_AT"
+agenda-group "Medicaid_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(income_15_Day_VerificationNoticeSent),
+														!(isMemberPregnant),
+														!isUsingCurrentIncome);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING, ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.MEDICAID_INCOME_15);
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_5_1 : End");
+end
+
+rule "Medicaid_Income_5_2"
+salience 82995
+activation-group "Medicaid_Income_5_AT"
+agenda-group "Medicaid_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(currentIncome_15_Day_VerificationNoticeSent),
+														!(isMemberPregnant),
+														isUsingCurrentIncome);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING, ProgramReasonCode.IVO_CURR);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.MEDICAID_CURRENT_INCOME_15);
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_5_2 : End");
+end
+
+rule "Medicaid_Income_5_3"
+salience 82990
+activation-group "Medicaid_Income_5_AT"
+agenda-group "Medicaid_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(income_15_Day_VerificationNoticeSent),
+														(isMemberPregnant),
+														!isUsingCurrentIncome);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.MEDICAID_INCOME_15);
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_5_3 : End");
+end
+
+rule "Medicaid_Income_5_4"
+salience 82985
+activation-group "Medicaid_Income_5_AT"
+agenda-group "Medicaid_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(currentIncome_15_Day_VerificationNoticeSent),
+														(isMemberPregnant),
+														isUsingCurrentIncome);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.MEDICAID_CURRENT_INCOME_15);
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_5_4 : End");
+end
+
+rule "Medicaid_Income_5_5"
+salience 82980
+activation-group "Medicaid_Income_5_AT"
+agenda-group "Medicaid_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_15_Day_VerificationNoticeSent),
+														!(isMemberPregnant),
+														!(income_15_DayClockExpired),
+														!isUsingCurrentIncome);
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING, ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.MEDICAID_INCOME_15);
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_5_5 : End");
+end
+
+rule "Medicaid_Income_5_6"
+salience 82975
+activation-group "Medicaid_Income_5_AT"
+agenda-group "Medicaid_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((currentIncome_15_Day_VerificationNoticeSent),
+														!(isMemberPregnant),
+														isUsingCurrentIncome,
+														!(currentIncome_15_DayClockExpired));
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING, ProgramReasonCode.IVO_CURR);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.MEDICAID_CURRENT_INCOME_15);
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_5_6 : End");
+end
+
+rule "Medicaid_Income_5_7"
+salience 82970
+activation-group "Medicaid_Income_5_AT"
+agenda-group "Medicaid_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_15_Day_VerificationNoticeSent),
+														(isMemberPregnant),
+														!(income_15_DayClockExpired),
+														!isUsingCurrentIncome);
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.MEDICAID_INCOME_15);
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_5_7 : End");
+end
+
+rule "Medicaid_Income_5_8"
+salience 82965
+activation-group "Medicaid_Income_5_AT"
+agenda-group "Medicaid_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((currentIncome_15_Day_VerificationNoticeSent),
+														(isMemberPregnant),
+														isUsingCurrentIncome,
+														!(currentIncome_15_DayClockExpired));
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.IVO_CURR);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.MEDICAID_CURRENT_INCOME_15);
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_5_8 : End");
+end
+
+rule "Medicaid_Income_5_9"
+salience 82970
+activation-group "Medicaid_Income_5_AT"
+agenda-group "Medicaid_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_15_Day_VerificationNoticeSent),
+														(income_15_DayClockExpired),
+														!isUsingCurrentIncome);
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5_9 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5_9");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.IVOP_15);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_5_9 : End");
+end
+
+rule "Medicaid_Income_5_10"
+salience 82960
+activation-group "Medicaid_Income_5_AT"
+agenda-group "Medicaid_Income_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((currentIncome_15_Day_VerificationNoticeSent),
+														(currentIncome_15_DayClockExpired),
+														isUsingCurrentIncome);
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5_10 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5_10");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.IVOP_15_CURR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_5_10 : End");
+end
+
+
+//Medicaid Income(5V1)
+
+// This 5V1 version is introduced as part of CR1307 to skip the call to Medicaid_Income_8 sheets in case  when aid category,
+// coverage code  has been set  and Done with Medicaid Income Rules.
+
+rule "Medicaid_Income_5V1_1"
+salience 84000
+activation-group "Medicaid_Income_5V1_AT"
+agenda-group "Medicaid_Income_5V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(income_15_Day_VerificationNoticeSent),
+														!(isMemberPregnant),
+														!isUsingCurrentIncome);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5V1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5V1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING, ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.MEDICAID_INCOME_15);
+		logger.debug("Rule : Medicaid_Income_5V1_1 : End");
+end
+
+rule "Medicaid_Income_5V1_2"
+salience 83995
+activation-group "Medicaid_Income_5V1_AT"
+agenda-group "Medicaid_Income_5V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(currentIncome_15_Day_VerificationNoticeSent),
+														!(isMemberPregnant),
+														isUsingCurrentIncome);		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5V1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5V1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING, ProgramReasonCode.IVO_CURR);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.MEDICAID_CURRENT_INCOME_15);
+		logger.debug("Rule : Medicaid_Income_5V1_2 : End");
+end
+
+rule "Medicaid_Income_5V1_3"
+salience 83990
+activation-group "Medicaid_Income_5V1_AT"
+agenda-group "Medicaid_Income_5V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(income_15_Day_VerificationNoticeSent),
+														(isMemberPregnant),
+														!isUsingCurrentIncome);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5V1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5V1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.MEDICAID_INCOME_15);
+		logger.debug("Rule : Medicaid_Income_5V1_3 : End");
+end
+
+rule "Medicaid_Income_5V1_4"
+salience 83985
+activation-group "Medicaid_Income_5V1_AT"
+agenda-group "Medicaid_Income_5V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(currentIncome_15_Day_VerificationNoticeSent),
+														(isMemberPregnant),
+														isUsingCurrentIncome);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5V1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5V1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.MEDICAID_CURRENT_INCOME_15);
+		logger.debug("Rule : Medicaid_Income_5V1_4 : End");
+end
+
+rule "Medicaid_Income_5V1_5"
+salience 83980
+activation-group "Medicaid_Income_5V1_AT"
+agenda-group "Medicaid_Income_5V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_15_Day_VerificationNoticeSent),
+														!(isMemberPregnant),
+														!(income_15_DayClockExpired),
+														!isUsingCurrentIncome);
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5V1_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5V1_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING, ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.MEDICAID_INCOME_15);
+		logger.debug("Rule : Medicaid_Income_5V1_5 : End");
+end
+
+rule "Medicaid_Income_5V1_6"
+salience 83975
+activation-group "Medicaid_Income_5V1_AT"
+agenda-group "Medicaid_Income_5V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((currentIncome_15_Day_VerificationNoticeSent),
+														!(isMemberPregnant),
+														isUsingCurrentIncome,
+														!(currentIncome_15_DayClockExpired));
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5V1_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5V1_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.PENDING, ProgramReasonCode.IVO_CURR);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.MEDICAID_CURRENT_INCOME_15);
+		logger.debug("Rule : Medicaid_Income_5V1_6 : End");
+end
+
+rule "Medicaid_Income_5V1_7"
+salience 83970
+activation-group "Medicaid_Income_5V1_AT"
+agenda-group "Medicaid_Income_5V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_15_Day_VerificationNoticeSent),
+														(isMemberPregnant),
+														!(income_15_DayClockExpired),
+														!isUsingCurrentIncome);
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5V1_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5V1_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.IVO);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME, ClockNameEnum.MEDICAID_INCOME_15);
+		logger.debug("Rule : Medicaid_Income_5V1_7 : End");
+end
+
+rule "Medicaid_Income_5V1_8"
+salience 83965
+activation-group "Medicaid_Income_5V1_AT"
+agenda-group "Medicaid_Income_5V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((currentIncome_15_Day_VerificationNoticeSent),
+														(isMemberPregnant),
+														isUsingCurrentIncome,
+														!(currentIncome_15_DayClockExpired));
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5V1_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5V1_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.IVO_CURR);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.CURRENT_INCOME, ClockNameEnum.MEDICAID_CURRENT_INCOME_15);
+		logger.debug("Rule : Medicaid_Income_5V1_8 : End");
+end
+
+rule "Medicaid_Income_5V1_9"
+salience 83970
+activation-group "Medicaid_Income_5V1_AT"
+agenda-group "Medicaid_Income_5V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_15_Day_VerificationNoticeSent),
+														(income_15_DayClockExpired),
+														!isUsingCurrentIncome);
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5V1_9 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5V1_9");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.IVOP_15);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_5V1_9 : End");
+end
+
+rule "Medicaid_Income_5V1_10"
+salience 83960
+activation-group "Medicaid_Income_5V1_AT"
+agenda-group "Medicaid_Income_5V1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((currentIncome_15_Day_VerificationNoticeSent),
+														(currentIncome_15_DayClockExpired),
+														isUsingCurrentIncome);
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5V1_10 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5V1_10");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.IVOP_15_CURR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_5V1_10 : End");
+end
+
+rule "Medicaid_Income_5b_1"
+salience 82700
+activation-group "Medicaid_Income_5b_AT"
+agenda-group "Medicaid_Income_5b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(income_15_DayClockExpired),
+														!(currentIncome_15_DayClockExpired));
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5b_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5b_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_5b_1 : End");
+end
+
+rule "Medicaid_Income_5b_2"
+salience 82690
+activation-group "Medicaid_Income_5b_AT"
+agenda-group "Medicaid_Income_5b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_15_DayClockExpired));
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5b_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5b_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.IVOP_15);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_5b_2 : End");
+end
+
+rule "Medicaid_Income_5b_3"
+salience 82680
+activation-group "Medicaid_Income_5b_AT"
+agenda-group "Medicaid_Income_5b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(income_15_DayClockExpired),
+														(currentIncome_15_DayClockExpired));
+									
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_5b_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_5b_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.IVOP_15_CURR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_5b_3 : End");
+end
+
+//Medicaid Income(6)
+rule "Medicaid_Income_6_1"
+salience 81000
+activation-group "Medicaid_Income_6_AT"
+agenda-group "Medicaid_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_KID)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_6_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_6_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.FourtyFive, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_6_1 : End");
+end
+
+rule "Medicaid_Income_6_2"
+salience 80090
+activation-group "Medicaid_Income_6_AT"
+agenda-group "Medicaid_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_KID)),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_CHILD_FPL_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_6_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_6_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyOne, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_6_2 : End");
+end
+
+rule "Medicaid_Income_6_3"
+salience 80080
+activation-group "Medicaid_Income_6_AT"
+agenda-group "Medicaid_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_KID)),
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_CHILD_FPL_MAX)),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_ADULT_LIVING_WITH_PARENT_FPL)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_6_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_6_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.EightySix, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_6_3 : End");
+end
+
+rule "Medicaid_Income_6_4"
+salience 80070
+activation-group "Medicaid_Income_6_AT"
+agenda-group "Medicaid_Income_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge <= configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_KID)),
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_CHILD_FPL_MAX)),
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_ADULT_LIVING_WITH_PARENT_FPL)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_6_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_6_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE,ProgramReasonCode.OI);
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_6_4 : End");
+end
+
+//Medicaid Income(7)
+rule "Medicaid_Income_7_1"
+salience 79000
+activation-group "Medicaid_Income_7_AT"
+agenda-group "Medicaid_Income_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isCaretakerRelativeFlag),
+													   hhIncome <= lifeLevelIncomeForHhCount);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_7_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_7_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyTwo, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_7_1 : End");
+end
+
+rule "Medicaid_Income_7_2"
+salience 78090
+activation-group "Medicaid_Income_7_AT"
+agenda-group "Medicaid_Income_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isCaretakerRelativeFlag),
+													 	!(hhIncome <= lifeLevelIncomeForHhCount));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_7_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_7_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H1, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_7_2 : End");
+end
+
+
+//Commented the lifeLevel Income check as per Defect 52574
+rule "Medicaid_Income_7_3"
+salience 78080
+activation-group "Medicaid_Income_7_AT"
+agenda-group "Medicaid_Income_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isCaretakerRelativeFlag),
+														//!(hhIncome <= lifeLevelIncomeForHhCount),
+														(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_CHILD_FPL_MIN)),
+														(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_7_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_7_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.Ninty, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_7_3 : End");
+end
+
+//Commented the lifeLevel Income check as per Defect 52574
+rule "Medicaid_Income_7_4"
+salience 78070
+activation-group "Medicaid_Income_7_AT"
+agenda-group "Medicaid_Income_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isCaretakerRelativeFlag),
+														//!(hhIncome <= lifeLevelIncomeForHhCount),
+														!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_CHILD_FPL_MIN)),
+														(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_7_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_7_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H0, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_7_4 : End");
+end
+
+//Commented the below Rule as per Defect 52574
+/*rule "Medicaid_Income_7_5"
+salience 78060
+activation-group "Medicaid_Income_7_AT"
+agenda-group "Medicaid_Income_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isCaretakerRelativeFlag),
+														hhIncome <= lifeLevelIncomeForHhCount,
+														(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_7_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_7_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.Ninty, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_7_5 : End");
+end
+*/
+
+rule "Medicaid_Income_7_6"
+salience 78050
+activation-group "Medicaid_Income_7_AT"
+agenda-group "Medicaid_Income_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isCaretakerRelativeFlag),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_7_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_7_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OVRMAGAL);
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_7_6 : End");
+end
+
+
+//Medicaid Income(7b)
+// Implemented Medicaid Income(7b) as part of defect #58071
+
+rule "Medicaid_Income_7b_1"
+salience 78030
+activation-group "Medicaid_Income_7b_AT"
+agenda-group "Medicaid_Income_7b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)),
+														!(isCaretakerRelativeFlag));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_7b_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_7b_1");
+		drools.setFocus("Medicaid_Income_5b_AG");
+		logger.debug("Rule : Medicaid_Income_7b_1 : End");
+end
+
+
+rule "Medicaid_Income_7b_2"
+salience 78020
+activation-group "Medicaid_Income_7b_AT"
+agenda-group "Medicaid_Income_7b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)),
+														!(isCaretakerRelativeFlag));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_7b_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_7b_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OVRMAGAL);
+		drools.setFocus("Medicaid_Income_5b_AG");
+		logger.debug("Rule : Medicaid_Income_7b_2 : End");
+end
+
+
+rule "Medicaid_Income_7b_3"
+salience 78015
+activation-group "Medicaid_Income_7b_AT"
+agenda-group "Medicaid_Income_7b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)),
+														(isCaretakerRelativeFlag));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_7b_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_7b_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OVRMAGAL);
+		drools.setFocus("Medicaid_Income_5b_AG");
+		logger.debug("Rule : Medicaid_Income_7b_3 : End");
+end
+
+
+rule "Medicaid_Income_7b_4"
+salience 78010
+activation-group "Medicaid_Income_7b_AT"
+agenda-group "Medicaid_Income_7b_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)),
+														(isCaretakerRelativeFlag));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_7b_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_7b_4");
+		drools.setFocus("Medicaid_Income_5b_AG");
+		logger.debug("Rule : Medicaid_Income_7b_4 : End");
+end
+
+//Medicaid Income(8)
+
+rule "Medicaid_Income_8_1"
+salience 77000
+activation-group "Medicaid_Income_8_AT"
+agenda-group "Medicaid_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType) || CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_8_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_8_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_8_1 : End");
+end
+
+rule "Medicaid_Income_8_2"
+salience 76995
+activation-group "Medicaid_Income_8_AT"
+agenda-group "Medicaid_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType) || CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														!isHIXRestricted,
+														//CR1307:Modification
+														!(isMemberPregnant || isPPSDategreaterThanRunfordate),
+														!isProposedElgForRenewal);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_8_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_8_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyEight, CoverageCode.SEVEN);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.EMERG_MU);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_8_2 : End");
+end
+
+rule "Medicaid_Income_8_2A"
+salience 76990
+activation-group "Medicaid_Income_8_AT"
+agenda-group "Medicaid_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType) || CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														!isHIXRestricted,
+														//CR1307:Modification
+														!(isMemberPregnant || isPPSDategreaterThanRunfordate),
+														isProposedElgForRenewal);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_8_2A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_8_2A");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyEight, CoverageCode.SEVEN);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_8_2A : End");
+end
+
+
+rule "Medicaid_Income_8_3"
+salience 76980
+activation-group "Medicaid_Income_8_AT"
+agenda-group "Medicaid_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType) || CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														!isHIXRestricted,
+														(isMemberPregnant || isPPSDategreaterThanRunfordate),
+														!(isEnrolledInMA_07_Incar || isPreRelease_07_Coverage));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_8_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_8_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H5, null);
+		$eDeterminationfacts.clearCoverageCodeForProgram(ProgramCode.MEDICAID);
+		
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		} else {
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.THIRTY);
+		}
+		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_8_3 : End");
+end
+
+rule "Medicaid_Income_8_3_1"
+salience 76976
+activation-group "Medicaid_Income_8_AT"
+agenda-group "Medicaid_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType) || CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														!isHIXRestricted,
+														(isMemberPregnant || isPPSDategreaterThanRunfordate),
+														(isEnrolledInMA_07_Incar || isPreRelease_07_Coverage));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_8_3_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_8_3_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyEight, CoverageCode.SEVEN);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.EMERG_MU);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01); 		
+		logger.debug("Rule : Medicaid_Income_8_3_1 : End");
+end
+
+
+//Added for enhancement [36560]
+
+rule "Medicaid_Income_8_3A"
+salience 76974
+activation-group "Medicaid_Income_8_AT"
+agenda-group "Medicaid_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType) || CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														isHIXRestricted);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_8_3A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_8_3A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.ThirtyEight, CoverageCode.SEVEN);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.EMERG_MU);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01); 		
+		logger.debug("Rule : Medicaid_Income_8_3A : End");
+end
+
+
+rule "Medicaid_Income_8_4"
+salience 76970
+activation-group "Medicaid_Income_8_AT"
+agenda-group "Medicaid_Income_8_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType) || CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType)),
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_8_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_8_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_8_4 : End");
+end
+
+
+//Medicaid Income(9)
+/*
+rule "Medicaid_Income_9_1"
+salience 75000
+activation-group "Medicaid_Income_9_AT"
+agenda-group "Medicaid_Income_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMemberPregnant));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_9_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_9_1");
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_9_1 : End");
+end
+
+rule "Medicaid_Income_9_2"
+salience 74090
+activation-group "Medicaid_Income_9_AT"
+agenda-group "Medicaid_Income_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMemberPregnant),
+														(isIncomeVerificationComplete));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_9_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_9_2");
+		logger.debug("No-Action Go-On : Medicaid_Income_9_2");
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_9_2 : End");
+end
+
+rule "Medicaid_Income_9_3"
+salience 74080
+activation-group "Medicaid_Income_9_AT"
+agenda-group "Medicaid_Income_9_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isMemberPregnant),
+														!(isIncomeVerificationComplete));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_9_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_9_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.FourtyOne, CoverageCode.THIRTEEN);
+		drools.setFocus("Medicaid_Income_10_AG");
+		logger.debug("Rule : Medicaid_Income_9_3 : End");
+end
+*/
+
+//Medicaid Income(10)
+
+rule "Medicaid_Income_10_1A"
+salience 72098
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((income_15_DayClockExpired || currentIncome_15_DayClockExpired));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_1A");
+		drools.setFocus("Medicaid_Income_5_AG");		
+		logger.debug("Rule : Medicaid_Income_10_1A : End");
+end
+
+
+rule "Medicaid_Income_10_1B"
+salience 72096
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMADeemedNewbornAndUnder13Months);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_1B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_1B");
+		drools.setFocus("Medicaid_Income_8_AG");		
+		logger.debug("Rule : Medicaid_Income_10_1B : End");
+end
+
+
+rule "Medicaid_Income_10_2"
+salience 72095
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(isIncomeFromDataSource));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_2");
+		drools.setFocus("Medicaid_Income_8_AG");		
+		logger.debug("Rule : Medicaid_Income_10_2 : End");
+end
+
+rule "Medicaid_Income_10_3"
+salience 72090
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														!(isIncomeFromDataSource),
+														(isIncomeVerificationComplete));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_3");
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_10_3 : End");
+end
+
+
+rule "Medicaid_Income_10_4"
+salience 72080
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														!(isIncomeFromDataSource),
+														!isIncomeVerificationComplete,
+														!isReasonablyCompatableSources,
+														attestedNoIncome);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_4");
+		drools.setFocus("Medicaid_Income_8_AG");	
+		logger.debug("Rule : Medicaid_Income_10_4 : End");
+end
+
+rule "Medicaid_Income_10_5"
+salience 72070
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														!(isIncomeFromDataSource),
+														!isIncomeVerificationComplete,
+														!isReasonablyCompatableSources,
+														!attestedNoIncome,
+														!isMemberPregnant,
+														//CR1307:Modification
+														!isDateAfterRunForDate(getPostPartumSaveDate(ProgramCode.MEDICAID)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_5");
+		drools.setFocus("Medicaid_Income_5_AG");
+		logger.debug("Rule : Medicaid_Income_10_5 : End");
+end
+
+//CR1307:Modification start
+rule "Medicaid_Income_10_5A"
+salience 72065
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														!(isIncomeFromDataSource),
+														!isIncomeVerificationComplete,
+														!isReasonablyCompatableSources,
+														!attestedNoIncome,
+														!isMemberPregnant,
+														isDateAfterRunForDate(getPostPartumSaveDate(ProgramCode.MEDICAID)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_5A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_5A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_NO_VER_PPSD_CSD);//New reason:Income verification not required due to PPSD or CSD
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setIsPPSDNoCSDExtendInd(Boolean.TRUE);//New indicator
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_10_5A : End");
+end
+//CR1307:Modification end
+
+rule "Medicaid_Income_10_6"
+salience 72060
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														!(isIncomeFromDataSource),
+														!isIncomeVerificationComplete,
+														!isReasonablyCompatableSources,
+														!attestedNoIncome,
+														isMemberPregnant,
+														//CR1307:Modification
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														!(isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID)) || isDateAfterRunForDate(getPostPartumSaveDate(ProgramCode.MEDICAID))),
+														//CR1307:coverage code 01 or 30 in previous eligibility
+														!(isPrevTempCoverageCodeAvailable(CoverageCode.ONE) || isPrevTempCoverageCodeAvailable(CoverageCode.THIRTY)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.FourtyOne, CoverageCode.THIRTEEN);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.PRES_OVI);
+		drools.setFocus("Medicaid_Income_END_AG");
+		// This 5V1 version is introduced as part of CR1307 to skip the call to Medicaid_Income_8 sheets in case  when aid category,
+		// coverage code  has been set  and Done with Medicaid Income Rules.
+		drools.setFocus("Medicaid_Income_5V1_AG");
+		logger.debug("Rule : Medicaid_Income_10_6 : End");
+end
+
+//CR1307:Modification start
+rule "Medicaid_Income_10_6A"
+salience 72058
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														!(isIncomeFromDataSource),
+														!isIncomeVerificationComplete,
+														!isReasonablyCompatableSources,
+														!attestedNoIncome,
+														isMemberPregnant,
+														!HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														!(isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID)) || isDateAfterRunForDate(getPostPartumSaveDate(ProgramCode.MEDICAID))),
+														(isPrevTempCoverageCodeAvailable(CoverageCode.ONE) || isPrevTempCoverageCodeAvailable(CoverageCode.THIRTY)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_6A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_6A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_NO_VER_TMP_01_30);//New reason:Income verification not required due to Temp 01/30 rule
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setIsPPSDNoCSDExtendInd(Boolean.TRUE);//New indicator
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_10_6A : End");
+end
+
+rule "Medicaid_Income_10_6B"
+salience 72056
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														!(isIncomeFromDataSource),
+														!isIncomeVerificationComplete,
+														!isReasonablyCompatableSources,
+														!attestedNoIncome,
+														isMemberPregnant,
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()),
+														!(isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID)) || isDateAfterRunForDate(getPostPartumSaveDate(ProgramCode.MEDICAID))),
+														!(isPrevTempCoverageCodeAvailable(CoverageCode.ONE) || isPrevTempCoverageCodeAvailable(CoverageCode.THIRTY)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_6B : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_6B");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H5, CoverageCode.THIRTEEN);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.PRES_OVI);
+		drools.setFocus("Medicaid_Income_END_AG");
+		// This 5V1 version is introduced as part of CR1307 to skip the call to Medicaid_Income_8 sheets in case  when aid category,
+		// coverage code  has been set  and Done with Medicaid Income Rules.
+		drools.setFocus("Medicaid_Income_5V1_AG");
+		logger.debug("Rule : Medicaid_Income_10_6B : End");
+end
+
+rule "Medicaid_Income_10_6C"
+salience 72054
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														!(isIncomeFromDataSource),
+														!isIncomeVerificationComplete,
+														!isReasonablyCompatableSources,
+														!attestedNoIncome,
+														isMemberPregnant,
+														(isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID)) || isDateAfterRunForDate(getPostPartumSaveDate(ProgramCode.MEDICAID))));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_6C : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_6C");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_NO_VER_PPSD_CSD);//New reason:Income verification not required due to PPSD or CSD
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setIsPPSDNoCSDExtendInd(Boolean.TRUE);//New indicator
+		drools.setFocus("Medicaid_Income_8_AG");
+		logger.debug("Rule : Medicaid_Income_10_6C : End");
+end
+//CR1307:Modification end
+
+rule "Medicaid_Income_10_7"
+salience 72050
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														!(isIncomeFromDataSource),
+														!(isIncomeVerificationComplete),
+														(isReasonablyCompatableSources),
+														attestedUIBOnlyWithDSAvailableForUIBAndOrWage);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_7");
+		drools.setFocus("Medicaid_Income_8_AG");		
+		logger.debug("Rule : Medicaid_Income_10_7 : End");
+end
+
+rule "Medicaid_Income_10_8"
+salience 72040
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														!(isIncomeFromDataSource),
+														!(isIncomeVerificationComplete),
+														(isReasonablyCompatableSources),
+														!(attestedUIBOnlyWithDSAvailableForUIBAndOrWage),
+														isReasonablyCompatable10);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_8");
+		drools.setFocus("Medicaid_Income_8_AG");		
+		logger.debug("Rule : Medicaid_Income_10_8 : End");
+end
+
+
+/*Rule Income_10_9, Income_10_10, Medicaid_Income_10_10A, Medicaid_Income_10_10B, Medicaid_Income_10_10C and Income_10_11 is combined in order to get the value updated in working memory. 
+This is due to limitation in drools*/
+rule "Medicaid_Income_10_9"
+salience 72030
+activation-group "Medicaid_Income_10_AT"
+agenda-group "Medicaid_Income_10_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isIncomeFromDataSource),
+														!(isIncomeVerificationComplete),
+														(isReasonablyCompatableSources),
+														!(attestedUIBOnlyWithDSAvailableForUIBAndOrWage),
+														!isReasonablyCompatable10);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_10_9 : Begin");
+		
+		if($eDeterminationfacts.getHhDSVerifiedFPL() < $eDeterminationfacts.getIncomeThresholdForProgram(ProgramCode.MEDICAID)){
+		
+			drools.setFocus("Medicaid_Income_8_AG");
+			$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_11");
+			logger.debug("Rule : Medicaid_Income_10_11 : Executed");
+			
+		}else{
+		
+			if($eDeterminationfacts.getIsMemberPregnant()){
+				//CR1307:Modification
+				if($eDeterminationfacts.isDateAfterRunForDate($eDeterminationfacts.getContinuousSaveDate(ProgramCode.MEDICAID)) || $eDeterminationfacts.isDateAfterRunForDate($eDeterminationfacts.getPostPartumSaveDate(ProgramCode.MEDICAID))){
+					logger.debug("Rule : Medicaid_Income_10_10C : Begin");
+					$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_10C");
+					$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_NO_VER_PPSD_CSD);//New reason:Income verification not required due to PPSD or CSD
+					$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setIsPPSDNoCSDExtendInd(Boolean.TRUE);//New indicator
+					drools.setFocus("Medicaid_Income_8_AG");
+					logger.debug("Rule : Medicaid_Income_10_10C : Executed");
+				}
+				else {
+					if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()) && 
+					!($eDeterminationfacts.isPrevTempCoverageCodeAvailable(CoverageCode.ONE) || $eDeterminationfacts.isPrevTempCoverageCodeAvailable(CoverageCode.THIRTY))){
+						logger.debug("Rule : Medicaid_Income_10_10B : Begin");		
+						$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_10B");
+						$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H5, CoverageCode.THIRTEEN);
+						$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.PRES_OVI);
+						drools.setFocus("Medicaid_Income_END_AG");
+						// This 5V1 version is introduced as part of CR1307 to skip the call to Medicaid_Income_8 sheets in case  when aid category,
+						// coverage code  has been set  and Done with Medicaid Income Rules.
+						drools.setFocus("Medicaid_Income_5V1_AG");
+						logger.debug("Rule : Medicaid_Income_10_10B : End");
+					}
+					else {
+						if(!HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()) && 
+							!($eDeterminationfacts.isPrevTempCoverageCodeAvailable(CoverageCode.ONE) || $eDeterminationfacts.isPrevTempCoverageCodeAvailable(CoverageCode.THIRTY))){
+							logger.debug("Rule : Medicaid_Income_10_10 : Begin");
+							$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_10");
+							$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.FourtyOne, CoverageCode.THIRTEEN);
+							$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.PRES_OVI);
+							drools.setFocus("Medicaid_Income_END_AG");
+							// This 5V1 version is introduced as part of CR1307 to skip the call to Medicaid_Income_8 sheets in case  when aid category,
+							// coverage code  has been set  and Done with Medicaid Income Rules.
+							drools.setFocus("Medicaid_Income_5V1_AG");
+							logger.debug("Rule : Medicaid_Income_10_10 : Executed");
+						}
+						else {
+							if(!HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getMedicaidUnDocumentInd()) && 
+								($eDeterminationfacts.isPrevTempCoverageCodeAvailable(CoverageCode.ONE) || $eDeterminationfacts.isPrevTempCoverageCodeAvailable(CoverageCode.THIRTY))){
+									logger.debug("Rule : Medicaid_Income_10_10A : Begin");
+									$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_10A");
+									$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_NO_VER_TMP_01_30);//New reason:Income verification not required due to Temp 01/30 rule
+									$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setIsPPSDNoCSDExtendInd(Boolean.TRUE);//New indicator
+									drools.setFocus("Medicaid_Income_8_AG");
+									logger.debug("Rule : Medicaid_Income_10_10A : Executed");
+									
+								}
+						}
+					}
+				}
+			} else {
+				//CR1307:Modification
+				if($eDeterminationfacts.isDateAfterRunForDate($eDeterminationfacts.getPostPartumSaveDate(ProgramCode.MEDICAID))){
+					logger.debug("Rule : Medicaid_Income_10_9A : Begin");
+					$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_9A");
+					$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.INC_NO_VER_PPSD_CSD);//New reason:Income verification not required due to PPSD or CSD
+					$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setIsPPSDNoCSDExtendInd(Boolean.TRUE);//New indicator
+					drools.setFocus("Medicaid_Income_8_AG");
+					logger.debug("Rule : Medicaid_Income_10_9A : Executed");
+				}
+				else {
+					$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_10_9");
+					drools.setFocus("Medicaid_Income_8_AG");
+					drools.setFocus("Medicaid_Income_5_AG");
+					logger.debug("Rule : Medicaid_Income_10_9 : Executed");
+				}
+			}
+		}
+		
+		logger.debug("Rule : Medicaid_Income_10_9 : End");
+end
+
+
+//Medicaid Income(11)
+
+rule "Medicaid_Income_11_1"
+salience 71000
+activation-group "Medicaid_Income_11_AT"
+agenda-group "Medicaid_Income_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_PRUCOL_FPL_MAX)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_11_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_11_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE,ProgramReasonCode.OI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_11_1 : End");
+end
+
+rule "Medicaid_Income_11_2"
+salience 70090
+activation-group "Medicaid_Income_11_AT"
+agenda-group "Medicaid_Income_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_PRUCOL_FPL_MAX)),
+														!HXConstants.RESIDUAL_PRUCOL_OVERRIDE_YES.equals(residualPrucolOverride));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_11_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_11_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE,ProgramReasonCode.OI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_11_2 : End");
+end
+
+
+rule "Medicaid_Income_11_3"
+salience 70080
+activation-group "Medicaid_Income_11_AT"
+agenda-group "Medicaid_Income_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_PRUCOL_FPL_MAX)),
+														HXConstants.RESIDUAL_PRUCOL_OVERRIDE_YES.equals(residualPrucolOverride),
+														//,isCaretakerRelativeFlag
+														(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_11_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_11_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H2, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_11_3 : End");
+end
+
+
+rule "Medicaid_Income_11_4"
+salience 70070
+activation-group "Medicaid_Income_11_AT"
+agenda-group "Medicaid_Income_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_PRUCOL_FPL_MAX)),
+														HXConstants.RESIDUAL_PRUCOL_OVERRIDE_YES.equals(residualPrucolOverride),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)),
+														isCaretakerRelativeFlag);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_11_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_11_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, AidCategory.H2, CoverageCode.THIRTY);
+		//Call to sheet 14 is handled using IF condition due to drools working memory limitation
+		if(HXUtility.isTrue($eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).getFfsOnlyIndicator())){
+			$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, null, CoverageCode.ONE);
+		}
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_11_4 : End");
+end
+
+rule "Medicaid_Income_11_5"
+salience 70060
+activation-group "Medicaid_Income_11_AT"
+agenda-group "Medicaid_Income_11_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((hhFpl <= configGroupBean.getValueFor(RuleKey.MEDICAID_PRUCOL_FPL_MAX)),
+														HXConstants.RESIDUAL_PRUCOL_OVERRIDE_YES.equals(residualPrucolOverride),
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_LIMIT)),
+														!isCaretakerRelativeFlag);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_11_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_11_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.OVRMAGAL);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_11_5 : End");
+end
+
+
+//Medicaid Income(12)
+
+rule "Medicaid_Income_12_1"
+salience 67995
+activation-group "Medicaid_Income_12_AT"
+agenda-group "Medicaid_Income_12_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														isEnrolledInMedicaidESIMEC,
+														isAllTPLReqInfoComplete,
+														!getMedicaidAliessaInd());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_12_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_12_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPLFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_12_1 : End");
+end
+
+rule "Medicaid_Income_12_1A"
+salience 67990
+activation-group "Medicaid_Income_12_AT"
+agenda-group "Medicaid_Income_12_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														isEnrolledInMedicaidESIMEC,
+														isAllTPLReqInfoComplete,
+														getMedicaidAliessaInd());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_12_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_12_1A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPLFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_12_1A : End");
+end
+
+rule "Medicaid_Income_12_2"
+salience 67985
+activation-group "Medicaid_Income_12_AT"
+agenda-group "Medicaid_Income_12_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														isEnrolledInMedicaidESIMEC,
+														!isAllTPLReqInfoComplete,
+														!getMedicaidAliessaInd());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_12_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_12_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPLFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		drools.setFocus("Medicaid_Income_13_AG");
+		logger.debug("Rule : Medicaid_Income_12_2 : End");
+end
+
+rule "Medicaid_Income_12_2A"
+salience 67980
+activation-group "Medicaid_Income_12_AT"
+agenda-group "Medicaid_Income_12_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														isEnrolledInMedicaidESIMEC,
+														!isAllTPLReqInfoComplete,
+														getMedicaidAliessaInd());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_12_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_12_2A");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPLFFS);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidAliessaInd(Boolean.FALSE);
+		drools.setFocus("Medicaid_Income_13_AG");
+		logger.debug("Rule : Medicaid_Income_12_2A : End");
+end
+
+//CR1346:Child who has NYSHIP access is eligible to medicaid FFS for medicaid income range
+rule "Medicaid_Income_12_2b"
+salience 67979
+activation-group "Medicaid_Income_12_AT"
+agenda-group "Medicaid_Income_12_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														!isEnrolledInMedicaidESIMEC,
+														accessToNYSHIP);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_12_2b : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_12_2b");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+		drools.setFocus("Medicaid_Income_2_AG");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_12_2b : End");
+end
+
+//1361-start
+rule "Medicaid_Income_12_2c"
+salience 67978
+activation-group "Medicaid_Income_12_AT"
+agenda-group "Medicaid_Income_12_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														memberAge <HXConstants.CHIP_AGE_LIMIT,
+														isChildEnrolledInNYSHIPIND,
+														!accessToNYSHIP);
+ 	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_12_2c : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_12_2c");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.TRUE);
+	   	$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setUnDocPushedToCHIP(Boolean.FALSE);
+	   	$eDeterminationfacts.removeReasonCode(ProgramCode.MEDICAID, ProgramReasonCode.UDC); 
+	   	drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_12_2c : End");
+end
+ 
+rule "Medicaid_Income_12_2d"
+salience 67977
+activation-group "Medicaid_Income_12_AT"
+agenda-group "Medicaid_Income_12_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														memberAge>HXConstants.CHIP_AGE_LIMIT,
+														isChildEnrolledInNYSHIPIND,
+														!accessToNYSHIP);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_12_2d : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_12_2d");
+		drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_12_2d : End");
+end
+//1361-END
+
+rule "Medicaid_Income_12_3"
+salience 67975
+activation-group "Medicaid_Income_12_AT"
+agenda-group "Medicaid_Income_12_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														!isEnrolledInMedicaidESIMEC,
+														!accessToNYSHIP,//CR1346
+														!isEligibleForMedicaidESIMEC);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_12_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_12_3");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPLTOFFS);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.FALSE);
+		drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_12_3 : End");
+end
+
+
+rule "Medicaid_Income_12_4"
+salience 67970
+activation-group "Medicaid_Income_12_AT"
+agenda-group "Medicaid_Income_12_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														!isEnrolledInMedicaidESIMEC,
+														!accessToNYSHIP,//CR1346
+														isEligibleForMedicaidESIMEC);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_12_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_12_4");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPLTOFFS);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.FALSE);
+		drools.setFocus("Medicaid_Income_13_AG");
+		logger.debug("Rule : Medicaid_Income_12_4 : End");
+end
+
+//Medicaid Income(13)
+
+rule "Medicaid_Income_13_1"
+salience 65000
+activation-group "Medicaid_Income_13_AT"
+agenda-group "Medicaid_Income_13_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_13_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_13_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_13_1 : End");
+end
+
+rule "Medicaid_Income_13_2"
+salience 64995
+activation-group "Medicaid_Income_13_AT"
+agenda-group "Medicaid_Income_13_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isVerificationOfTPLInfoReceived);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_13_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_13_2");
+		
+		drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_13_2 : End");
+end
+
+
+rule "Medicaid_Income_13_3"
+salience 64990
+activation-group "Medicaid_Income_13_AT"
+agenda-group "Medicaid_Income_13_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isVerificationOfTPLInfoReceived,
+														!isTPLVerificationNoticeSent);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_13_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_13_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.TRFI);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME_TPL, ClockNameEnum.MEDICAID_INCOME_TPL_15);
+		drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_13_3 : End");
+end
+
+rule "Medicaid_Income_13_4"
+salience 64980
+activation-group "Medicaid_Income_13_AT"
+agenda-group "Medicaid_Income_13_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isVerificationOfTPLInfoReceived,
+														isTPLVerificationNoticeSent,
+														!isTPL15DayClockExpired);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_13_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_13_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.TRFI);
+		$eDeterminationfacts.setClocks(ProgramCode.MEDICAID, EligibilityVerificationTypeEnum.INCOME_TPL, ClockNameEnum.MEDICAID_INCOME_TPL_15);
+		drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_13_4 : End");
+end
+
+
+rule "Medicaid_Income_13_5"
+salience 64970
+activation-group "Medicaid_Income_13_AT"
+agenda-group "Medicaid_Income_13_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isVerificationOfTPLInfoReceived,
+														isTPLVerificationNoticeSent,
+														(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isTPL15DayClockExpired);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_13_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_13_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,ProgramReasonCode.TRFIP_15);
+		drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_13_5 : End");
+end
+
+
+rule "Medicaid_Income_13_6"
+salience 64960
+activation-group "Medicaid_Income_13_AT"
+agenda-group "Medicaid_Income_13_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isVerificationOfTPLInfoReceived,
+														isTPLVerificationNoticeSent,
+														!(memberAge < configGroupBean.getValueFor(RuleKey.MEDICAID_AGE_MAX)),
+														isTPL15DayClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_13_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_13_6");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidClkExpPPSDActvInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.INELIGIBLE, ProgramReasonCode.TRFIP_15);
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.TPLTOFFS);
+		//$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setFfsOnlyIndicator(Boolean.FALSE);
+		drools.setFocus("Medicaid_Income_2_AG");
+		logger.debug("Rule : Medicaid_Income_13_6 : End");
+end
+
+rule "Medicaid_Income_END"
+salience 60000
+activation-group "Medicaid_Income_END_AT"
+agenda-group "Medicaid_Income_END_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Income_END : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Income_END");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01);
+		logger.debug("Rule : Medicaid_Income_END : End");
+end
+
+//Medicaid Income (14) is not required to implement as setting coverage code based on ffs indicator and it is done in 
+//respective rule in consequence due to drools working memory limitation.

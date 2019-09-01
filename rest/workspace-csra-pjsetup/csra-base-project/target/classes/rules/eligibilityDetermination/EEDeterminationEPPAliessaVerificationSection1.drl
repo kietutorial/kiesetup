@@ -1,0 +1,1850 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.pvc.domain.DeceasedSourceEnum;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+
+global org.slf4j.Logger logger;
+
+
+rule "MAIN_EPP_VERIFY_SEC1"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_EPP_VERIFY_SEC1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "MAIN_EPP_ALIESSA_VERIFY_SEC1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_INIT_ACK);
+		drools.setFocus("EPP_NC_1_AG");
+		logger.debug("Rule : MAIN_EPP_VERIFY_SEC1 : End");
+end
+
+//CR1606
+rule "EPP_VERIFY_STALE_ELG_SEC_01"
+salience 95070
+activation-group "EPP_STALE_1_AT"
+agenda-group "EPP_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : EPP_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_VERIFY_STALE_ELG_SEC_01");
+		drools.setFocus("EPP_NC_1_AG");
+		logger.debug("Rule : EPP_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "EPP_VERIFY_STALE_ELG_SEC_02"
+salience 95060
+activation-group "EPP_STALE_1_AT"
+agenda-group "EPP_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,!isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : EPP_VERIFY_STALE_ELG_SEC_02 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_VERIFY_STALE_ELG_SEC_02");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.STALE_MEM);// set program as Ineligble with reason code
+		$eDeterminationfacts.skipProgramExecution(ProgramCode.EPP, HXConstants.BOLTRUE); // Set Flag to stop further execution of drls for this program
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		logger.debug("Rule : EPP_VERIFY_STALE_ELG_SEC_02 : End");
+end
+
+rule "EPP_VERIFY_STALE_ELG_SEC_03"
+salience 95050
+activation-group "EPP_STALE_1_AT"
+agenda-group "EPP_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility,isLSCThroughOnlineForStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : EPP_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_VERIFY_STALE_ELG_SEC_03");
+		$eDeterminationfacts.clearStaleFlag();
+		drools.setFocus("EPP_NC_1_AG");
+		logger.debug("Rule : EPP_VERIFY_STALE_ELG_SEC_03 : End");
+end
+//CR1606 code changes end
+
+//EPP non comformance (1)
+rule "EPP_NC_1_1"
+salience 81000
+activation-group "EPP_NC_1_AT"
+agenda-group "EPP_NC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!medicaidNonCompInd, 
+														!chipNonCompInd );
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_NC_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_NC_1_1");
+		drools.setFocus("EPP_Dup_Cov_1_AG");
+		logger.debug("Rule : EPP_NC_1_1 : End");
+end
+
+rule "EPP_NC_1_2"
+salience 80990
+activation-group "EPP_NC_1_AT"
+agenda-group "EPP_NC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!medicaidNonCompInd, 
+														chipNonCompInd );
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_NC_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_NC_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.FTCCR);
+		drools.setFocus("EPP_Dup_Cov_1_AG");
+		logger.debug("Rule : EPP_NC_1_2 : End");
+end
+
+// Modified for CR1394, defect 65057
+rule "EPP_NC_1_3"
+salience 80980
+activation-group "EPP_NC_1_AT"
+agenda-group "EPP_NC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(medicaidNonCompInd,!isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INCLK_EXP_DS_AT_MA.Value()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_NC_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_NC_1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.FTCMR);
+		drools.setFocus("EPP_Dup_Cov_1_AG");
+		logger.debug("Rule : EPP_NC_1_3 : End");
+end
+
+// Added for CR1394, defect 65057
+rule "EPP_NC_1_4"
+salience 80984
+activation-group "EPP_NC_1_AT"
+agenda-group "EPP_NC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(medicaidNonCompInd, isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INCLK_EXP_DS_AT_MA.Value()),!currentlyEP);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_NC_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_NC_1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.FTCMR);
+		drools.setFocus("EPP_Dup_Cov_1_AG");
+		logger.debug("Rule : EPP_NC_1_4 : End");
+end
+
+// Added for CR1394, defect 65057
+rule "EPP_NC_1_5"
+salience 80987
+activation-group "EPP_NC_1_AT"
+agenda-group "EPP_NC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(medicaidNonCompInd, isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INCLK_EXP_DS_AT_MA.Value()),currentlyEP);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_NC_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_NC_1_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.INCLK_EXP_DS_AT_MA);
+		drools.setFocus("EPP_Dup_Cov_1_AG");
+		logger.debug("Rule : EPP_NC_1_5 : End");
+end
+
+//Death Indicator Fix Defect# 16341
+
+//EPP Duplicate Coverage(1)
+
+rule "EPP_Dup_Cov_1_1"
+salience 80990
+activation-group "EPP_Dup_Cov_1_AT"
+agenda-group "EPP_Dup_Cov_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(employeeHasDuplicateCoverage,
+														!HXUtility.isTrue(isDupCovInCurrentRunIndExistsForAnyProgram()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Dup_Cov_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Dup_Cov_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.EDC);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setDupCovInCurrentRunInd(Boolean.TRUE);
+		drools.setFocus("EPP_Deceased_1_AG");
+		logger.debug("Rule : EPP_Dup_Cov_1_1 : End");
+end
+
+rule "EPP_Dup_Cov_1_1A"
+salience 80985
+activation-group "EPP_Dup_Cov_1_AT"
+agenda-group "EPP_Dup_Cov_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(employeeHasDuplicateCoverage,
+														HXUtility.isTrue(isDupCovInCurrentRunIndExistsForAnyProgram()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Dup_Cov_1_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Dup_Cov_1_1A");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.EDC);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.DC_CE_CSR);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setDupCovInCurrentRunInd(Boolean.TRUE);
+		drools.setFocus("EPP_Deceased_1_AG");
+		logger.debug("Rule : EPP_Dup_Cov_1_1A : End");
+end
+
+rule "EPP_Dup_Cov_1_2"
+salience 80980
+activation-group "EPP_Dup_Cov_1_AT"
+agenda-group "EPP_Dup_Cov_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														individualHasDuplicateCoverage);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Dup_Cov_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Dup_Cov_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.IDC);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setDupCovInCurrentRunInd(Boolean.TRUE);
+		drools.setFocus("EPP_Deceased_1_AG");
+		logger.debug("Rule : EPP_Dup_Cov_1_2 : End");
+end
+
+
+rule "EPP_Dup_Cov_1_3"
+salience 80970
+activation-group "EPP_Dup_Cov_1_AT"
+agenda-group "EPP_Dup_Cov_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														!individualHasDuplicateCoverage,
+														!HXUtility.isTrue(isDupCovInCurrentRunIndExistsForAnyProgram()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Dup_Cov_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Dup_Cov_1_3");
+		drools.setFocus("EPP_Deceased_1_AG");
+		logger.debug("Rule : EPP_Dup_Cov_1_3 : End");
+end
+
+
+rule "EPP_Dup_Cov_1_3A"
+salience 80965
+activation-group "EPP_Dup_Cov_1_AT"
+agenda-group "EPP_Dup_Cov_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!employeeHasDuplicateCoverage,
+														!individualHasDuplicateCoverage,
+														HXUtility.isTrue(isDupCovInCurrentRunIndExistsForAnyProgram()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Dup_Cov_1_3A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Dup_Cov_1_3A");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.DC_CE_CSR);
+		//	This rule executes only when one of the previous program gets IDC or EDC reasoncode
+		//	but to identify if this rule is executing becuase of IDC or EDC, 6 more rules needs to be added
+		//	To avoid, adding those many rules and make the sheet complicated, 
+		//	it has been decided to add a java method which identifies if the reason to be set is IDC or EDC  		
+		$eDeterminationfacts.setIDCOrEDCAppropriately();
+		drools.setFocus("EPP_Deceased_1_AG");
+		logger.debug("Rule : EPP_Dup_Cov_1_3A : End");
+end
+
+
+//EPP Deceased(1)
+
+rule "EPP_Deceased_1_1"
+salience 80960
+activation-group "EPP_Deceased_1_AT"
+agenda-group "EPP_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesDeceasedInfoExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_1_1");
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_1_1 : End");
+end
+
+rule "EPP_Deceased_1_2"
+salience 80950
+activation-group "EPP_Deceased_1_AT"
+agenda-group "EPP_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists, 
+														!doesUserResponseExists,
+														!nonDeterministicDeceasedClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_1_2");
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_1_2 : End");
+end
+
+rule "EPP_Deceased_1_3"
+salience 80940
+activation-group "EPP_Deceased_1_AT"
+agenda-group "EPP_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists, 
+														!doesUserResponseExists,
+														nonDeterministicDeceasedClockExpired,
+														!isDeceasedPersonAccountHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.PD);
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED, "1");
+		drools.setFocus("EPP_Deceased_Reason_1_AG");
+		logger.debug("Rule : EPP_Deceased_1_3 : End");
+end
+
+rule "EPP_Deceased_1_5"
+salience 80930
+activation-group "EPP_Deceased_1_AT"
+agenda-group "EPP_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists, 
+														!doesUserResponseExists,
+														nonDeterministicDeceasedClockExpired,
+														isDeceasedPersonAccountHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_1_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.PD);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.PD_ACCT);
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED, "1");
+		drools.setFocus("EPP_Deceased_Reason_1_AG");
+		logger.debug("Rule : EPP_Deceased_1_5 : End");
+end
+
+rule "EPP_Deceased_1_6"
+salience 80920
+activation-group "EPP_Deceased_1_AT"
+agenda-group "EPP_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists,
+														!doesUserAgreeToDeceasedInfo);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_1_6");
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.EPP, $eDeterminationfacts.getClockName(HXConstants.EPP_DECEASED_CLCOK));
+		drools.setFocus("EPP_Deceased_Reason_1_AG");
+		logger.debug("Rule : EPP_Deceased_1_6 : End");
+end
+
+rule "EPP_Deceased_1_7"
+salience 80910
+activation-group "EPP_Deceased_1_AT"
+agenda-group "EPP_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists,
+														doesUserAgreeToDeceasedInfo,
+														!isDeceasedPersonAccountHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_1_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.PD);
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.EPP, $eDeterminationfacts.getClockName(HXConstants.EPP_DECEASED_CLCOK));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED, "1");
+		drools.setFocus("EPP_Deceased_Reason_1_AG");
+		logger.debug("Rule : EPP_Deceased_1_7 : End");
+end
+
+rule "EPP_Deceased_1_8"
+salience 80800
+activation-group "EPP_Deceased_1_AT"
+agenda-group "EPP_Deceased_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesDeceasedInfoExists,
+														doesUserAgreeToDeceasedInfo,
+														isDeceasedPersonAccountHolder);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_1_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_1_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.PD);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.PD_ACCT);
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.EPP, $eDeterminationfacts.getClockName(HXConstants.EPP_DECEASED_CLCOK));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED, "1");
+		drools.setFocus("EPP_Deceased_Reason_1_AG");
+		logger.debug("Rule : EPP_Deceased_1_8 : End");
+end
+
+
+//EPP Deceased Reason(1)
+
+rule "EPP_Deceased_Reason_1_1"
+salience 80700
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														!userAttestedDateOfDeceased,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.SSA, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.SSA_TX_USR_AGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_1 : End");
+end
+
+rule "EPP_Deceased_Reason_1_2"
+salience 80690
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														userAttestedDateOfDeceased,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.SSA, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.SSA_TX_USR_DOD_AGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_2 : End");
+end
+
+rule "EPP_Deceased_Reason_1_3"
+salience 80680
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesUserAgreeToDeceasedInfo,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.SSA, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.SSA_TX_USR_DISAGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_3 : End");
+end
+
+rule "EPP_Deceased_Reason_1_4"
+salience 80670
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														!userAttestedDateOfDeceased,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_4");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.PVC_USR_AGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_4 : End");
+end
+
+rule "EPP_Deceased_Reason_1_5"
+salience 80660
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														userAttestedDateOfDeceased,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.PVC_USR_DOD_AGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_5 : End");
+end
+
+rule "EPP_Deceased_Reason_1_6"
+salience 80650
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesUserAgreeToDeceasedInfo,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.PVC_USR_DISAGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_6 : End");
+end
+
+rule "EPP_Deceased_Reason_1_7"
+salience 80640
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(nonDeterministicDeceasedClockExpired,
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														!doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_7");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.PVC_DOD_CLK_EXP);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_7 : End");
+end
+
+rule "EPP_Deceased_Reason_1_8"
+salience 80630
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														!userAttestedDateOfDeceased,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_8");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.PVC_TX_USR_AGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_8 : End");
+end
+
+rule "EPP_Deceased_Reason_1_9"
+salience 80620
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														userAttestedDateOfDeceased,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_9");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.PVC_TX_USR_DOD_AGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_9 : End");
+end
+
+rule "EPP_Deceased_Reason_1_10"
+salience 80610
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesUserAgreeToDeceasedInfo,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_10");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.PVC_TX_USR_DISAGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_10 : End");
+end
+
+rule "EPP_Deceased_Reason_1_11"
+salience 80600
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(nonDeterministicDeceasedClockExpired,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														!doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_11");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.PVC_TX_CLK_EXP);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_11 : End");
+end
+
+rule "EPP_Deceased_Reason_1_12"
+salience 80590
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														!userAttestedDateOfDeceased,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_12");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.RRV_TX_USR_AGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_12 : End");
+end
+
+rule "EPP_Deceased_Reason_1_13"
+salience 80580
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														userAttestedDateOfDeceased,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_13");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.RRV_TX_USR_DOD_AGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_13 : End");
+end
+
+rule "EPP_Deceased_Reason_1_14"
+salience 80570
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesUserAgreeToDeceasedInfo,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_14");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.RRV_TX_USR_DISAGREE);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_14 : End");
+end
+
+rule "EPP_Deceased_Reason_1_15"
+salience 80560
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(nonDeterministicDeceasedClockExpired,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														!doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_15 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_15");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.RRV_TX_CLK_EXP);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_15 : End");
+end
+
+rule "EPP_Deceased_Reason_1_16"
+salience 80550
+activation-group "EPP_Deceased_Reason_1_AT"
+agenda-group "EPP_Deceased_Reason_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesUserAgreeToDeceasedInfo,
+														userAttestedDateOfDeceased,
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.SSA, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, false),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.PVC, true),
+														!checkDeceasedDataAvailabilityBy(DeceasedSourceEnum.RRV, true),
+														doesUserResponseExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Deceased_Reason_1_16 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Deceased_Reason_1_16");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.USR_DOD);
+		drools.setFocus("EPP_SSN_1_AG");
+		logger.debug("Rule : EPP_Deceased_Reason_1_16 : End");
+end
+
+
+///EPP SSN(1)
+
+rule "EPP_SSN_1_1"
+salience 40000
+activation-group "EPP_SSN_1_AT"
+agenda-group "EPP_SSN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!doesSSNExist);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_1_1");
+		drools.setFocus("EPP_SSN_2_AG");
+		logger.debug("Rule : EPP_SSN_1_1 : End");
+end
+
+
+rule "EPP_SSN_1_2"
+salience 39990
+activation-group "EPP_SSN_1_AT"
+agenda-group "EPP_SSN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesSSNExist,
+														isSSNVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_1_2");		
+		drools.setFocus("EPP_CITI_1_AG");
+		logger.debug("Rule : EPP_SSN_1_2 : End");
+end
+
+rule "EPP_SSN_1_3"
+salience 39980
+activation-group "EPP_SSN_1_AT"
+agenda-group "EPP_SSN_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(doesSSNExist,
+														!isSSNVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_1_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.SNVS);
+		drools.setFocus("EPP_SSN_3_AG");
+		logger.debug("Rule : EPP_SSN_1_3 : End");
+end
+
+
+
+//EPP SSN(2)
+
+rule "EPP_SSN_2_1"
+salience 35000
+activation-group "EPP_SSN_2_AT"
+agenda-group "EPP_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.DONOTWANTTOOBTAIN.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_2_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.SSNR);
+		drools.setFocus("EPP_CITI_1_AG");
+		logger.debug("Rule : EPP_SSN_2_1 : End");
+end
+
+rule "EPP_SSN_2_2"
+salience 34990
+activation-group "EPP_SSN_2_AT"
+agenda-group "EPP_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.NEEDTOAPPLY.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_2_2");		
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.MOS);
+		drools.setFocus("EPP_SSN_3_AG");
+		logger.debug("Rule : EPP_SSN_2_2 : End");
+end
+
+rule "EPP_SSN_2_3"
+salience 34980
+activation-group "EPP_SSN_2_AT"
+agenda-group "EPP_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.INPROCESS.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.MOS);
+		drools.setFocus("EPP_SSN_3_AG");
+		logger.debug("Rule : EPP_SSN_2_3 : End");
+end
+
+rule "EPP_SSN_2_4"
+salience 34970
+activation-group "EPP_SSN_2_AT"
+agenda-group "EPP_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.NOTELIGIBLE.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_2_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_2_4");
+		drools.setFocus("EPP_CITI_1_AG");
+		logger.debug("Rule : EPP_SSN_2_4 : End");
+end
+
+
+rule "EPP_SSN_2_5"
+salience 34960
+activation-group "EPP_SSN_2_AT"
+agenda-group "EPP_SSN_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(noSSNReasonCodeType.DONOTWANTTOPROVIDE.equals(noSSNReasonCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_2_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_2_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.SSNR);
+		drools.setFocus("EPP_CITI_1_AG");
+		logger.debug("Rule : EPP_SSN_2_5 : End");
+end
+
+
+//EPP SSN(3)
+
+rule "EPP_SSN_3_0"
+salience 30000
+activation-group "EPP_SSN_3_AT"
+agenda-group "EPP_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_3_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_3_0");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		drools.setFocus("EPP_CITI_1_AG");
+		logger.debug("Rule : EPP_SSN_3_0 : End");
+end
+
+rule "EPP_SSN_3_1"
+salience 29995
+activation-group "EPP_SSN_3_AT"
+agenda-group "EPP_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isSSNVerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_3_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_3_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.SNV);
+		//Schedule Verification Notice Trigger				
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.SSN, ClockNameEnum.SSN_90);
+		drools.setFocus("EPP_CITI_1_AG");
+		logger.debug("Rule : EPP_SSN_3_1 : End");
+end
+
+rule "EPP_SSN_3_2"
+salience 29990
+activation-group "EPP_SSN_3_AT"
+agenda-group "EPP_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isSSNVerificationNoticeSent), 
+														!(isSSNClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_3_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_3_2");		
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.SNV);
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.SSN, ClockNameEnum.SSN_90);
+		drools.setFocus("EPP_CITI_1_AG");
+		logger.debug("Rule : EPP_SSN_3_2 : End");
+end
+
+rule "EPP_SSN_3_3"
+salience 29980
+activation-group "EPP_SSN_3_AT"
+agenda-group "EPP_SSN_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isSSNVerificationNoticeSent), 
+														(isSSNClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_SSN_3_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_SSN_3_3");		
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.SNV_90);
+		//Added EPP Non Comp Indicator for R8
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setEppNonCompInd(Boolean.TRUE);
+		drools.setFocus("EPP_CITI_1_AG");
+		logger.debug("Rule : EPP_SSN_3_3 : End");
+end
+
+//EPP Citizenship(1)
+
+rule "EPP_Citizenship_1_1"
+salience 25000
+activation-group "EPP_CITI_1_AT"
+agenda-group "EPP_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														!CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_1_1");		
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_1_1 : End");
+end
+
+rule "EPP_Citizenship_1_2"
+salience 24990
+activation-group "EPP_CITI_1_AT"
+agenda-group "EPP_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														isCitizenshipVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_1_2");		
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_1_2 : End");
+end
+
+rule "EPP_Citizenship_1_2A"
+salience 24985
+activation-group "EPP_CITI_1_AT"
+agenda-group "EPP_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														!isCitizenshipVerified,
+														isFailureToProvideImmiDocInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_1_2A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_1_2A");		
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP,program_status.INELIGIBLE, ProgramReasonCode.FVIS);
+		//Added EPP Non Comp Indicator for R8
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setEppNonCompInd(Boolean.TRUE);	
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_1_2A : End");
+end
+
+rule "EPP_Citizenship_1_3"
+salience 24980
+activation-group "EPP_CITI_1_AT"
+agenda-group "EPP_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														!isCitizenshipVerified,
+														!isFailureToProvideImmiDocInd,
+														isLawfullPresenceVerified,
+														HXConstants.INDICATOR_NO.equals(vlpUSCitizenCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_1_3");		
+		drools.setFocus("EPP_CITI_2B_AG");
+		logger.debug("Rule : EPP_Citizenship_1_3 : End");
+end
+
+rule "EPP_Citizenship_1_4"
+salience 24975
+activation-group "EPP_CITI_1_AT"
+agenda-group "EPP_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														!isCitizenshipVerified,
+														!isFailureToProvideImmiDocInd,
+														isLawfullPresenceVerified,
+														!HXConstants.INDICATOR_NO.equals(vlpUSCitizenCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_1_4");		
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_1_4 : End");
+end
+
+rule "EPP_Citizenship_1_5"
+salience 24970
+activation-group "EPP_CITI_1_AT"
+agenda-group "EPP_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType),
+														!isCitizenshipVerified,
+														!isFailureToProvideImmiDocInd,
+														!isLawfullPresenceVerified);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_1_5");		
+		drools.setFocus("EPP_CITI_2_AG");
+		logger.debug("Rule : EPP_Citizenship_1_5 : End");
+end
+
+rule "EPP_Citizenship_1_6"
+salience 24960
+activation-group "EPP_CITI_1_AT"
+agenda-group "EPP_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														isCitizenshipVerified,
+														!isFailureToProvideImmiDocInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_1_6");		
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_1_6 : End");
+end
+
+rule "EPP_Citizenship_1_7"
+salience 24950
+activation-group "EPP_CITI_1_AT"
+agenda-group "EPP_CITI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType),
+														!isCitizenshipVerified,
+														!isFailureToProvideImmiDocInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_1_7");		
+		drools.setFocus("EPP_CITI_2_AG");
+		logger.debug("Rule : EPP_Citizenship_1_7 : End");
+end
+
+//EPP Citizenship(2)
+rule "EPP_Citizenship_2_0"
+salience 20000
+activation-group "EPP_CITI_2_AT"
+agenda-group "EPP_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_2_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_2_0");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_2_0 : End");
+end
+
+rule "EPP_Citizenship_2_1"
+salience 19995
+activation-group "EPP_CITI_2_AT"
+agenda-group "EPP_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isCitizenshipVerificationNoticeSent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_2_1");		
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.CNV);
+		//TO DO
+		//Schedule Verification Notice Trigger				
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS, ClockNameEnum.CITIZENSHIP_90);
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_2_1 : End");
+end
+
+rule "EPP_Citizenship_2_2"
+salience 19990
+activation-group "EPP_CITI_2_AT"
+agenda-group "EPP_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isCitizenshipVerificationNoticeSent),
+														!(isCitizenshipClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_2_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_2_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.CNV);
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS, ClockNameEnum.CITIZENSHIP_90);
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_2_2 : End");
+end
+
+rule "EPP_Citizenship_2_3"
+salience 19980
+activation-group "EPP_CITI_2_AT"
+agenda-group "EPP_CITI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isCitizenshipVerificationNoticeSent),
+														(isCitizenshipClockExpired));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_2_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.CNV_90);
+		//Added EPP Non Comp Indicator for R8
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setEppNonCompInd(Boolean.TRUE);		
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_2_3 : End");
+end
+
+//EPP Citizenship(2B)
+
+rule "EPP_Citizenship_2B_0"
+salience 68000
+activation-group "EPP_CITI_2B_AT"
+agenda-group "EPP_CITI_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_2B_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_2B_0");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_2B_0 : End");
+end
+
+rule "EPP_Citizenship_2B_1"
+salience 67995
+activation-group "EPP_CITI_2B_AT"
+agenda-group "EPP_CITI_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														!isCitiDiscrepancyVerificationNoticeSent);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_2B_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_2B_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.CD_NATUR);
+		//TO DO
+		//Schedule Verification Notice Trigger
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY, ClockNameEnum.CITIZENSHIP_DISCREPANCY_90);
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_2B_1 : End");
+end
+
+rule "EPP_Citizenship_2B_2"
+salience 67990
+activation-group "EPP_CITI_2B_AT"
+agenda-group "EPP_CITI_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isCitiDiscrepancyVerificationNoticeSent,
+														!isCitiDiscrepancyClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_2B_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_2B_2");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, ProgramReasonCode.CD_NATUR);
+		$eDeterminationfacts.setClocks(ProgramCode.EPP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY, ClockNameEnum.CITIZENSHIP_DISCREPANCY_90);
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_2B_2 : End");
+end
+
+rule "EPP_Citizenship_2B_3"
+salience 67980
+activation-group "EPP_CITI_2B_AT"
+agenda-group "EPP_CITI_2B_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isCitiDiscrepancyVerificationNoticeSent,
+														isCitiDiscrepancyClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Citizenship_2B_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Citizenship_2B_3");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.CDP_90_NATUR);
+		//Added EPP Non Comp Indicator for R8
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setEppNonCompInd(Boolean.TRUE);		
+		drools.setFocus("EPP_RES_SPEC_1_AG");
+		logger.debug("Rule : EPP_Citizenship_2B_3 : End");
+end
+
+// EPP SEP SPL RULES Added for enhancement [36560] //Res-spec-rules added, so the flow will be citizenship->Res spec rules->AI AN status [36560]
+
+//EPP res spec rules(1)
+
+rule "EPP_ResSpec_1_1"
+salience 67970
+activation-group "EPP_RES_SPEC_1_AT"
+agenda-group "EPP_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_1_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_1_1");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_1_1 : End");
+end
+
+rule "EPP_ResSpec_1_2"
+salience 67960
+activation-group "EPP_RES_SPEC_1_AT"
+agenda-group "EPP_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+															(isCSVLPOverride));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_1_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_1_2");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_1_2 : End");
+end
+
+
+rule "EPP_ResSpec_1_3"
+salience 67950
+activation-group "EPP_RES_SPEC_1_AT"
+agenda-group "EPP_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														!(isCSVLPOverride),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														isQualifiedNonCitizenVerified,
+														isAvailableInNonCitCoaCode);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_1_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_1_3");
+		drools.setFocus("EPP_RES_SPEC_2_AG");
+		logger.debug("Rule : EPP_ResSpec_1_3 : End");
+end
+
+
+rule "EPP_ResSpec_1_4"
+salience 67940
+activation-group "EPP_RES_SPEC_1_AT"
+agenda-group "EPP_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														!(isCSVLPOverride),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														!isQualifiedNonCitizenVerified,
+														isAvailableInNonCitCoaCode);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_1_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_1_4");
+		drools.setFocus("EPP_RES_SPEC_2_AG");
+		logger.debug("Rule : EPP_ResSpec_1_4 : End");
+end
+
+
+rule "EPP_ResSpec_1_5"
+salience 67930
+activation-group "EPP_RES_SPEC_1_AT"
+agenda-group "EPP_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														!(isCSVLPOverride),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														isQualifiedNonCitizenVerified,
+														!isAvailableInNonCitCoaCode);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_1_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_1_5");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_1_5 : End");
+end
+
+rule "EPP_ResSpec_1_6"
+salience 67920
+activation-group "EPP_RES_SPEC_1_AT"
+agenda-group "EPP_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														!(isCSVLPOverride),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														!isQualifiedNonCitizenVerified,
+														!isAvailableInNonCitCoaCode);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_1_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_1_6");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_1_6 : End");
+end
+
+rule "EPP_ResSpec_1_7"
+salience 67910
+activation-group "EPP_RES_SPEC_1_AT"
+agenda-group "EPP_RES_SPEC_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														!(isCSVLPOverride),
+														!HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_1_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_1_7");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_1_7 : End");
+end
+
+//EPP RES SPEC RULES(2)
+
+rule "EPP_ResSpec_2_1"
+salience 67900
+activation-group "EPP_RES_SPEC_2_AT"
+agenda-group "EPP_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(appliedAdjstStatusForLglResi);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_2_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_2_1");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_2_1 : End");
+end
+
+rule "EPP_ResSpec_2_2"
+salience 67890
+activation-group "EPP_RES_SPEC_2_AT"
+agenda-group "EPP_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!appliedAdjstStatusForLglResi,
+														doYouWork);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_2_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_2_2");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_2_2 : End");
+end
+
+
+rule "EPP_ResSpec_2_3"
+salience 67880
+activation-group "EPP_RES_SPEC_2_AT"
+agenda-group "EPP_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!appliedAdjstStatusForLglResi,
+														!doYouWork,
+														childrenGoingToSchool);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_2_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_2_3");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_2_3 : End");
+end
+
+
+rule "EPP_ResSpec_2_4"
+salience 67870
+activation-group "EPP_RES_SPEC_2_AT"
+agenda-group "EPP_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!appliedAdjstStatusForLglResi,
+														!doYouWork,
+														!childrenGoingToSchool,
+														ownHome);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_2_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_2_4");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_2_4 : End");
+end
+
+rule "EPP_ResSpec_2_5"
+salience 67850
+activation-group "EPP_RES_SPEC_2_AT"
+agenda-group "EPP_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!appliedAdjstStatusForLglResi,
+														!doYouWork,
+														!childrenGoingToSchool,
+														!ownHome,
+														rentHomeOrApt);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_2_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_2_5");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_2_5 : End");
+end
+
+
+rule "EPP_ResSpec_2_6"
+salience 67840
+activation-group "EPP_RES_SPEC_2_AT"
+agenda-group "EPP_RES_SPEC_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!appliedAdjstStatusForLglResi,
+														!doYouWork,
+														!childrenGoingToSchool,
+														!ownHome,
+														!rentHomeOrApt);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ResSpec_2_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ResSpec_2_6");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixRestrictedFlg(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.NALPR);
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		drools.setFocus("EPP_IMIG_A1_AG");
+		logger.debug("Rule : EPP_ResSpec_2_6 : End");
+end
+
+
+
+//Added for CR# 1234
+//EPP immigration (A1)
+
+//CR1234 BHP immigration (A1) should not be executed before 01/01/2016. 
+
+rule "EPP_Immigration_A1_00"
+salience 90000
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isEPPApplies);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_00 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_00");
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_00 : End");
+end
+
+rule "EPP_Immigration_A1_01"
+salience 89997
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isHIXDACAEmploymentAuthorized);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_01 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_01");
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_01 : End");
+end
+
+rule "EPP_Immigration_A1_1"
+salience 89995
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+														isNonCitExpeditedCoaCode,
+														isAlienExpDtGrtrorEql30DaysFrmElgRuleEffctDt);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_1");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("EPP_INCAR_1_AG");
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_1 : End");
+end
+
+
+rule "EPP_Immigration_A1_2"
+salience 89990
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+														isNonCitExpeditedCoaCode,
+														isAlienExpDateNull);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_2");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("EPP_INCAR_1_AG");
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_2 : End");
+end
+
+
+rule "EPP_Immigration_A1_3"
+salience 89980
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+														isNonCitExpeditedCoaCode,
+														isAlienExpDateExpired);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_3");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("EPP_INCAR_1_AG");
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_3 : End");
+end
+
+rule "EPP_Immigration_A1_4"
+salience 89970
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal,
+														isNonCitExpeditedCoaCode,
+														!isAlienExpDateExpired,
+														!HXConstants.IMMG_ELG_STATMNT_CODE_TEN.equals(elgStatementCode));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_4");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP,program_status.INELIGIBLE, ProgramReasonCode.MRR);
+		$eDeterminationfacts.setIsRunRequiredForSheet("EPP_INCAR_1_AG");
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_4 : End");
+end
+
+
+rule "EPP_Immigration_A1_5"
+salience 89960
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonCitPENCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														(HXConstants.FIVE_YR_BAR_APPLIES_X.equals(isFiveYearBarAppliesStr)
+														|| HXConstants.FIVE_YR_BAR_APPLIES_N.equals(isFiveYearBarAppliesStr)),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														HXConstants.QNC_VERIFIED_N.equals(isQualifiedNonCitizenStr));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_5");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_5 : End");
+end
+
+rule "EPP_Immigration_A1_6"
+salience 89950
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonCitPENCoaCode,!isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_6");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		//$eDeterminationfacts.setIsPrucolVerificationRequired(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setIsPrucolVerReqInd(Boolean.TRUE);
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_6 : End");
+end
+
+rule "EPP_Immigration_A1_7"
+salience 89940
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonCitPENCoaCode,isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_7");
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_7 : End");
+end
+
+
+rule "EPP_Immigration_A1_8"
+salience 89930
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														!HXConstants.LAWFUL_PRESENCE_NOT_VERIFIED.equals(isMemberLawfullyPresent),
+														!isAlienExpDtGrtrorEql30DaysFrmElgRuleEffctDt,
+														!isAlienExpDateNull,
+														!isAlienExpDateExpired,
+														HXConstants.IMMG_ELG_STATMNT_CODE_TEN.equals(elgStatementCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_8");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixLawfulPresenceFlg(Boolean.TRUE);
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_8 : End");
+end
+
+rule "EPP_Immigration_A1_9"
+salience 89920
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														isAlienExpDateNull,
+														!isimigClockExpired);
+	
+	
+		then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_9");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixLawfulPresenceFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setIsPrucolVerReqInd(Boolean.TRUE);
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_9 : End");
+end
+
+
+
+rule "EPP_Immigration_A1_10"
+salience 89910
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														isAlienExpDateNull,
+														isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_10");
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_10 : End");
+end
+
+rule "EPP_Immigration_A1_11"
+salience 89900
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														isAlienExpDateExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_11");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixLawfulPresenceFlg(Boolean.TRUE);
+		//$eDeterminationfacts.setIsPrucolVerificationRequired(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setIsPrucolVerReqInd(Boolean.TRUE);
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_11 : End");
+end
+
+
+rule "EPP_Immigration_A1_12"
+salience 89890
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														!isAlienExpDateExpired,
+														!isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_12");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixPrucol(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setHixLawfulPresenceFlg(Boolean.TRUE);
+		//$eDeterminationfacts.setIsPrucolVerificationRequired(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.EPP).setIsPrucolVerReqInd(Boolean.TRUE);
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_12 : End");
+end
+
+
+
+rule "EPP_Immigration_A1_13"
+salience 89880
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														isNonCitExpeditedCoaCode,
+														!isHIXDACAEmploymentAuthorized,
+														!isAlienExpDateExpired,
+														isimigClockExpired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_13");
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_13 : End");
+end
+
+
+rule "EPP_Immigration_A1_14"
+salience 89870
+activation-group "EPP_IMIG_A1_AT"
+agenda-group "EPP_IMIG_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isNonCitPENCoaCode),
+														!isNonCitExpeditedCoaCode);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Immigration_A1_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Immigration_A1_14");
+		drools.setFocus("EPP_VERIFY_SEC_1_COMP_STEP_AG");
+		logger.debug("Rule : EPP_Immigration_A1_14 : End");
+end
+
+//End of Rules for CR# 1234
+
+//Rule completion
+rule "EPP_VERIFY_SEC_1_COMP_STEP_1"
+salience 79900
+activation-group "EPP_VERIFY_SEC_1_COMP_STEP_AT"
+agenda-group "EPP_VERIFY_SEC_1_COMP_STEP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_VERIFY_SEC_1_COMP_STEP_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_VERIFY_SEC_1_COMP_STEP_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_SEC1_03);
+		logger.debug("Rule : EPP_VERIFY_SEC_1_COMP_STEP_1 : End");
+end
+

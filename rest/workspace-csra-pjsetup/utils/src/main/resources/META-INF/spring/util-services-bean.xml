@@ -1,0 +1,149 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2009 - 2012 hCentive Inc. All rights reserved.
+
+-->
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx"
+	xsi:schemaLocation="
+http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-2.5.xsd 
+http://www.springframework.org/schema/tx http://www.springframework.org/schema/tx/spring-tx-2.5.xsd
+http://www.springframework.org/schema/aop http://www.springframework.org/schema/aop/spring-aop-2.5.xsd">
+
+	<bean id="freeMarkerTemplateLookupService" class="com.hcentive.utils.ftl.service.FreeMarkerTemplateLookupServiceImpl">
+		<property name="genericDAO" ref="genericDAO" />
+	</bean>
+	<bean id="jobService" class="com.hcentive.utils.job.service.JobServiceImpl">
+	</bean>
+	
+	<bean id="demographicService"
+		class="com.hcentive.utils.demographics.ext.DemographicServiceImplExt">
+		<property name="issuer" value="${issuerInContext}" />
+		<property name="demographicDataHandlerLookup" ref="demographicDataHandlerLookup" />
+		<property name="defaultProperties">
+			<props>
+				<prop key="default.applicantAgeMinValue">${default.applicantAgeMinValue}</prop>
+				<prop key="default.applicantAgeMaxValue">${default.applicantAgeMaxValue}</prop>
+				<prop key="default.spouseAgeMinValue">${default.spouseAgeMinValue}</prop>
+				<prop key="default.spouseAgeMaxValue">${default.spouseAgeMaxValue}</prop>
+				<prop key="default.childAgeMinValue">${default.childAgeMinValue}</prop>
+				<prop key="default.childAgeMaxValue">${default.childAgeMaxValue}</prop>
+				<prop key="default.maxCoveragestartDate">${default.maxCoveragestartDate}</prop>
+			</props>
+		</property>
+	</bean>
+
+	<bean id="demographicDataHandlerLookup"
+		class="com.hcentive.utils.demographics.DemographicDataHandlerLookup">
+		<property name="demographicDataHandlersMap">
+			<map>
+				<entry key="default" value-ref="baseDemographicDataHandler" />
+			</map>
+		</property>
+	</bean>
+	
+	<bean id="invitationCodeService" class="com.hcentive.utils.invitation.InvitationCodeServiceImpl">
+		<property name="genericDAO" ref="genericDAO" />
+	</bean>
+	
+	<bean id="enrollmentPeriodService"
+		class="com.hcentive.utils.enrollment.period.service.EnrollmentPeriodServiceImpl">
+	  	<property name="genericDAO" ref="genericDAO" />
+	</bean>
+	
+ 
+	<bean id="hxManageHXIDExt"
+		class="com.hcentive.utils.hxid.HXManageHXIDImplExt">
+	</bean>
+	
+	<bean id="hxidServiceImpl" class="com.hcentive.utils.hxid.service.HXIDServiceImpl">
+		<property name="genericDAO" ref="genericDAO" />
+		<property name="idGeneratorService" ref="idGeneratorService" />
+	</bean>
+
+	<bean id="idGeneratorService"
+		class="com.hcentive.utils.generator.impl.SequenceBasedIdGeneratorService">
+		<property name="genericDAO" ref="genericDAO" />
+	</bean>
+	
+	<bean id="strippedIdProviderService" class="com.hcentive.utils.generator.impl.HXStrippedIdProviderServiceImpl">
+	</bean>	
+
+	<bean id="configDataLoader" class="com.hcentive.rulesengine.service.ConfigDBDataDataLoaderImpl">
+	</bean>		
+	
+	<bean id="rawPersistEventsService"
+		class="com.hcentive.event.logging.service.RawPersistEventsServiceImpl">
+		<property name="genericDAO" ref="genericDAO" />
+	</bean>
+	
+	<bean id="eventTransactionSvc"
+		class="com.hcentive.event.logging.service.EventsTransactionServiceImpl">
+		<property name="genericDAO" ref="genericDAO" />
+	</bean>	
+	
+	<!-- <bean id="stringDigestor" class="org.jasypt.digest.PooledStringDigester"> 
+		<property name="config"> <bean class="org.jasypt.digest.config.SimpleStringDigesterConfig"> 
+		<property name="algorithm" value="${digestor.algorithm}"></property> <property 
+		name="poolSize" value="2"></property> </bean> </property> </bean> -->
+	<!-- <bean id="stringDigestor" class="org.jasypt.digest.PooledStringDigester">
+		<property name="config">
+			<bean class="org.jasypt.digest.config.SimpleStringDigesterConfig">
+				<property name="algorithm" value="${digestor.algorithm}"></property>
+				<property name="poolSize" value="${digestor.poolSize}"></property>
+				<property name="stringOutputType" value="HEXADECIMAL"></property>
+				<property name="saltSizeBytes" value="0"></property>
+				<property name="unicodeNormalizationIgnored" value="true"></property>
+				<property name="iterations" value="1"></property>
+			</bean>
+		</property>
+	</bean> -->
+
+	<!-- <bean id="jasyptPasswordEncoder"
+		class="org.jasypt.springsecurity3.authentication.encoding.PasswordEncoder">
+		<property name="stringDigester" ref="stringDigestor" />
+	</bean> -->
+
+	<!-- <bean id="saltGenerator" class="org.jasypt.salt.ZeroSaltGenerator" /> -->
+
+	<!-- <bean id="stringEncryptor" class="org.jasypt.encryption.pbe.PooledPBEStringEncryptor">
+		<property name="config">
+			<bean class="org.jasypt.encryption.pbe.config.SimplePBEConfig">
+				<property name="algorithm" value="${encryptor.algorithm}"></property>
+				<property name="poolSize" value="${encryptor.poolSize}"></property>
+				<property name="password" value="${encryptor.password}"></property>
+			</bean>
+		</property>
+		<property name="saltGenerator" ref="saltGenerator" />
+	</bean> -->
+
+	<!-- <bean id="byteEncryptor" class="org.jasypt.encryption.pbe.PooledPBEByteEncryptor">
+		<property name="config">
+			<bean class="org.jasypt.encryption.pbe.config.SimplePBEConfig">
+				<property name="algorithm" value="${encryptor.algorithm}"></property>
+				<property name="poolSize" value="${encryptor.poolSize}"></property>
+				<property name="password" value="${encryptor.password}"></property>
+			</bean>
+		</property>
+	</bean> -->
+
+	<!-- <bean id="hibernateStringEncryptor"
+		class="org.jasypt.hibernate4.encryptor.HibernatePBEStringEncryptor">
+		<property name="registeredName" value="customHibernateStringEncryptor" />
+		<property name="encryptor" ref="stringEncryptor" />
+	</bean> -->
+
+	<!-- <bean id="hibernateByteEncryptor"
+		class="org.jasypt.hibernate4.encryptor.HibernatePBEByteEncryptor">
+		<property name="registeredName" value="customHibernateByteEncryptor" />
+		<property name="encryptor" ref="byteEncryptor" />
+	</bean> -->
+	
+	<bean id="employerEventService" class="com.hcentive.shop.event.logging.service.EmployerEventServiceImpl"/>
+	
+	<bean id="activityService" class="com.hcentive.shop.activity.service.ActivityServiceImpl">
+		<property name="genericDAO" ref="genericDAO" />
+	</bean>
+</beans>

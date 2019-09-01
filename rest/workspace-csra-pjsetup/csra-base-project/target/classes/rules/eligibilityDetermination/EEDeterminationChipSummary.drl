@@ -1,0 +1,1213 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.utils.ext.HXUtility;
+
+global org.slf4j.Logger logger;
+
+
+rule "MAIN_CHIP_SUMMARY_SEC1"
+salience 49610
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_CHIP_SUMMARY_SEC1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "MAIN_CHIP_SUMMARY_SEC1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_04_ACK);
+		drools.setFocus("CHIP_SUMMARY_STALE_1_AG");
+		logger.debug("Rule : MAIN_CHIP_SUMMARY_SEC1 : End");
+end
+
+
+//CR1606
+rule "CHIP_SUMMARY_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "CHIP_SUMMARY_STALE_1_AT"
+agenda-group "CHIP_SUMMARY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CHIP_SUMMARY_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "CHIP_SUMMARY_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : CHIP_SUMMARY_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "CHIP_SUMMARY_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "CHIP_SUMMARY_STALE_1_AT"
+agenda-group "CHIP_SUMMARY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : CHIP_SUMMARY_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "CHIP_SUMMARY_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Chip_Summary_1_AG");
+		logger.debug("Rule : CHIP_SUMMARY_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+//////////////////////////////////////////////////////Income////////////////////////////////////////////////
+//Chip Summary(1)
+
+rule "Chip_Summary_1_1"
+salience 49600
+activation-group "Chip_Summary_1_AT"
+agenda-group "Chip_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_1_1 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.NOFCR);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_1_1");
+		drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_1_1 : End");
+end
+
+// CR 1361 Rule changes- Start
+rule "Chip_Summary_1_1A"
+salience 49598
+activation-group "Chip_Summary_1_AT"
+agenda-group "Chip_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.CHIP),
+														chipTerminatedDueToNyshipInd,
+														isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_1_1A : Begin");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.MRR);	
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_1_1A");
+		drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_1_1A : End");
+end
+
+
+rule "Chip_Summary_1_1B"
+salience 49596
+activation-group "Chip_Summary_1_AT"
+agenda-group "Chip_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.CHIP),
+														chipTerminatedDueToNyshipInd,
+														!isProposedElgForRenewal,
+														!currDeterminedStartdategreaterthanRunforDate);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_1_1B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_1_1B");
+		drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_1_1B : End");
+end
+
+rule "Chip_Summary_1_1C"
+salience 49594
+activation-group "Chip_Summary_1_AT"
+agenda-group "Chip_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.CHIP),
+														chipTerminatedDueToNyshipInd,
+														!isProposedElgForRenewal,
+														currDeterminedStartdategreaterthanRunforDate);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_1_1C : Begin");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setCoverageEndIndicator(HXConstants.EOCM);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_1_1C");
+		drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_1_1C : End");
+end
+
+rule "Chip_Summary_1_1D"
+salience 49592
+activation-group "Chip_Summary_1_AT"
+agenda-group "Chip_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.CHIP),
+														chipIneligDuetoNyshipInd,
+														isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_1_1D : Begin");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setManualRenewalInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.MRR);	
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_1_1D");
+		drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_1_1D : End");
+end
+
+
+//CR 1361 rule changes end
+
+rule "Chip_Summary_1_2"
+salience 49590
+activation-group "Chip_Summary_1_AT"
+agenda-group "Chip_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusInEligible(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_1_2");
+		drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_1_2 : End");
+end
+
+rule "Chip_Summary_1_3"
+salience 49580
+activation-group "Chip_Summary_1_AT"
+agenda-group "Chip_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusSuspend(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_1_3");
+		drools.setFocus("Chip_Summary_2_AG");
+		logger.debug("Rule : Chip_Summary_1_3 : End");
+end
+
+rule "Chip_Summary_1_4"
+salience 49570
+activation-group "Chip_Summary_1_AT"
+agenda-group "Chip_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusPending(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_1_4");
+		drools.setFocus("Chip_Summary_2_AG");
+		logger.debug("Rule : Chip_Summary_1_4 : End");
+end
+
+
+rule "Chip_Summary_1_5"
+salience 49560
+activation-group "Chip_Summary_1_AT"
+agenda-group "Chip_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														!isProgramStatusInEligible(ProgramCode.CHIP),
+														!isProgramStatusSuspend(ProgramCode.CHIP),
+														!isProgramStatusPending(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_1_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, program_status.ELIGIBLE, null);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Chip_Summary_5_AG");
+		drools.setFocus("Chip_Summary_2_AG");
+		//drools.setFocus("Chip_Summary_5_AG");
+		logger.debug("Rule : Chip_Summary_1_5 : End");
+end
+
+//Chip Summary(2)
+//isProposedElgForRenewal
+
+rule "Chip_Summary_2_1"
+salience 49600
+//activation-group "Chip_Summary_2_AT"
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.SSN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_1 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_1");
+		//drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_2_1 : End");
+end
+
+
+rule "Chip_Summary_2_2"
+salience 49590
+//activation-group "Chip_Summary_2_AT"
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_2 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_2");
+		//drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_2_2 : End");
+end
+
+rule "Chip_Summary_2_3"
+salience 49580
+//activation-group "Chip_Summary_2_AT"
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.IMMIGRATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_3 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_3");
+		//drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_2_3 : End");
+end
+
+
+rule "Chip_Summary_2_4"
+salience 49570
+//activation-group "Chip_Summary_2_AT"
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.INCARCERATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_4 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_4");
+		//drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_2_4 : End");
+end
+
+rule "Chip_Summary_2_5"
+salience 495670
+//activation-group "Chip_Summary_2_AT"
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.STATE_RESIDENCY));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.STATE_RESIDENCY);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_5");
+		//drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_2_5 : End");
+end
+
+rule "Chip_Summary_2_6"
+salience 49550
+//activation-group "Chip_Summary_2_AT"
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.AMERICAN_INDIAN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_6 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.AMERICAN_INDIAN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_6");
+		//drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_2_6 : End");
+end
+
+rule "Chip_Summary_2_7"
+salience 49540
+//activation-group "Chip_Summary_2_AT"
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.INCOME));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_7 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_7");
+		//drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_2_7 : End");
+end
+
+rule "Chip_Summary_2_8"
+salience 49530
+//activation-group "Chip_Summary_2_AT"
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationTypeMEC(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_8 : Begin");
+		$eDeterminationfacts.activateMECClocks(ProgramCode.CHIP);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_8");
+		//drools.setFocus("Chip_Summary_3_AG");
+		logger.debug("Rule : Chip_Summary_2_8 : End");
+end
+
+rule "Chip_Summary_2_9"
+salience 49520
+//activation-group "Chip_Summary_2_AT"
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP,
+														EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_9 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_9");
+		logger.debug("Rule : Chip_Summary_2_9 : End");
+end
+
+
+rule "Chip_Summary_2_10"
+salience 49510
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP,
+														EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_10 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_10");
+		logger.debug("Rule : Chip_Summary_2_10 : End");
+end
+
+rule "Chip_Summary_2_11"
+salience 49500
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP,
+														EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_11 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_11");
+		logger.debug("Rule : Chip_Summary_2_11 : End");
+end
+
+rule "Chip_Summary_2_12"
+salience 49490
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP,
+														EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_12 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_12");
+		logger.debug("Rule : Chip_Summary_2_12 : End");
+end
+
+rule "Chip_Summary_2_13"
+salience 49480
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP,
+														EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_13 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_13");
+		logger.debug("Rule : Chip_Summary_2_13 : End");
+end
+
+rule "Chip_Summary_2_14"
+salience 49470
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP,
+														EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_14 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_14");
+		logger.debug("Rule : Chip_Summary_2_14 : End");
+end
+
+rule "Chip_Summary_2_15"
+salience 49460
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.CHIP,
+														EligibilityVerificationTypeEnum.CURRENT_INCOME));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_15 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CURRENT_INCOME);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_15");
+		logger.debug("Rule : Chip_Summary_2_15 : End");
+end
+
+rule "Chip_Summary_2_16"
+salience 49450
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_16 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_16");
+		logger.debug("Rule : Chip_Summary_2_16 : End");
+end
+
+rule "Chip_Summary_2_17"
+salience 49440
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isNonDeterminsiticClockSetForProgramAndClockName(ProgramCode.CHIP,
+														getClockName(HXConstants.CHIP_DECEASED_CLCOK)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.CHIP).getCancelNonDeterministicDeceasedClock()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_17 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_17");
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.MEDICAID, $eDeterminationfacts.getClockName(HXConstants.CHIP_DECEASED_CLCOK));
+		logger.debug("Rule : Chip_Summary_2_17 : End");
+end
+
+rule "Chip_Summary_2_18"
+salience 49430
+//activation-group "Chip_Summary_2_AT"
+agenda-group "Chip_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_2_18 : Begin");
+		logger.debug("Summary 2 Default rule");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_2_18");
+		drools.setFocus("Chip_Summary_4_AG");
+		logger.debug("Rule : Chip_Summary_2_18 : End");
+end
+
+//Chip Summary(3)
+
+rule "Chip_Summary_3_1"
+salience 49600
+//activation-group "Chip_Summary_3_AT"
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.SSN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_1 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_1");
+		//drools.setFocus("Chip_Summary_4_AG");
+		logger.debug("Rule : Chip_Summary_3_1 : End");
+end
+
+
+rule "Chip_Summary_3_2"
+salience 49590
+//activation-group "Chip_Summary_3_AT"
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_2 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_2");
+		//drools.setFocus("Chip_Summary_4_AG");
+		logger.debug("Rule : Chip_Summary_3_2 : End");
+end
+
+rule "Chip_Summary_3_3"
+salience 49580
+//activation-group "Chip_Summary_3_AT"
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.IMMIGRATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_3 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_3");
+		//drools.setFocus("Chip_Summary_4_AG");
+		logger.debug("Rule : Chip_Summary_3_3 : End");
+end
+
+
+rule "Chip_Summary_3_4"
+salience 49570
+//activation-group "Chip_Summary_3_AT"
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.INCARCERATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_4 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_4");
+		//drools.setFocus("Chip_Summary_4_AG");
+		logger.debug("Rule : Chip_Summary_3_4 : End");
+end
+
+rule "Chip_Summary_3_5"
+salience 49560
+//activation-group "Chip_Summary_3_AT"
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.STATE_RESIDENCY));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_5 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.STATE_RESIDENCY);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_5");
+		//drools.setFocus("Chip_Summary_4_AG");
+		logger.debug("Rule : Chip_Summary_3_5 : End");
+end
+
+rule "Chip_Summary_3_6"
+salience 49550
+//activation-group "Chip_Summary_3_AT"
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.AMERICAN_INDIAN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_6 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.AMERICAN_INDIAN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_6");
+		//drools.setFocus("Chip_Summary_4_AG");
+		logger.debug("Rule : Chip_Summary_3_6 : End");
+end
+
+rule "Chip_Summary_3_7"
+salience 49540
+//activation-group "Chip_Summary_3_AT"
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.INCOME));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_7 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.INCOME);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_7");
+		//drools.setFocus("Chip_Summary_4_AG");
+		logger.debug("Rule : Chip_Summary_3_7 : End");
+end
+
+rule "Chip_Summary_3_8"
+salience 49530
+//activation-group "Chip_Summary_3_AT"
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationTypeMEC(ProgramCode.CHIP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_8 : Begin");
+		$eDeterminationfacts.inActivateMECClocks(ProgramCode.CHIP);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_8");
+		//drools.setFocus("Chip_Summary_4_AG");
+		logger.debug("Rule : Chip_Summary_3_8 : End");
+end
+
+rule "Chip_Summary_3_9"
+salience 49520
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_TRI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_9 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.MEC_TRI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_9");
+		logger.debug("Rule : Chip_Summary_3_9 : End");
+end
+
+
+rule "Chip_Summary_3_10"
+salience 49510
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_10 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.MEC_PEACE_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_10");
+		logger.debug("Rule : Chip_Summary_3_10 : End");
+end
+
+
+rule "Chip_Summary_3_11"
+salience 49500
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_11 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.MEC_AMERI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_11");
+		logger.debug("Rule : Chip_Summary_3_11 : End");
+end
+
+rule "Chip_Summary_3_12"
+salience 49490
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.RESI_SPL_RULE_LGL_PERMRESI_90));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_12 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.RESI_SPL_RULE_LGL_PERMRESIDENT);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_12");
+		logger.debug("Rule : Chip_Summary_3_12 : End");
+end
+
+rule "Chip_Summary_3_13"
+salience 49480
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.RESI_SPL_RULE_WORK_DOCS_90));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_13 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.RESI_SPL_RULE_WORK_DOCS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_13");
+		logger.debug("Rule : Chip_Summary_3_13 : End");
+end
+
+rule "Chip_Summary_3_14"
+salience 49470
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL_90));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_14 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.RESI_SPL_RULE_CHILD_SCHL_ENRL);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_14");
+		logger.debug("Rule : Chip_Summary_3_14 : End");
+end
+
+rule "Chip_Summary_3_15"
+salience 49460
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.RESI_SPL_RULE_HOME_OWNERSHIP_90));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_15 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_OWNERSHIP);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_15");
+		logger.debug("Rule : Chip_Summary_3_15 : End");
+end
+
+rule "Chip_Summary_3_16"
+salience 49450
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.RESI_SPL_RULE_HOME_RENTAL_90));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_16 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.RESI_SPL_RULE_HOME_RENTAL);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_16");
+		logger.debug("Rule : Chip_Summary_3_16 : End");
+end
+
+rule "Chip_Summary_3_17"
+salience 49440
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_17 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_17");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		logger.debug("Rule : Chip_Summary_3_17 : End");
+end
+
+rule "Chip_Summary_3_18"
+salience 49430
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														EligibilityVerificationTypeEnum.CURRENT_INCOME));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_18 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_18");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.CURRENT_INCOME);
+		logger.debug("Rule : Chip_Summary_3_18 : End");
+end
+
+rule "Chip_Summary_3_19"
+salience 49420
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonDeterminsiticClockSetForProgramAndClockName(ProgramCode.CHIP,
+														getClockName(HXConstants.CHIP_DECEASED_CLCOK)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_19 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_19");
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.MEDICAID, $eDeterminationfacts.getClockName(HXConstants.CHIP_DECEASED_CLCOK));
+		logger.debug("Rule : Chip_Summary_3_19 : End");
+end
+
+rule "Chip_Summary_3_20"
+salience 49410
+agenda-group "Chip_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_3_20 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_3_20");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_3_20 : End");
+end
+
+//Chip Summary(4)
+
+rule "Chip_Summary_4_1"
+salience 49600
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.INCARCERATION_1),
+														is1DayRerunScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4_1 : End");
+end
+
+
+rule "Chip_Summary_4_2"
+salience 49590
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.INCARCERATION_1),
+														!is1DayRerunScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4_2 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, ClockNameEnum.INCARCERATION_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4_2 : End");
+end
+
+rule "Chip_Summary_4_3"
+salience 49580
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.INCARCERATION_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4_3 : Begin");
+		//$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4_3 : End");
+end
+
+
+//Summary_4v1_4 TRICARE
+rule "Chip_Summary_4v1_4"
+salience 49575
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_TRI_TERMIN_1),isTricareTerminationClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4v1_4 : Begin");
+		logger.debug("No action..");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4v1_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4v1_4 : End");
+end
+
+
+
+rule "Chip_Summary_4v1_5"
+salience 49570
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_TRI_TERMIN_1),
+														!isTricareTerminationClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4v1_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, ClockNameEnum.MEC_TRI_TERMIN_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4v1_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4v1_5 : End");
+end
+
+
+rule "Chip_Summary_4v1_6"
+salience 49565
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_TRI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4v1_6 : Begin");
+		//$eDeterminationfacts.activateClock(ProgramCode.CHIP, ClockNameEnum.INCARCERATION_1);
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.MEC_TRI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4v1_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4v1_6 : End");
+end
+
+
+//Summary_4v2_4 PeaceCorps
+rule "Chip_Summary_4v2_4"
+salience 49560
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1),isPeaceCorpsTerminationClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4v2_4 : Begin");
+		logger.debug("No action..");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4v2_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4v2_4 : End");
+end
+
+
+
+rule "Chip_Summary_4v2_5"
+salience 49555
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1),
+														!isPeaceCorpsTerminationClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4v2_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, ClockNameEnum.MEC_PEACE_TERMIN_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4v2_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4v2_5 : End");
+end
+
+
+rule "Chip_Summary_4v2_6"
+salience 49550
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_PEACE_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4v2_6 : Begin");
+		//$eDeterminationfacts.activateClock(ProgramCode.CHIP, ClockNameEnum.INCARCERATION_1);
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.MEC_PEACE_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4v2_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4v2_6 : End");
+end
+
+//Summary_4v3_4 AmeriCorps
+rule "Chip_Summary_4v3_4"
+salience 49545
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1),isAmeriCorpsTerminationClockScheduled);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4v3_4 : Begin");
+		logger.debug("No action..");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4v3_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4v3_4 : End");
+end
+
+
+
+rule "Chip_Summary_4v3_5"
+salience 49540
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1),
+														!isAmeriCorpsTerminationClockScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4v3_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.CHIP, ClockNameEnum.MEC_AMERI_TERMIN_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4v3_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4v3_5 : End");
+end
+
+
+rule "Chip_Summary_4v3_6"
+salience 49535
+activation-group "Chip_Summary_4_AT"
+agenda-group "Chip_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.CHIP, 
+														ClockNameEnum.MEC_AMERI_TERMIN_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_4v3_6 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.CHIP, EligibilityVerificationTypeEnum.MEC_AMERI_TERMIN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_4v3_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.CHIP, HXConstants.RULE_EXEC_STEP_SEC1_05);
+		logger.debug("Rule : Chip_Summary_4v3_6 : End");
+end
+
+
+
+/* 38695
+As 5_AG rule set is moved to SEC 2 drl file, this rule set 6_AG also needs to be moved there.
+
+//Chip Summary(6)
+
+rule "Chip_Summary_6_1"
+salience 43000
+activation-group "Chip_Summary_6_AT"
+agenda-group "Chip_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!deceasedConsumerFoundInhousehold);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_6_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_6_1");
+		logger.debug("Rule : Chip_Summary_6_1 : End");
+end
+
+rule "Chip_Summary_6_2"
+salience 43290
+activation-group "Chip_Summary_6_AT"
+agenda-group "Chip_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														memberNewlyAddedToHousehold);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_6_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_6_2");
+		
+		logger.debug("Rule : Chip_Summary_6_2 : End");
+end
+
+rule "Chip_Summary_6_3"
+salience 43280
+activation-group "Chip_Summary_6_AT"
+agenda-group "Chip_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														!memberNewlyAddedToHousehold,
+														alreadyExistingMemberInHousehold,
+														!isUserSatisfyingRenewalLSC);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_6_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_6_3");
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.CHIP,($eDeterminationfacts.getPreviousElgEndDate(ProgramCode.CHIP)));
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.CHIP).setUserPreviousEndDateDueToDeceasedInfo(true);
+		$eDeterminationfacts.updateProgram(ProgramCode.CHIP, ProgramReasonCode.PREV_END_DT_USED_DOD);
+		logger.debug("Rule : Chip_Summary_6_3 : End");
+end
+
+rule "Chip_Summary_6_4"
+salience 43270
+activation-group "Chip_Summary_6_AT"
+agenda-group "Chip_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														!memberNewlyAddedToHousehold,
+														alreadyExistingMemberInHousehold,
+														isUserSatisfyingRenewalLSC);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_6_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_6_4");
+		logger.debug("Rule : Chip_Summary_6_4 : End");
+end
+
+rule "Chip_Summary_6_5"
+salience 43260
+activation-group "Chip_Summary_6_AT"
+agenda-group "Chip_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(deceasedConsumerFoundInhousehold,
+														memberNewlyAddedToHousehold,
+														!alreadyExistingMemberInHousehold);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Chip_Summary_6_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.CHIP, "Chip_Summary_6_5");
+		logger.debug("Rule : Chip_Summary_6_5 : End");
+end
+*/

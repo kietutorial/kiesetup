@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Copyright (c) 2009 - 2012 hCentive Inc. All rights reserved.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" 
+"http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="DB2.ToolTip">
+
+	<select id="getToolTip" parameterType="map" resultType="com.hcentive.utils.tooltip.service.ToolTip">
+  		<include refid="COMMON.ToolTip.getToolTip" />
+  	</select>
+  	
+</mapper>

@@ -1,0 +1,11 @@
+[user] 
+name = Philip Chauvet
+email = abc1260@outlook.com
+[alias]
+st = status
+co = checkout
+br = branch
+up = rebase
+ci = commit
+[core]
+editor = gedit

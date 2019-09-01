@@ -1,0 +1,933 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.AidCategory;
+import com.hcentive.eligibility.domain.ext.CoverageCode;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.ChargeCode;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+//Main Rule
+rule "MAIN_MEDICAID_VERIFY_SEC2_1_NEW"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC2_1_NEW : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_VERIFY_SEC2_1_NEW");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_1_03_ACK);
+		drools.setFocus("Medicaid_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_VERIFY_SEC2_1_NEW : End");
+end
+
+
+//CR1606
+rule "MEDICAID_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "Medicaid_STALE_1_AT"
+agenda-group "Medicaid_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC2_1_NEW_03);
+		logger.debug("Rule : MEDICAID_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "MEDICAID_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "Medicaid_STALE_1_AT"
+agenda-group "Medicaid_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Medicaid_RULE_FLIP_AG");
+		logger.debug("Rule : MEDICAID_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+
+rule "Medicaid_RULE_FLIP_INCAR"
+salience 2002
+activation-group "Medicaid_RULE_FLIP_AT"
+agenda-group "Medicaid_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts("Medicaid_RELEASE_1_AG".equals(isRunRequiredForSheet));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_RULE_FLIP_INCAR : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_RULE_FLIP_INCAR");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_RELEASE_1_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_RULE_FLIP_INCAR : End");
+end 
+
+rule "Medicaid_RULE_FLIP_IMIG"
+salience 2001
+activation-group "Medicaid_RULE_FLIP_AT"
+agenda-group "Medicaid_RULE_FLIP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!("Medicaid_RELEASE_1_AG".equals(isRunRequiredForSheet)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_RULE_FLIP_IMIG : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_RULE_FLIP_IMIG");
+		drools.setFocus("Medicaid_IMIG_1_AG");
+		logger.debug("Rule : Medicaid_RULE_FLIP_IMIG : End");
+end
+
+//Medicaid immigration (1)New
+
+rule "Medicaid_Immigration_1_1"
+salience 60000
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.US_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NATURALIZED_CITIZEN.equals(citizenshipType)));														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_1");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_RELEASE_1_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_1 : End");
+end
+
+//Added for CR# 1151
+rule "Medicaid_Immigration_1_1A"
+salience 59998
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														(isMADeemedNewbornAndUnder13Months));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_1A");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_RELEASE_1_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_1A : End");
+end
+
+//CR522
+rule "Medicaid_Immigration_1_1B"
+salience 59995
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														!isMADeemedNewbornAndUnder13Months,
+														isCSVLPOvrideLessThanThldDaysOrKeyChg);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_1B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_1B");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V4_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_1B : End");
+end
+
+
+rule "Medicaid_Immigration_1_2"
+salience 59990
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !(isMADeemedNewbornAndUnder13Months), CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														HXConstants.INDICATOR_YES.equals(vlpUSCitizenCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_2");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_4V1_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_2 : End");
+end
+
+//Added for enhancement [36560]
+
+rule "Medicaid_Immigration_1_2B"
+salience 59983
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !(isMADeemedNewbornAndUnder13Months), CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														isHIXRestricted);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_2B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_2B");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidUnDocumentInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_4V1_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_2B : End");
+end
+
+//Added for CR# 1140
+rule "Medicaid_Immigration_1_5"
+salience 59980
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts( !(isMADeemedNewbornAndUnder13Months), (CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														(isMissing_Alien_and_I94_data && !isCSVLPOverride));													
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_5");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V2_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_5 : End");
+end
+
+rule "Medicaid_Immigration_1_6"
+salience 59975
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														isFailureToProvideImmiDocInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_6");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID,program_status.INELIGIBLE, ProgramReasonCode.FVIS);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_4V1_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_6 : End");
+end
+
+rule "Medicaid_Immigration_1_6_1"
+salience 59973
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isHIXDACAEmploymentAuthorized,
+														getIsHIXPrucol(),
+														!getIsPrucolVerReqInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_6_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_6_1");
+		//this change has been done for defect #54104
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_4V3_AG"); 
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_6_1 : End");
+end
+
+rule "Medicaid_Immigration_1_6A"
+salience 59972
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isHIXDACAEmploymentAuthorized,
+														getIsHIXPrucol(),
+														getIsPrucolVerReqInd());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_6A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_6A");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_6A : End");
+end
+
+//Added for CR 1234 -Usecase 7
+rule "Medicaid_Immigration_1_6B"
+salience 59971
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														!isVLPStepThreeComplete,
+														!isVLPStepTwo,
+														!(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_6B : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_6B");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setStartClockNoNoticeInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_6B : End");
+end
+
+rule "Medicaid_Immigration_1_7"
+salience 59970
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														isVLPStepTwo,
+														!(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_7");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setImmigCSManualResolveInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_7 : End");
+end
+
+rule "Medicaid_Immigration_1_8"
+salience 59965
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_8");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setImmigCSManualResolveInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_8 : End");
+end
+
+rule "Medicaid_Immigration_1_9"
+salience 59960
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months), 
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														!isVLPStepTwo,
+														!(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_9");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_9 : End");
+end
+
+rule "Medicaid_Immigration_1_10"
+salience 59955
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months), 
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														isHIXDACAEmploymentAuthorized);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_10");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixQualifiedNonCitizenFlg(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setHixLawfulPresenceFlg(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_4V2_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_10 : End");
+end
+
+
+//Defect 45275
+rule "Medicaid_Immigration_1_10A"
+salience 59953
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														isRefugeeORAsyleeByCOACode,
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														!isHIXRestricted,
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_10A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_10A");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_4V1_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_10A : End");
+end
+
+
+rule "Medicaid_Immigration_1_11"
+salience 59950
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														!isRefugeeORAsyleeByCOACode,
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														!isHIXRestricted,
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_11");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_11 : End");
+end
+
+rule "Medicaid_Immigration_1_12"
+salience 59945
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months), 
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_VERIFIED.equals(isMemberLawfullyPresent),
+														!isHIXRestricted,
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_N.equals(isHIXQualifiedNonCitizen));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_12");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_12 : End");
+end
+
+//Added for CR 1234 for usecase7
+rule "Medicaid_Immigration_1_12A"
+salience 59941
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months), 
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_PENDING.equals(isMemberLawfullyPresent),
+														!isHIXRestricted,
+														!isVLPStepThreeComplete,
+														!isVLPStepTwo,
+														!(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_12A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_12A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setStartClockNoNoticeInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_12A : End");
+end
+
+rule "Medicaid_Immigration_1_13"
+salience 59940
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months), 
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_PENDING.equals(isMemberLawfullyPresent),
+														!isHIXRestricted,
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														isVLPStepTwo,
+														!(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_13");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setImmigCSManualResolveInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_13 : End");
+end
+
+// START Added for CR 1234 usecase-6
+
+rule "Medicaid_Immigration_1_14A"
+salience 59935
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_PENDING.equals(isMemberLawfullyPresent),
+														!isHIXRestricted,
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														isVLPStepThreeComplete,
+														(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)),
+														(HXUtility.isNull(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo)),
+														HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree));
+	then
+	    // Commented and added the code for defect 54550		
+		// $eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_4V1_AG");
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_14A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_14A");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setImmigCSManualResolveInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_14A : End");
+end
+
+// Rule Sheet Column "U"
+// Removed the two facts as part of defect 54550 fix, removed the conditions dhsAutoTriggerStepTwo = N and dhsAutoTriggerStepThree = Y
+rule "Medicaid_Immigration_1_14"
+salience 59933
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_PENDING.equals(isMemberLawfullyPresent),
+														!isHIXRestricted,
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_P.equals(isHIXQualifiedNonCitizen),
+														(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_14");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_1b_AG");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setResidualPrucolProcessInd(Boolean.TRUE);
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_14 : End");
+end
+
+
+
+//END CR 1234 usecase-6
+
+
+
+rule "Medicaid_Immigration_1_15"
+salience 59930
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_PENDING.equals(isMemberLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_N.equals(isHIXQualifiedNonCitizen),
+														isVLPStepTwo,
+														!(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+	//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_15 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_15");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setImmigCSManualResolveInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_15 : End");
+	
+end
+
+rule "Medicaid_Immigration_1_16"
+salience 59925
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_PENDING.equals(isMemberLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_N.equals(isHIXQualifiedNonCitizen),
+														(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+	//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_16 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_16");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setImmigCSManualResolveInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_16 : End");
+	
+end
+
+rule "Medicaid_Immigration_1_17"
+salience 59920
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_PENDING.equals(isMemberLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isVLPStepTwo,
+														!(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+	//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_17 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_17");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setImmigCSManualResolveInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_4V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_17 : End");
+	
+end
+
+rule "Medicaid_Immigration_1_18"
+salience 59915
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_PENDING.equals(isMemberLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														(HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepTwo) || HXConstants.INDICATOR_NO.equals(dhsAutoTriggerStepThree)));
+	then
+	//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_18 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_18");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setImmigCSManualResolveInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_18 : End");
+	
+end
+// Rule "Z"
+rule "Medicaid_Immigration_1_19"
+salience 59910
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_PENDING.equals(isMemberLawfullyPresent),
+														!isHIXRestricted,
+														!HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isVLPStepTwo);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_19 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_19");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2V3_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_19 : End");
+end
+
+rule "Medicaid_Immigration_1_20"
+salience 59905
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_NOT_VERIFIED.equals(isMemberLawfullyPresent),
+														!HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														!isVLPStepThreeComplete);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_20 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_20");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setImmigCSManualResolveInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_2_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_20 : End");
+end
+
+rule "Medicaid_Immigration_1_21"
+salience 59900
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_NOT_VERIFIED.equals(isMemberLawfullyPresent),
+														!HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen),
+														isVLPStepThreeComplete);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_21 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_21");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidUnDocumentInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_4V1_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_21 : End");
+end
+
+rule "Medicaid_Immigration_1_22"
+salience 59895
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMADeemedNewbornAndUnder13Months),
+														(CitizenshipStatusEnum.IMMIGRANT_NON_CITIZEN.equals(citizenshipType) || 
+														CitizenshipStatusEnum.NON_IMMIGRANT_VISA_HOLDER.equals(citizenshipType)),
+														!isFailureToProvideImmiDocInd,
+														!getIsHIXPrucol(),
+														HXConstants.LAWFUL_PRESENCE_NOT_VERIFIED.equals(isMemberLawfullyPresent),
+														HXConstants.HIX_QUALIFIED_NONCITIZEN_INDICATOR_Y.equals(isHIXQualifiedNonCitizen));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_22 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_22");
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_IMIG_4V2_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_22 : End");
+end
+
+rule "Medicaid_Immigration_1_23"
+salience 59890
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.OTHER.equals(citizenshipType),
+														(getMemberAgeForProgram(ProgramCode.CHIP) >18),
+														!isMemberPregnant);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_23 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_23");		
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidUnDocumentInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_RELEASE_1_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_23 : End");
+end
+
+rule "Medicaid_Immigration_1_24"
+salience 59885
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.OTHER.equals(citizenshipType),
+														isMemberPregnant);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_24 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_24");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidUnDocumentInd(Boolean.TRUE);
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_RELEASE_1_AG");
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_24 : End");
+end
+
+rule "Medicaid_Immigration_1_25"
+salience 59880
+activation-group "Medicaid_IMIG_1_AT"
+agenda-group "Medicaid_IMIG_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(CitizenshipStatusEnum.OTHER.equals(citizenshipType),
+														!(getMemberAgeForProgram(ProgramCode.CHIP) >18),
+														!isMemberPregnant);														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1_25 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1_25");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidUnDocumentInd(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setUnDocPushedToCHIP(Boolean.TRUE);
+		drools.setFocus("Medicaid_IMIG_1a_AG");
+		//$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, ProgramReasonCode.UDC);  //CR1361 change
+		$eDeterminationfacts.setIsRunRequiredForSheet("Medicaid_RELEASE_1_AG");
+		drools.setFocus("Medicaid_SEC_2_1_NEW_COMP_STEP_AG");
+		logger.debug("Rule : Medicaid_Immigration_1_25 : End");
+end
+//Added for CR# 1140
+
+// Added for CR1151
+//Medicaid Immigration (1a)
+
+rule "Medicaid_Immigration_1a_1"
+salience 59875
+activation-group "Medicaid_IMIG_1a_AT"
+agenda-group "Medicaid_IMIG_1a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isMedicaidDeemedCitizenship);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1a_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1a_1");
+		$eDeterminationfacts.getMember().setIsMedicaidDeemedCitizen(Boolean.FALSE); 
+		logger.debug("Rule : Medicaid_Immigration_1a_1 : End");
+end
+
+
+// Added for CR1151
+
+rule "Medicaid_Immigration_1a_2"
+salience 59870
+activation-group "Medicaid_IMIG_1a_AT"
+agenda-group "Medicaid_IMIG_1a_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isMedicaidDeemedCitizenship));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Immigration_1a_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Immigration_1a_2");
+		logger.debug("Rule : Medicaid_Immigration_1a_2 : End");
+end
+
+
+//Rule completion
+rule "Medicaid_SEC_2_1_NEW_COMP_STEP_1"
+salience 60000
+activation-group "Medicaid_SEC_2_1_NEW_COMP_STEP_AT"
+agenda-group "Medicaid_SEC_2_1_NEW_COMP_STEP_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_SEC_2_1_NEW_COMP_STEP_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_SEC_2_1_NEW_COMP_STEP_1");
+		$eDeterminationfacts.setPrevSectionACKName("RULE_EXEC_STEP_SEC2_1_NEW_03");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC2_1_NEW_03);
+		logger.debug("Rule : Medicaid_SEC_2_1_NEW_COMP_STEP_1 : End");
+end
+

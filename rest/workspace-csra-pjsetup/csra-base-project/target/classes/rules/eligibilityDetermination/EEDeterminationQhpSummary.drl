@@ -1,0 +1,1490 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.eligibility.ext.NoticeNameEnum;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.utils.ext.HxDateUtils;
+import com.hcentive.eligibility.domain.ext.RuleDecisionKeyEnum;
+import com.hcentive.incarceration.domain.DoccsType;
+import com.hcentive.eligibility.domain.ext.IncarcerationReleaseEnum;
+
+import java.util.Calendar;
+global org.slf4j.Logger logger;
+
+
+rule "MAIN_QHP_SUMMARY"
+salience 10000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_QHP_SUMMARY : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "MAIN_QHP_SUMMARY");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_04_ACK);
+		drools.setFocus("QHP_SUMMARY_STALE_1_AG");
+		logger.debug("Rule : MAIN_QHP_SUMMARY : End");
+end
+
+
+
+//CR1606
+rule "QHP_SUMMARY_VERIFY_STALE_ELG_SEC_01"
+salience 95070
+activation-group "QHP_SUMMARY_STALE_1_AT"
+agenda-group "QHP_SUMMARY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_SUMMARY_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_SUMMARY_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : QHP_SUMMARY_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "QHP_SUMMARY_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "QHP_SUMMARY_STALE_1_AT"
+agenda-group "QHP_SUMMARY_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : QHP_SUMMARY_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_SUMMARY_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Qhp_Summary_AG");
+		logger.debug("Rule : QHP_SUMMARY_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+
+rule "Qhp_Summary_1"
+salience 95050
+activation-group "Qhp_Summary_AT"
+agenda-group "Qhp_Summary_AG"
+when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : QHP_SUMMARY : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "QHP_SUMMARY");
+		if("RULE_EXEC_STEP_04".equals($eDeterminationfacts.getPrevSectionACKName())){
+			$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_04_ACK);
+			//drools.setFocus("Qhp_Summary_1_AG");
+		}else if("RULE_EXEC_STEP_SEC1_NEW_04".equals($eDeterminationfacts.getPrevSectionACKName())){
+			$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04_ACK);
+			//drools.setFocus("Qhp_Summary_1_AG");
+		}
+		drools.setFocus("Qhp_Summary_A1_AG");
+		logger.debug("Rule : QHP_SUMMARY : End");
+		
+end
+//CR1606 code changes end
+
+
+
+//QHP Summary (a1)
+
+
+rule "Qhp_Summary_A1_1"
+salience 94000
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(inMemTerminateCovReleaseCode);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.IDRC);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_1 : End");
+end
+
+rule "Qhp_Summary_A1_1A"
+salience 93950
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(IncarcerationReleaseEnum.REL_4.Value().equals(inMemReleaseCode)));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_1A");
+		//In case of Release Code 04 do not clear release information.
+		//$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_1A : End");
+end
+
+rule "Qhp_Summary_A1_2"
+salience 93900
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														!(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_2");
+			$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_2 : End");
+end
+
+rule "Qhp_Summary_A1_3"
+salience 93890
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														isLSCThruNonRenewalBatch);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_3");
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_3 : End");
+end
+
+
+rule "Qhp_Summary_A1_4"
+salience 93885
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														(isWMSEnrolled() || iseMednyEnrolled()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_4");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_4 : End");
+end
+
+
+rule "Qhp_Summary_A1_5"
+salience 93880
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														!(isWMSEnrolled() || iseMednyEnrolled()),
+														isReceivingMECMedicaidORChipORRefugee);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_5");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_5 : End");
+end
+
+
+rule "Qhp_Summary_A1_6"
+salience 93875
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														!(isWMSEnrolled() || iseMednyEnrolled()),
+														!isReceivingMECMedicaidORChipORRefugee,
+														doesDeceasedInfoExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_6");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_6 : End");
+end
+
+
+rule "Qhp_Summary_A1_7"
+salience 93870
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														!(isWMSEnrolled() || iseMednyEnrolled()),
+														!isReceivingMECMedicaidORChipORRefugee,
+														!doesDeceasedInfoExists,
+														!isNYSResident);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_7");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_7 : End");
+end
+
+
+rule "Qhp_Summary_A1_8"
+salience 93865
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														!(isWMSEnrolled() || iseMednyEnrolled()),
+														!isReceivingMECMedicaidORChipORRefugee,
+														!doesDeceasedInfoExists,
+														isNYSResident,
+														isCSUndeliverableAddInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_8");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_8 : End");
+end
+
+rule "Qhp_Summary_A1_9"
+salience 93860
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														!(isWMSEnrolled() || iseMednyEnrolled()),
+														!isReceivingMECMedicaidORChipORRefugee,
+														!doesDeceasedInfoExists,
+														isNYSResident,
+														!isCSUndeliverableAddInd,
+														isMemberNotApplying);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_9");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_9 : End");
+end
+
+rule "Qhp_Summary_A1_10"
+salience 93855
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														!(isWMSEnrolled() || iseMednyEnrolled()),
+														!isReceivingMECMedicaidORChipORRefugee,
+														!doesDeceasedInfoExists,
+														isNYSResident,
+														!isCSUndeliverableAddInd,
+														!isMemberNotApplying,
+														!isFinancialAssistanceRequired);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_10");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_10 : End");
+end
+
+
+rule "Qhp_Summary_A1_11"
+salience 93850
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														!(isWMSEnrolled() || iseMednyEnrolled()),
+														!isReceivingMECMedicaidORChipORRefugee,
+														!doesDeceasedInfoExists,
+														isNYSResident,
+														!isCSUndeliverableAddInd,
+														!isMemberNotApplying,
+														isFinancialAssistanceRequired,
+														getFailureToComplyAbscentParent());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_11");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_11 : End");
+end
+
+rule "Qhp_Summary_A1_12"
+salience 93845
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														!(isWMSEnrolled() || iseMednyEnrolled()),
+														!isReceivingMECMedicaidORChipORRefugee,
+														!doesDeceasedInfoExists,
+														isNYSResident,
+														!isCSUndeliverableAddInd,
+														!isMemberNotApplying,
+														isFinancialAssistanceRequired,
+														!getFailureToComplyAbscentParent(),
+														isHXIncarcerated);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_12");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_12 : End");
+end
+
+
+rule "Qhp_Summary_A1_13"
+salience 93840
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														!(isWMSEnrolled() || iseMednyEnrolled()),
+														!isReceivingMECMedicaidORChipORRefugee,
+														!doesDeceasedInfoExists,
+														isNYSResident,
+														!isCSUndeliverableAddInd,
+														!isMemberNotApplying,
+														isFinancialAssistanceRequired,
+														!getFailureToComplyAbscentParent(),
+														!isHXIncarcerated,
+														HXConstants.YES.equals(getIsBackOfficeCCOverrideExists()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_13");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		drools.setFocus("Qhp_Summary_1_AG");
+		logger.debug("Rule : Qhp_Summary_A1_13 : End");
+end
+
+
+rule "Qhp_Summary_A1_14"
+salience 93835
+activation-group "Qhp_Summary_A1_AT"
+agenda-group "Qhp_Summary_A1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemTerminateCovReleaseCode,
+														(isReinstatmentEndDateGreatorOREqualToRunforDate() && isReleaseCode01_02_09),
+														!isLSCThruNonRenewalBatch,
+														!(isWMSEnrolled() || iseMednyEnrolled()),
+														!isReceivingMECMedicaidORChipORRefugee,
+														!doesDeceasedInfoExists,
+														isNYSResident,
+														!isCSUndeliverableAddInd,
+														!isMemberNotApplying,
+														isFinancialAssistanceRequired,
+														!getFailureToComplyAbscentParent(),
+														!isHXIncarcerated,
+														HXConstants.NO.equals(getIsBackOfficeCCOverrideExists()));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_A1_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_A1_14");
+		drools.setFocus("Qhp_Summary_1_AG");
+		drools.setFocus("Qhp_Summary_7_AG");
+		logger.debug("Rule : Qhp_Summary_A1_14 : End");
+end
+
+
+//QHP Summary (a1) End
+
+//////////////////////////////////////////////////////Income////////////////////////////////////////////////
+//Qhp Summary(1)
+
+rule "Qhp_Summary_1_0"
+salience 49605
+activation-group "Qhp_Summary_1_AT"
+agenda-group "Qhp_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(medicaidNewbornNoShowInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_1_0 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_1_0");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.FLSCMADNB);
+		drools.setFocus("Qhp_Summary_END_AG");
+		logger.debug("Rule : Qhp_Summary_1_0 : End");
+end
+
+
+rule "Qhp_Summary_1_1"
+salience 49600
+activation-group "Qhp_Summary_1_AT"
+agenda-group "Qhp_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.INELIGIBLE, ProgramReasonCode.NOFCR);
+		drools.setFocus("Qhp_Summary_END_AG");
+		logger.debug("Rule : Qhp_Summary_1_1 : End");
+end
+
+rule "Qhp_Summary_1_2"
+salience 49590
+activation-group "Qhp_Summary_1_AT"
+agenda-group "Qhp_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														(isProgramStatusInEligible(ProgramCode.QHP) || inMemTerminateCovReleaseCode));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_1_2");
+		drools.setFocus("Qhp_Summary_END_AG");
+		drools.setFocus("Qhp_Summary_6_AG");
+		drools.setFocus("Qhp_Summary_3_AG");
+		logger.debug("Rule : Qhp_Summary_1_2 : End");
+end
+
+
+rule "Qhp_Summary_1_3"
+salience 49580
+activation-group "Qhp_Summary_1_AT"
+agenda-group "Qhp_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusSuspend(ProgramCode.QHP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_1_3");
+		drools.setFocus("Qhp_Summary_END_AG");
+		drools.setFocus("Qhp_Summary_4_AG");
+		//drools.setFocus("Qhp_Summary_3_AG");//Commented for defect R14-SIT 81957
+		drools.setFocus("Qhp_Summary_2_AG");
+		logger.debug("Rule : Qhp_Summary_1_3 : End");
+end
+
+rule "Qhp_Summary_1_4"
+salience 49570
+activation-group "Qhp_Summary_1_AT"
+agenda-group "Qhp_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														isProgramStatusPending(ProgramCode.QHP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_1_4");
+		drools.setFocus("Qhp_Summary_END_AG");
+		drools.setFocus("Qhp_Summary_4_AG");
+		//drools.setFocus("Qhp_Summary_3_AG");//Commented for defect R14-SIT 81957
+		drools.setFocus("Qhp_Summary_2_AG");
+		logger.debug("Rule : Qhp_Summary_1_4 : End");
+end
+
+
+rule "Qhp_Summary_1_5"
+salience 49560
+activation-group "Qhp_Summary_1_AT"
+agenda-group "Qhp_Summary_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReceivingNursingOrFosterCareReferral(ProgramCode.MEDICAID),
+														!isProgramStatusInEligible(ProgramCode.QHP),
+														!isProgramStatusSuspend(ProgramCode.QHP),
+														!isProgramStatusPending(ProgramCode.QHP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_1_5 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.QHP, program_status.ELIGIBLE, null);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_1_5");
+		drools.setFocus("Qhp_Summary_END_AG");
+		drools.setFocus("Qhp_Summary_4_AG");
+		//drools.setFocus("Qhp_Summary_3_AG");//Commented for defect R14-SIT 81957
+		drools.setFocus("Qhp_Summary_2_AG");
+		drools.setFocus("Qhp_Summary_5_AG");
+		logger.debug("Rule : Qhp_Summary_1_5 : End");
+end
+
+
+//Qhp Summary(2)
+
+rule "Qhp_Summary_2_1"
+salience 49600
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.SSN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_1 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_1");
+		logger.debug("Rule : Qhp_Summary_2_1 : End");
+end
+
+
+rule "Qhp_Summary_2_2"
+salience 49590
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_2 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_2");
+		logger.debug("Rule : Qhp_Summary_2_2 : End");
+end
+
+rule "Qhp_Summary_2_3"
+salience 49580
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.IMMIGRATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_3 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_3");
+		logger.debug("Rule : Qhp_Summary_2_3 : End");
+end
+
+
+rule "Qhp_Summary_2_4"
+salience 49570
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.INCARCERATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_4 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_4");
+		logger.debug("Rule : Qhp_Summary_2_4 : End");
+end
+
+rule "Qhp_Summary_2_5"
+salience 49560
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.STATE_RESIDENCY));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_5 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.STATE_RESIDENCY);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_5");		
+		logger.debug("Rule : Qhp_Summary_2_5 : End");
+end
+
+rule "Qhp_Summary_2_6"
+salience 49550
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.AMERICAN_INDIAN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_6 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.AMERICAN_INDIAN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_6");
+		logger.debug("Rule : Qhp_Summary_2_6 : End");
+end
+
+rule "Qhp_Summary_2_7"
+salience 49540
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationType(ProgramCode.QHP,
+														EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_7");
+		$eDeterminationfacts.activateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		logger.debug("Rule : Qhp_Summary_2_7 : End");
+end
+
+rule "Qhp_Summary_2_8"
+salience 49530
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isClockSetForVerificationTypeMEC(ProgramCode.QHP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_8");
+		$eDeterminationfacts.activateMECClocks(ProgramCode.QHP);
+		logger.debug("Rule : Qhp_Summary_2_8 : End");
+end
+
+rule "Qhp_Summary_2_9"
+salience 49520
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProposedElgForRenewal);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_9");
+		logger.debug("Rule : Qhp_Summary_2_9 : End");
+end
+
+rule "Qhp_Summary_2_10"
+salience 49510
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isProposedElgForRenewal,
+														isNonDeterminsiticClockSetForProgramAndClockName(ProgramCode.QHP,
+														getClockName(HXConstants.QHP_DECEASED_CLCOK)),
+														HXUtility.isTrue(getElgRulesIndicatorForProgram(ProgramCode.QHP).getCancelNonDeterministicDeceasedClock()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_10");
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.APTC, $eDeterminationfacts.getClockName(HXConstants.QHP_DECEASED_CLCOK));
+		logger.debug("Rule : Qhp_Summary_2_10 : End");
+end
+
+rule "Qhp_Summary_2_11"
+salience 49500
+agenda-group "Qhp_Summary_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_2_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_2_11");
+		drools.setFocus("Qhp_Summary_4_AG");
+		logger.debug("Rule : Qhp_Summary_2_11 : End");
+end
+
+
+//Qhp Summary(3)
+
+rule "Qhp_Summary_3_1"
+salience 49600
+agenda-group "Qhp_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.SSN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_3_1 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.SSN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_3_1");
+		logger.debug("Rule : Qhp_Summary_3_1 : End");
+end
+
+
+rule "Qhp_Summary_3_2"
+salience 49590
+agenda-group "Qhp_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_3_2 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.CITIZENSHIP_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_3_2");
+		logger.debug("Rule : Qhp_Summary_3_2 : End");
+end
+
+rule "Qhp_Summary_3_3"
+salience 49580
+agenda-group "Qhp_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.IMMIGRATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_3_3 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.IMMIGRATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_3_3");
+		logger.debug("Rule : Qhp_Summary_3_3 : End");
+end
+
+
+rule "Qhp_Summary_3_4"
+salience 49570
+agenda-group "Qhp_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.INCARCERATION_STATUS));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_3_4 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.INCARCERATION_STATUS);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_3_4");
+		logger.debug("Rule : Qhp_Summary_3_4 : End");
+end
+
+rule "Qhp_Summary_3_5"
+salience 49560
+agenda-group "Qhp_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.STATE_RESIDENCY));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_3_5 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.STATE_RESIDENCY);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_3_5");
+		logger.debug("Rule : Qhp_Summary_3_5 : End");
+end
+
+rule "Qhp_Summary_3_6"
+salience 49550
+agenda-group "Qhp_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.AMERICAN_INDIAN));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_3_6 : Begin");
+		$eDeterminationfacts.inActivateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.AMERICAN_INDIAN);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_3_6");
+		logger.debug("Rule : Qhp_Summary_3_6 : End");
+end
+
+rule "Qhp_Summary_3_7"
+salience 49540
+agenda-group "Qhp_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.QHP, 
+														EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_3_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_3_7");
+		$eDeterminationfacts.inActivateClock(ProgramCode.QHP, EligibilityVerificationTypeEnum.CITIZENSHIP_DISCREPANCY);
+		logger.debug("Rule : Qhp_Summary_3_7 : End");
+end
+
+rule "Qhp_Summary_3_8"
+salience 49530
+agenda-group "Qhp_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationTypeMEC(ProgramCode.QHP));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_3_8 : Begin");
+		$eDeterminationfacts.inActivateMECClocks(ProgramCode.QHP);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_3_8");
+		logger.debug("Rule : Qhp_Summary_3_8 : End");
+end
+
+rule "Qhp_Summary_3_10"
+salience 49520
+agenda-group "Qhp_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNonDeterminsiticClockSetForProgramAndClockName(ProgramCode.QHP,
+														getClockName(HXConstants.QHP_DECEASED_CLCOK)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_3_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_3_10");
+		$eDeterminationfacts.cancelNonDeterminsticClockIfExists(ProgramCode.APTC, $eDeterminationfacts.getClockName(HXConstants.QHP_DECEASED_CLCOK));
+		logger.debug("Rule : Qhp_Summary_3_10 : End");
+end
+
+/*rule "Qhp_Summary_3_11"
+salience 49510
+agenda-group "Qhp_Summary_3_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_3_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_3_11");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Qhp_Summary_3_11 : End");
+end
+*/
+
+//Qhp Summary(4)
+
+rule "Qhp_Summary_4_1"
+salience 49600
+activation-group "Qhp_Summary_4_AT"
+agenda-group "Qhp_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.QHP, 
+														ClockNameEnum.INCARCERATION_1),
+														is1DayRerunScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_4_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_4_1");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Qhp_Summary_4_1 : End");
+end
+
+
+rule "Qhp_Summary_4_2"
+salience 49590
+activation-group "Qhp_Summary_4_AT"
+agenda-group "Qhp_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isClockSetForVerificationType(ProgramCode.QHP, 
+														ClockNameEnum.INCARCERATION_1),
+														!is1DayRerunScheduled);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_4_2 : Begin");
+		$eDeterminationfacts.activateClock(ProgramCode.QHP, ClockNameEnum.INCARCERATION_1);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_4_2");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Qhp_Summary_4_2 : End");
+end
+
+rule "Qhp_Summary_4_3"
+salience 49580
+activation-group "Qhp_Summary_4_AT"
+agenda-group "Qhp_Summary_4_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isClockSetForVerificationType(ProgramCode.QHP, 
+														ClockNameEnum.INCARCERATION_1));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_4_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_4_3");
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Qhp_Summary_4_3 : End");
+end
+
+//Qhp Summary (5)
+
+rule "Qhp_Summary_5_1"
+salience 47000
+activation-group "Qhp_Summary_5_AT"
+agenda-group "Qhp_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.QHP),
+														chipTerminatedDueToNyshipInd,
+														ineligibleAllSubsdiseProg,
+														!isActiveManualRenewalApplicableForAccount,
+														currDeterminedStartdategreaterthanRunforDate);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_5_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_5_1");
+		$eDeterminationfacts.setEligibilityStartDateAsFirstOfNextMonth(ProgramCode.QHP);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setFirstDayofNextMonthforQHPDuetoNyship(Boolean.TRUE);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.QHP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.QHP,new java.util.Date());
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Qhp_Summary_5_1 : End");
+		
+end
+
+
+rule "Qhp_Summary_5_1a"
+salience 46998
+activation-group "Qhp_Summary_5_AT"
+agenda-group "Qhp_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.QHP),
+														chipTerminatedDueToNyshipInd,
+														ineligibleAllSubsdiseProg,
+														!isActiveManualRenewalApplicableForAccount,
+														!currDeterminedStartdategreaterthanRunforDate);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_5_1a : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_5_1a");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.QHP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.QHP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.QHP,new java.util.Date());
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Qhp_Summary_5_1a : End");
+end
+
+
+
+
+rule "Qhp_Summary_5_1b"
+salience 46996
+activation-group "Qhp_Summary_5_AT"
+agenda-group "Qhp_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isElgEndDateAvailable(ProgramCode.QHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_5_1b : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_5_1b");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.QHP);
+		$eDeterminationfacts.calculateAndSetEligibilityEndDate(ProgramCode.QHP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.QHP,new java.util.Date());
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Qhp_Summary_5_1b : End");
+end
+
+
+rule "Qhp_Summary_5_2"
+salience 46994
+activation-group "Qhp_Summary_5_AT"
+agenda-group "Qhp_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.QHP),
+														chipTerminatedDueToNyshipInd,
+														ineligibleAllSubsdiseProg,
+														!isActiveManualRenewalApplicableForAccount,
+														currDeterminedStartdategreaterthanRunforDate);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_5_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_5_2");
+		$eDeterminationfacts.setEligibilityStartDateAsFirstOfNextMonth(ProgramCode.QHP);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.QHP).setFirstDayofNextMonthforQHPDuetoNyship(Boolean.TRUE);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.QHP,new java.util.Date());
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);		
+		logger.debug("Rule : Qhp_Summary_5_2 : End");
+end
+
+
+rule "Qhp_Summary_5_2a"
+salience 46992
+activation-group "Qhp_Summary_5_AT"
+agenda-group "Qhp_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.QHP),
+														chipTerminatedDueToNyshipInd,
+														ineligibleAllSubsdiseProg,
+														!isActiveManualRenewalApplicableForAccount,
+														!currDeterminedStartdategreaterthanRunforDate);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_5_2a : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_5_2a");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.QHP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.QHP,new java.util.Date());
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);	
+		logger.debug("Rule : Qhp_Summary_5_2a : End");
+end
+
+rule "Qhp_Summary_5_2b"
+salience 46990
+activation-group "Qhp_Summary_5_AT"
+agenda-group "Qhp_Summary_5_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isElgEndDateAvailable(ProgramCode.QHP));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_5_2b : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_5_2b");
+		$eDeterminationfacts.calculateAndSetEligibilityStartDate(ProgramCode.QHP);
+		$eDeterminationfacts.setEligibilityRunDate(ProgramCode.QHP,new java.util.Date());
+		//$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Qhp_Summary_5_2b : End");
+end
+
+//Qhp Summary(6)
+
+rule "Qhp_Summary_6_0"
+salience 44000
+activation-group "Qhp_Summary_6_AT"
+agenda-group "Qhp_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.QHP),
+														madeIneligibleDueToBeingDeceased,
+														isMemberMarkedDeceasedInPrevRun);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_6_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_6_0");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.QHP, $eDeterminationfacts.getPrevElgStartDateForDeceasedMember(ProgramCode.QHP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.QHP, $eDeterminationfacts.getPrevElgEndDateForDeceasedMember(ProgramCode.QHP));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DECEASED_IN_PRV_RUN, "1");
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getPrevElgEndDateForDeceasedMember(ProgramCode.QHP)));
+		logger.debug("Rule : Qhp_Summary_6_0 : End");
+end
+
+rule "Qhp_Summary_6_1"
+salience 43999
+activation-group "Qhp_Summary_6_AT"
+agenda-group "Qhp_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.QHP),
+														!isEligibleForProgram(ProgramCode.QHP),														
+														madeIneligibleDueToBeingDeceased,
+														isMemberTheSubscriberForPlan,
+														!isMemberSubscribedInMultiMemberPlan,
+														HXUtility.isDate2GreaterThanDate1(getPreviousElgStartDate(ProgramCode.QHP),HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased())));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_6_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_6_1");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.QHP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.QHP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.QHP,$eDeterminationfacts.getLogicalDateOfDeceased());
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		logger.debug("Rule : Qhp_Summary_6_1 : End");
+end
+
+rule "Qhp_Summary_6_1AA"
+salience 43998
+activation-group "Qhp_Summary_6_AT"
+agenda-group "Qhp_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.QHP),
+														!isEligibleForProgram(ProgramCode.QHP),														
+														madeIneligibleDueToBeingDeceased,
+														isMemberTheSubscriberForPlan,
+														isMemberSubscribedInMultiMemberPlan,
+														HXUtility.isDate2GreaterThanDate1(getPreviousElgStartDate(ProgramCode.QHP),HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased())));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_6_1AA : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_6_1AA");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.QHP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.QHP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.QHP, HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased()));
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString(HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased())));
+		logger.debug("Rule : Qhp_Summary_6_1AA : End");
+end
+
+rule "Qhp_Summary_6_1A"
+salience 43995
+activation-group "Qhp_Summary_6_AT"
+agenda-group "Qhp_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.QHP),
+														!isEligibleForProgram(ProgramCode.QHP),														
+														madeIneligibleDueToBeingDeceased,
+														isMemberTheSubscriberForPlan,
+														HXUtility.isDate2GreaterThanOrEqualToDate1(HxDateUtils.moveDatetoEndOfMonth($eDeterminationfacts.getLogicalDateOfDeceased()),getPreviousElgStartDate(ProgramCode.QHP)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_6_1A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_6_1A");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.QHP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.QHP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.QHP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.QHP));
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getPreviousElgStartDate(ProgramCode.QHP)));
+		logger.debug("Rule : Qhp_Summary_6_1A : End");
+end
+
+rule "Qhp_Summary_6_2"
+salience 43990
+activation-group "Qhp_Summary_6_AT"
+agenda-group "Qhp_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.QHP),
+														!isEligibleForProgram(ProgramCode.QHP),														
+														madeIneligibleDueToBeingDeceased,
+														!isMemberTheSubscriberForPlan,
+														HXUtility.isDate2GreaterThanDate1(getPreviousElgStartDate(ProgramCode.QHP), getLogicalDateOfDeceased()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_6_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_6_2");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.QHP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.QHP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.QHP, $eDeterminationfacts.getLogicalDateOfDeceased());
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		logger.debug("Rule : Qhp_Summary_6_2 : End");
+end
+
+rule "Qhp_Summary_6_2A"
+salience 43985
+activation-group "Qhp_Summary_6_AT"
+agenda-group "Qhp_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.QHP),
+														!isEligibleForProgram(ProgramCode.QHP),														
+														madeIneligibleDueToBeingDeceased,
+														!isMemberTheSubscriberForPlan,
+														HXUtility.isDate2GreaterThanOrEqualToDate1(getLogicalDateOfDeceased(), getPreviousElgStartDate(ProgramCode.QHP)));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_6_2A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_6_2A");
+		$eDeterminationfacts.setEligibilityStartDate(ProgramCode.QHP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.QHP));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.QHP, $eDeterminationfacts.getPreviousElgStartDate(ProgramCode.QHP));
+		
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD, HXUtility.convertDateToString($eDeterminationfacts.getLogicalDateOfDeceased()));
+		$eDeterminationfacts.setRuleDecisionData(RuleDecisionKeyEnum.DOD_ELG_END, HXUtility.convertDateToString($eDeterminationfacts.getPreviousElgStartDate(ProgramCode.QHP)));
+		logger.debug("Rule : Qhp_Summary_6_2A : End");
+end
+
+rule "Qhp_Summary_6_3"
+salience 43980
+activation-group "Qhp_Summary_6_AT"
+agenda-group "Qhp_Summary_6_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isProgramStatusInEligible(ProgramCode.QHP),
+														!isEligibleForProgram(ProgramCode.QHP),														
+														madeIneligibleDueToBeingDeceased);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_6_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_6_3");
+		logger.debug("Rule : Qhp_Summary_6_3 : End");
+end
+
+//CR1413:Modification start
+//Qhp Summary(7)
+
+rule "Qhp_Summary_7_0"
+salience 44100
+activation-group "Qhp_Summary_7_AT"
+agenda-group "Qhp_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isReinstatmentEndDateGreatorOREqualToRunforDate());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_7_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_7_0");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		logger.debug("Rule : Qhp_Summary_7_0 : End");
+end
+
+rule "Qhp_Summary_7_1"
+salience 44090
+activation-group "Qhp_Summary_7_AT"
+agenda-group "Qhp_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														isEligibleForProgram(ProgramCode.MEDICAID),
+														getIsAllVerificationsVerifiedAllPrograms());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_7_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_7_1");
+		logger.debug("Rule : Qhp_Summary_7_1 : End");
+end
+
+rule "Qhp_Summary_7_2"
+salience 44080
+activation-group "Qhp_Summary_7_AT"
+agenda-group "Qhp_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														!isEligibleForProgram(ProgramCode.MEDICAID),
+														(isEligibleForProgram(ProgramCode.CHIP) 
+															|| isEligibleForProgram(ProgramCode.EPP)  
+															|| isEligibleForProgram(ProgramCode.EPP_Aliessa) 
+															|| isEligibleForProgram(ProgramCode.APTC)),
+														getIsAllVerificationsVerifiedAllPrograms());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_7_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_7_2");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		logger.debug("Rule : Qhp_Summary_7_2 : End");
+end
+
+rule "Qhp_Summary_7_3"
+salience 44070
+activation-group "Qhp_Summary_7_AT"
+agenda-group "Qhp_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														!isEligibleForProgram(ProgramCode.MEDICAID),
+														(isEligibleForProgram(ProgramCode.CHIP) 
+															|| isEligibleForProgram(ProgramCode.EPP)  
+															|| isEligibleForProgram(ProgramCode.EPP_Aliessa) 
+															|| isEligibleForProgram(ProgramCode.APTC)),
+														!getIsAllVerificationsVerifiedAllPrograms(),
+														!isMemberPregnant);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_7_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_7_3");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.ELIGIBLE, ProgramReasonCode.FMMRC);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, $eDeterminationfacts.getPreviousEligibilityAidCategory(), $eDeterminationfacts.getPreviousEligibilityCoverageCode());
+		$eDeterminationfacts.setEligibilityStartDateAsFirstOfRunForDateMonth(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.MEDICAID));
+		$eDeterminationfacts.resetAllLDSSIndicators();
+		if($eDeterminationfacts.isEligibleForProgram(ProgramCode.CHIP)){
+			$eDeterminationfacts.updateProgramSpecial(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.FMRP);
+		} else if($eDeterminationfacts.isEligibleForProgram(ProgramCode.EPP)){
+			$eDeterminationfacts.updateProgramSpecial(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.FMRP);
+		} else if($eDeterminationfacts.isEligibleForProgram(ProgramCode.EPP_Aliessa)){
+			$eDeterminationfacts.updateProgramSpecial(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.FMRP);
+		}else if($eDeterminationfacts.isEligibleForProgram(ProgramCode.APTC)){
+			$eDeterminationfacts.updateProgramSpecial(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.FMRP);
+		}
+		$eDeterminationfacts.setSuppressAllNewClocks(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setClocksSuppressedIndicator(Boolean.TRUE);
+		
+		logger.debug("Rule : Qhp_Summary_7_3 : End");
+end
+
+rule "Qhp_Summary_7_4"
+salience 44060
+activation-group "Qhp_Summary_7_AT"
+agenda-group "Qhp_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														!isEligibleForProgram(ProgramCode.MEDICAID),
+														(isEligibleForProgram(ProgramCode.CHIP) 
+															|| isEligibleForProgram(ProgramCode.EPP)  
+															|| isEligibleForProgram(ProgramCode.EPP_Aliessa) 
+															|| isEligibleForProgram(ProgramCode.APTC)),
+														!getIsAllVerificationsVerifiedAllPrograms(),
+														isMemberPregnant);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_7_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_7_4");		
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.ELIGIBLE, ProgramReasonCode.FMMRC);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, $eDeterminationfacts.getPreviousEligibilityAidCategory(), $eDeterminationfacts.getPreviousEligibilityCoverageCode());
+		$eDeterminationfacts.setEligibilityStartDateAsFirstOfRunForDateMonth(ProgramCode.MEDICAID);
+		
+		$eDeterminationfacts.updatePostPartumSaveDate(ProgramCode.MEDICAID, HxDateUtils.moveDatetoEndOfMonth(HxDateUtils.addTodate($eDeterminationfacts.getExpectedDuedate(), Calendar.MONTH, 2)));
+					
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getGreaterOfPPSDAndReinstatementEndDate(ProgramCode.MEDICAID));
+		$eDeterminationfacts.resetAllLDSSIndicators();
+		if($eDeterminationfacts.isEligibleForProgram(ProgramCode.CHIP)){
+			$eDeterminationfacts.updateProgramSpecial(ProgramCode.CHIP, program_status.INELIGIBLE, ProgramReasonCode.FMRP);
+		} else if($eDeterminationfacts.isEligibleForProgram(ProgramCode.EPP)){
+			$eDeterminationfacts.updateProgramSpecial(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.FMRP);
+		} else if($eDeterminationfacts.isEligibleForProgram(ProgramCode.EPP_Aliessa)){
+			$eDeterminationfacts.updateProgramSpecial(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.FMRP);
+		} else if($eDeterminationfacts.isEligibleForProgram(ProgramCode.APTC)){
+			$eDeterminationfacts.updateProgramSpecial(ProgramCode.APTC, program_status.INELIGIBLE, ProgramReasonCode.FMRP);
+		} 
+		$eDeterminationfacts.setSuppressAllNewClocks(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setClocksSuppressedIndicator(Boolean.TRUE);//New indicator
+		
+		logger.debug("Rule : Qhp_Summary_7_4 : End");
+end
+
+//Defects 83049, 83028
+rule "Qhp_Summary_7_4A"
+salience 44055
+activation-group "Qhp_Summary_7_AT"
+agenda-group "Qhp_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														!isEligibleForProgram(ProgramCode.MEDICAID),
+														!(isEligibleForProgram(ProgramCode.CHIP) 
+															|| isEligibleForProgram(ProgramCode.EPP)  
+															|| isEligibleForProgram(ProgramCode.EPP_Aliessa) 
+															|| isEligibleForProgram(ProgramCode.APTC)),
+														!isProgramStatusInEligible(ProgramCode.QHP),
+														getIsAllVerificationsVerifiedAllPrograms());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_7_4A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_7_4A");
+		$eDeterminationfacts.updateDOCCSIndInfo(ProgramCode.MEDICAID, DoccsType.RELEASED.name(), Boolean.FALSE);
+		logger.debug("Rule : Qhp_Summary_7_4A : End");
+end
+
+rule "Qhp_Summary_7_5"
+salience 44050
+activation-group "Qhp_Summary_7_AT"
+agenda-group "Qhp_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														!isMemberPregnant);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_7_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_7_5");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.ELIGIBLE, ProgramReasonCode.FMMRC);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, $eDeterminationfacts.getPreviousEligibilityAidCategory(), $eDeterminationfacts.getPreviousEligibilityCoverageCode());
+		$eDeterminationfacts.setEligibilityStartDateAsFirstOfRunForDateMonth(ProgramCode.MEDICAID);
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getPreviousElgEndDate(ProgramCode.MEDICAID));
+		$eDeterminationfacts.resetAllLDSSIndicators();
+		
+		$eDeterminationfacts.setSuppressAllNewClocks(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setClocksSuppressedIndicator(Boolean.TRUE);//New indicator
+		
+		logger.debug("Rule : Qhp_Summary_7_5 : End");
+end
+
+rule "Qhp_Summary_7_6"
+salience 44040
+activation-group "Qhp_Summary_7_AT"
+agenda-group "Qhp_Summary_7_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isReinstatmentEndDateGreatorOREqualToRunforDate(),
+														isMemberPregnant);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_7_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_7_6");
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.ELIGIBLE, ProgramReasonCode.FMMRC);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, $eDeterminationfacts.getPreviousEligibilityAidCategory(), $eDeterminationfacts.getPreviousEligibilityCoverageCode());
+		$eDeterminationfacts.setEligibilityStartDateAsFirstOfRunForDateMonth(ProgramCode.MEDICAID);
+		
+		$eDeterminationfacts.updatePostPartumSaveDate(ProgramCode.MEDICAID, HxDateUtils.moveDatetoEndOfMonth(HxDateUtils.addTodate($eDeterminationfacts.getExpectedDuedate(), Calendar.MONTH, 2)));
+		$eDeterminationfacts.setEligibilityEndDate(ProgramCode.MEDICAID,$eDeterminationfacts.getGreaterOfPPSDAndReinstatementEndDate(ProgramCode.MEDICAID));
+		
+		$eDeterminationfacts.resetAllLDSSIndicators();
+		$eDeterminationfacts.setSuppressAllNewClocks(Boolean.TRUE);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setClocksSuppressedIndicator(Boolean.TRUE);//New indicator
+		logger.debug("Rule : Qhp_Summary_7_6 : End");
+end
+
+
+//Rule completion
+rule "Qhp_Summary_END"
+salience 60000
+activation-group "Qhp_Summary_END_AT"
+agenda-group "Qhp_Summary_END_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts();														
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Qhp_Summary_END : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.QHP, "Qhp_Summary_END");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.QHP, HXConstants.RULE_EXEC_STEP_FINAL);
+		logger.debug("Rule : Qhp_Summary_END : End");
+end
+
+
+//CR1413:Modification end

@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<definitions id="Definition"
+             targetNamespace="http://www.omg.org/bpmn20"
+             typeLanguage="http://www.java.com/javaTypes"
+             expressionLanguage="http://www.mvel.org/2.0"
+             xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd"
+             xmlns:g="http://www.jboss.org/drools/flow/gpd"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:tns="http://www.jboss.org/drools">
+
+  <itemDefinition id="_miRenewalsItem" structureRef="com.csra.eligibility.process.medicaidincome.MI_Reasonable_Compatibility_Flow" />
+  <process processType="Private" isExecutable="true" id="B" name="B" tns:packageName="com.csra.eligibility.workflow.medicalincome" tns:version="1.0" >
+
+    <!-- process variables -->
+    <property id="miReasonableCompatibilityFlow" itemSubjectRef="_miRenewalsItem"/>
+
+    <!-- nodes -->
+    <startEvent id="_4F994246-D2F9-47DC-AEFC-B3B04390C87D" name=""  isInterrupting="true">
+    </startEvent>
+    <endEvent id="_84DCA0F8-8DA3-4730-B0D7-9CDA27516BA1" name="" >
+        <terminateEventDefinition />
+    </endEvent>
+    <scriptTask id="_jbpm-unique-1" name="Begin" scriptFormat="http://www.java.com/java" >
+      <script>System.out.println("");
+System.out.println("Task ("+kcontext.getProcessInstance().getProcessName() + ": " + kcontext.getNodeInstance().getNodeName() + ")");
+
+System.out.println("miReasonableCompatibilityFlow: " + miReasonableCompatibilityFlow);
+</script>
+    </scriptTask>
+    <scriptTask id="_jbpm-unique-2" name="End" scriptFormat="http://www.java.com/java" >
+      <script>System.out.println("");
+System.out.println("Task ("+kcontext.getProcessInstance().getProcessName() + ": " + kcontext.getNodeInstance().getNodeName() + ")");
+</script>
+    </scriptTask>
+
+    <!-- connections -->
+    <sequenceFlow id="_jbpm-unique-2-_84DCA0F8-8DA3-4730-B0D7-9CDA27516BA1" sourceRef="_jbpm-unique-2" targetRef="_84DCA0F8-8DA3-4730-B0D7-9CDA27516BA1" />
+    <sequenceFlow id="_4F994246-D2F9-47DC-AEFC-B3B04390C87D-_jbpm-unique-1" sourceRef="_4F994246-D2F9-47DC-AEFC-B3B04390C87D" targetRef="_jbpm-unique-1" />
+    <sequenceFlow id="_jbpm-unique-1-_jbpm-unique-2" sourceRef="_jbpm-unique-1" targetRef="_jbpm-unique-2" />
+
+  </process>
+
+  <bpmndi:BPMNDiagram>
+    <bpmndi:BPMNPlane bpmnElement="B" >
+      <bpmndi:BPMNShape bpmnElement="_4F994246-D2F9-47DC-AEFC-B3B04390C87D" >
+        <dc:Bounds x="36" y="60" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_84DCA0F8-8DA3-4730-B0D7-9CDA27516BA1" >
+        <dc:Bounds x="117" y="308" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_jbpm-unique-1" >
+        <dc:Bounds x="108" y="116" width="80" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="_jbpm-unique-2" >
+        <dc:Bounds x="101" y="209" width="80" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="_jbpm-unique-2-_84DCA0F8-8DA3-4730-B0D7-9CDA27516BA1" >
+        <di:waypoint x="141" y="233" />
+        <di:waypoint x="141" y="332" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_4F994246-D2F9-47DC-AEFC-B3B04390C87D-_jbpm-unique-1" >
+        <di:waypoint x="60" y="84" />
+        <di:waypoint x="148" y="140" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="_jbpm-unique-1-_jbpm-unique-2" >
+        <di:waypoint x="148" y="140" />
+        <di:waypoint x="141" y="233" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</definitions>

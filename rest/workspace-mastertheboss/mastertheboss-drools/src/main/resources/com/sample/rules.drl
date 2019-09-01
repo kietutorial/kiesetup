@@ -1,0 +1,10 @@
+import com.sample.Account;
+ 
+rule "nameRequired"
+ruleflow-group "helloworldgroup"
+when
+$account : Account( name == null )
+then
+  System.out.println( "Account name cannot be null!");
+ 
+end

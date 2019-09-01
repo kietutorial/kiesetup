@@ -1,0 +1,207 @@
+package com.hcentive.eligibility.notice;
+ 
+
+import com.hcentive.rulesengine.domain.notice.EmployerEligibilityDetailsFact;
+import com.hcentive.shop.domain.ext.CompanyDetail;
+import com.hcentive.shop.domain.Employer;
+import com.hcentive.shop.domain.EmployerEligibility;
+import com.hcentive.shop.domain.Employee;
+import com.hcentive.user.UserProfile;
+import com.hcentive.shop.domain.EmployerEligibilityStatusEnum;
+import org.apache.commons.lang.StringUtils;
+import com.hcentive.utils.ext.HXUtility;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Iterator;
+
+/* Rule Notice 1004 :
+ * Employer's Application has been denied
+ */
+rule "Notice1004"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		String reasonForTermination = null;
+		if(null != eligibility){
+		String eligibilityStatus = eligibility.getEligibilityStatus().name();
+		
+		if(null != eligibility.getEligibilityVerificationStatus()){
+		String eligibilityVerificationStatus = eligibility.getEligibilityVerificationStatus().name();
+		
+		if(null !=eligibility.getReasonForTermination()){
+		reasonForTermination = eligibility.getReasonForTermination();
+		}
+		
+		//added to not trigger notice 1004 for appeal event request
+		boolean flag = true;
+		if(null != eligibility && !eligibility.getHxAppealsList().isEmpty()){	
+			if(!eligibility.getEmployerVerifications().isEmpty()){
+				for(EmployerVerification employerVerification : eligibility.getEmployerVerifications()){
+					if(employerVerification.getEmployerVerificationType().equals("FTE_CALCULATOR"))
+						flag = false;
+				}
+			}
+		}
+		    
+		if(flag){
+		  if((eligibility != null && eligibilityStatus.equalsIgnoreCase("SUBMITTED") && eligibilityVerificationStatus.equalsIgnoreCase("INELIGIBLE")) || 
+			(eligibility != null && eligibilityStatus.equalsIgnoreCase("SUBMITTED") && eligibilityVerificationStatus.equalsIgnoreCase("TERMINATED")
+				&& reasonForTermination!=null && (reasonForTermination.equalsIgnoreCase("No Active employee enrollments") || reasonForTermination.equalsIgnoreCase("No Active employee enrollments from Prospective")))){
+	    	  n.getTemplateNameList().add("Notice1004.ftl");
+	      	}
+	     }
+	   	}
+	   	}
+	end
+
+
+/* Rule Notice N1007 :
+ * Employer initiates change in employee eligibility due to employee separation (for any reason), reduction in 
+ * employee's hours, or any other reason that would make an employee ineligible for SHOP coverage; Exchange confirms 
+ * loss of eligibility with employer prior to initiating related communication to employee.
+ */
+rule "Notice1007"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		if(null != eligibility){
+		List<Employee> employees= eligibility.getEmployees();
+		if(!HXUtility.isEmpty(employees)){
+		   String eligibilityStatus = eligibility.getEligibilityStatus().name();    
+		   if(null != eligibility.getEligibilityVerificationStatus()){
+		   String eligibilityVerificationStatus = eligibility.getEligibilityVerificationStatus().name();
+		   if(eligibility != null && eligibilityStatus.equalsIgnoreCase("SUBMITTED") && eligibilityVerificationStatus.equalsIgnoreCase("Eligible") && employees.get(0).getStatus().equalsIgnoreCase("DELETED") && null == n.getUserProfile()){
+	    	   n.getTemplateNameList().add("Notice1007.ftl");
+	   	     } 
+	   	    }
+	   	 }
+	   	 }
+	end
+
+/* Rule Notice N1011a :
+ * Authorizing an Agent/Broker/Navigator to act on behalf of the Employer, Notice alerts employer that they have granted 
+ * this authorization.
+ */
+rule "Notice1011a"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		if(null != eligibility){
+			CompanyDetail company = eligibility.getCompanyDetail();
+	   		if(null != eligibility && eligibility.isBrokerAuthorized()){
+    	  		n.getTemplateNameList().add("Notice1011a.ftl");
+     		} 
+	   	}
+	end
+
+
+/* Rule Notice N1011b :
+ * Revokes the privileges of a Producer/Navigator to operate on behalf of the employer; Notice alerts employer to this change 
+ * 
+ */	
+rule "Notice1011b"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		if(null != eligibility && eligibility.isBrokerUnAuthorized() && null == n.getUserProfile())
+		   n.getTemplateNameList().add("Notice1011b.ftl");
+	end
+
+/* Rule Notice N1020 :
+ * Employee losses eligibility in Employer coverage due to hours reduced, separation from employer, or other reason 
+ * 
+ */	
+rule "Notice1020"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then
+     	int counter = 0;
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		if(null != eligibility && null != eligibility.getEmployees()){
+		  for(Employee employee : eligibility.getEmployees()){
+			  if(employee.getStatus().equalsIgnoreCase("DELETED"))
+			     counter++;			
+		   }
+		   if(counter == eligibility.getEmployees().size() && null != n.getUserProfile() && n.getUserProfile().getType().toString().equalsIgnoreCase("INDIVIDUAL"))
+		   n.getTemplateNameList().add("Notice1020.ftl");
+		}
+		
+	end
+	
+/* Rule Notice N1022b :
+ * Notifying the employee that the broker previously assigned to assist the employer in the SHOP Exchange is no longer the broker on record 
+ * 
+ */	
+rule "Notice1022b"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		if(null != eligibility && eligibility.isBrokerUnAuthorized() && null != n.getUserProfile() && n.getUserProfile().getType().toString().equalsIgnoreCase("INDIVIDUAL"))
+		   n.getTemplateNameList().add("Notice1022b.ftl");
+	end
+	
+
+	
+/* Rule Notice Notice1019 :
+ * Employer leaves SHOP
+ * 
+ */	
+rule "Notice1019"
+    when
+        n : EmployerEligibilityDetailsFact();
+    then     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		UserProfile userProfile = n.getUserProfile();
+		if(null != eligibility && null != eligibility.getEligibilityVerificationStatus()){
+		   if(eligibility.getEligibilityVerificationStatus().name().equals(EmployerEligibilityStatusEnum.TERMINATED.name()) && null != userProfile){
+		     	if(eligibility.getTerminationNoticeType().equals("FM_NON_PAYMENT")){
+		     		n.getTemplateNameList().add("Notice1041.ftl");
+		     	}else{
+		     		n.getTemplateNameList().add("Notice1019.ftl");
+		     	}
+		     }
+		    }
+	end
+	
+/* Rule Notice Notice1022a :
+ * Notifying the employee of the broker assigned by the employer to assist with health insurance coverage through the SHOP
+ * 
+ */	
+/*rule "Notice1022a"
+    when 
+        n : EmployerEligibilityDetailsFact();
+    then     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		UserProfile userProfile = n.getUserProfile();
+		if(null != eligibility && eligibility.isBrokerAuthorized() && null != userProfile)
+		   n.getTemplateNameList().add("Notice1022a.ftl");
+	end*/
+	
+	/* Rule Notice Notice1001 :
+ * Notifying the employee of the broker assigned by the employer to assist with health insurance coverage through the SHOP
+ * 
+ */	
+rule "Notice1001"
+    when 
+        n : EmployerEligibilityDetailsFact();
+    then     	
+		EmployerEligibility eligibility = n.getEmployerEligibility();
+		
+		if(null != eligibility){
+			if(!eligibility.getHxAppealsList().isEmpty())
+			   		n.getTemplateNameList().add("Notice1001.ftl");
+			 
+		 }else {
+			 	if(n.getHxAppeal() != null)
+			 		n.getTemplateNameList().add("Notice1001.ftl");
+			 }
+	
+	end

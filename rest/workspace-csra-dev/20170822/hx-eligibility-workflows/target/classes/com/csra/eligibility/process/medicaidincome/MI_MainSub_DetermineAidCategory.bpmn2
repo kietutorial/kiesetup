@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?> 
+<definitions id="Definition"
+             targetNamespace="http://www.jboss.org/drools"
+             typeLanguage="http://www.java.com/javaTypes"
+             expressionLanguage="http://www.mvel.org/2.0"
+             xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL BPMN20.xsd"
+             xmlns:g="http://www.jboss.org/drools/flow/gpd"
+             xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+             xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+             xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+             xmlns:tns="http://www.jboss.org/drools">
+
+  <process processType="Private" isExecutable="true" id="MI_MainSub_DetermineAidCategory" name="MI_MainSub_DetermineAidCategory" tns:packageName="com.csra.eligibility.workflow.medicalincome" >
+
+    <!-- nodes -->
+    <startEvent id="25403b55-1bed-4f1e-baba-7e88872ef148" name="Start"  isInterrupting="false">
+    </startEvent>
+    <scriptTask id="7b4e39c8-84bb-4bb9-9f96-1bcbae360a40" name="Script" >
+      <script>System.out.println("SubProcess("+kcontext.getProcessInstance().getProcessName() + ")");
+
+</script>
+    </scriptTask>
+    <endEvent id="214dffd4-2c60-4483-9a34-bc0a28f2e9cf" name="MI_MainSub_IncomeTypeDetermination" >
+        <terminateEventDefinition />
+    </endEvent>
+
+    <!-- connections -->
+    <sequenceFlow id="25403b55-1bed-4f1e-baba-7e88872ef148-7b4e39c8-84bb-4bb9-9f96-1bcbae360a40" sourceRef="25403b55-1bed-4f1e-baba-7e88872ef148" targetRef="7b4e39c8-84bb-4bb9-9f96-1bcbae360a40" />
+    <sequenceFlow id="7b4e39c8-84bb-4bb9-9f96-1bcbae360a40-214dffd4-2c60-4483-9a34-bc0a28f2e9cf" sourceRef="7b4e39c8-84bb-4bb9-9f96-1bcbae360a40" targetRef="214dffd4-2c60-4483-9a34-bc0a28f2e9cf" />
+
+  </process>
+
+  <bpmndi:BPMNDiagram>
+    <bpmndi:BPMNPlane bpmnElement="MI_MainSub_DetermineAidCategory" >
+      <bpmndi:BPMNShape bpmnElement="25403b55-1bed-4f1e-baba-7e88872ef148" >
+        <dc:Bounds x="47" y="100" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="7b4e39c8-84bb-4bb9-9f96-1bcbae360a40" >
+        <dc:Bounds x="122" y="100" width="80" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape bpmnElement="214dffd4-2c60-4483-9a34-bc0a28f2e9cf" >
+        <dc:Bounds x="233" y="103" width="48" height="48" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge bpmnElement="25403b55-1bed-4f1e-baba-7e88872ef148-7b4e39c8-84bb-4bb9-9f96-1bcbae360a40" >
+        <di:waypoint x="71" y="124" />
+        <di:waypoint x="162" y="124" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge bpmnElement="7b4e39c8-84bb-4bb9-9f96-1bcbae360a40-214dffd4-2c60-4483-9a34-bc0a28f2e9cf" >
+        <di:waypoint x="162" y="124" />
+        <di:waypoint x="257" y="127" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+
+</definitions>

@@ -1,0 +1,878 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.ext.NoticeNameEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+import com.hcentive.rulesengine.util.AbsentParentRuleUtil;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_MEDICAID_ESI"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_MEDICAID_ESI : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MAIN_MEDICAID_ESI");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_01_ACK);
+		drools.setFocus("MEDICAID_ESI_STALE_1_AG");
+		logger.debug("Rule : MAIN_MEDICAID_ESI : End");
+end
+
+
+//CR1606
+rule "MEDICAID_ESI_VERIFY_STALE_ELG_SEC_01"
+salience 95050
+activation-group "MEDICAID_ESI_STALE_1_AT"
+agenda-group "MEDICAID_ESI_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_ESI_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_ESI_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : MEDICAID_ESI_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "MEDICAID_ESI_VERIFY_STALE_ELG_SEC_03"
+salience 95060
+activation-group "MEDICAID_ESI_STALE_1_AT"
+agenda-group "MEDICAID_ESI_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : MEDICAID_ESI_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "MEDICAID_ESI_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("Medicaid_Undeliverable_1_AG");
+		logger.debug("Rule : MEDICAID_ESI_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+rule "Medicaid_Undeliverable_1_0"
+salience 90020
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(inMemPreReleaseCodeExists);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_0 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_0");
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_0 : End");
+end
+
+rule "Medicaid_Undeliverable_1_1A"
+salience 90010
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+		                                                isCSUndeliverableAddInd,
+		                                                isEnrolledInMA_26_Coverage,
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_1A : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_1A");
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_1A : End");
+end
+
+rule "Medicaid_Undeliverable_1_1"
+salience 90000
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+		                                                 isCSUndeliverableAddInd,
+		                                                 isEnrolledInMA_07_Incar,
+		                                                !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_1");
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_1 : End");
+end
+
+rule "Medicaid_Undeliverable_1_2"
+salience 89995
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														isCSUndeliverableAddInd,!isNewborn, !isInternationalResidenceInd, !isEnrolledInMA_26_Coverage,
+														!isLatestPreviousEligibilityIsMedicaid, !(isMemberEnrolledinMMC), !(isMemberEnrolledinFFS), 
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_2");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.PSIUA);
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_2 : End");
+end
+
+rule "Medicaid_Undeliverable_1_3"
+salience 89990
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														isCSUndeliverableAddInd,!isNewborn, isInternationalResidenceInd, !isEnrolledInMA_26_Coverage,
+														!isLatestPreviousEligibilityIsMedicaid, !(isMemberEnrolledinMMC), !(isMemberEnrolledinFFS), 
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_3 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_3");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.IRA);
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_3 : End");
+end
+
+rule "Medicaid_Undeliverable_1_4"
+salience 89985
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														isCSUndeliverableAddInd,!isNewborn, !isInternationalResidenceInd, !isEnrolledInMA_26_Coverage,
+														isLatestPreviousEligibilityIsMedicaid, !(isMemberEnrolledinMMC), (isMemberEnrolledinFFS), 
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_4");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.PSIUA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_4 : End");
+end
+
+rule "Medicaid_Undeliverable_1_5"
+salience 89980
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														isCSUndeliverableAddInd,!isNewborn, !isInternationalResidenceInd, !isEnrolledInMA_26_Coverage,
+														isLatestPreviousEligibilityIsMedicaid, (isMemberEnrolledinMMC),!(isMemberEnrolledinFFS), 
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_5");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.PSIUA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_5 : End");
+end
+
+rule "Medicaid_Undeliverable_1_6"
+salience 89975
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														isCSUndeliverableAddInd,!isNewborn, isInternationalResidenceInd, !isEnrolledInMA_26_Coverage,
+														isLatestPreviousEligibilityIsMedicaid, !(isMemberEnrolledinMMC),(isMemberEnrolledinFFS), 
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_6 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_6");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.IRA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_6 : End");
+end
+
+rule "Medicaid_Undeliverable_1_7"
+salience 89970
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														isCSUndeliverableAddInd,!isNewborn, isInternationalResidenceInd, !isEnrolledInMA_26_Coverage,
+														isLatestPreviousEligibilityIsMedicaid, (isMemberEnrolledinMMC),!(isMemberEnrolledinFFS), 
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_7 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_7");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.IRA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_7 : End");
+end
+
+rule "Medicaid_Undeliverable_1_8"
+salience 89965
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														isCSUndeliverableAddInd,!isNewborn, isInternationalResidenceInd, !isEnrolledInMA_26_Coverage,
+														isLatestPreviousEligibilityIsMedicaid, !(isMemberEnrolledinMMC),!(isMemberEnrolledinFFS), 
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_8 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_8");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.IRA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_8 : End");
+end
+
+rule "Medicaid_Undeliverable_1_9"
+salience 89960
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														isCSUndeliverableAddInd,!isNewborn, !isInternationalResidenceInd, !isEnrolledInMA_26_Coverage,
+														isLatestPreviousEligibilityIsMedicaid, !(isMemberEnrolledinMMC),!(isMemberEnrolledinFFS), 
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_9 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_9");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.PSIUA);
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setCoverageEndIndicator(HXConstants.EOCD);
+		$eDeterminationfacts.setEval10DayNoticeRule(ProgramCode.MEDICAID, Boolean.FALSE);
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_9 : End");
+end
+
+rule "Medicaid_Undeliverable_1_10"
+salience 89955
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														isCSUndeliverableAddInd,!isNewborn, isEnrolledInMA_26_Coverage,
+														!(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_10 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_10");
+		$eDeterminationfacts.updateProgramSpecial(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.PSIUA);
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_10 : End");
+end
+
+//TO DO:sbhanda CR 1398 :: Verify CS Undeliverable address Flag and  new born facts are missing in the existing implementation
+rule "Medicaid_Undeliverable_1_11"
+salience 89950
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICRTLE.Value())));
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_11 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_11");
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_11 : End");
+end
+
+rule "Medicaid_Undeliverable_1_12"
+salience 89945
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														isCSUndeliverableAddInd,isNewborn);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_12 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_12");
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_12 : End");
+end
+
+rule "Medicaid_Undeliverable_1_13"
+salience 89940
+activation-group "Medicaid_Undeliverable_1_AT"
+agenda-group "Medicaid_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!inMemPreReleaseCodeExists,
+														!isCSUndeliverableAddInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_Undeliverable_1_13 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_Undeliverable_1_13");
+		drools.setFocus("Medicaid_AP_Rules_1_AG");
+		logger.debug("Rule : Medicaid_Undeliverable_1_13 : End");
+end
+
+
+
+//Medicaid AP Rules (1)
+// CR 1193 Absent Parent Rules
+
+rule "Medicaid_AP_Rules_1_1"
+salience 89960
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isAbsentParentStatus);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_1");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_1 : End");
+end
+
+
+rule "Medicaid_AP_Rules_1_1A"
+salience 89955
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+														!HXUtility.isTrue(isParentLivingOutsideStr));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_1A");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_1A : End");
+end
+
+rule "Medicaid_AP_Rules_1_2"
+salience 89950
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                                !isLSCThroughOnlineForAP,
+		                                                HXUtility.isNull(willingToCooperateStr),
+		                                               !isAnyChildMAEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_2 : End");
+end
+
+rule "Medicaid_AP_Rules_1_3"
+salience 89940
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !isLSCThroughOnlineForAP,
+		                                               HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               isAllChildHaveExpCovCodes);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_3");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_3 : End");
+end
+
+rule "Medicaid_AP_Rules_1_4"
+salience 89930
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !isLSCThroughOnlineForAP,
+		                                               HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               !(isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_4");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_4 : End");
+end
+
+
+rule "Medicaid_AP_Rules_1_5"
+salience 89920
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !isLSCThroughOnlineForAP,
+		                                               HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_5");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_5 : End");
+end
+
+
+rule "Medicaid_AP_Rules_1_6"
+salience 89910
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !isLSCThroughOnlineForAP,
+		                                               HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   								getMedicaidAliessaInd());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_6");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_6 : End");
+end
+
+
+
+
+rule "Medicaid_AP_Rules_1_7"
+salience 89900
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !isLSCThroughOnlineForAP,
+		                                               HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   							   !getMedicaidAliessaInd(),
+		                                               isExceptionCovCodeAvl);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_7");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_7 : End");
+end
+
+
+rule "Medicaid_AP_Rules_1_8"
+salience 89890
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !isLSCThroughOnlineForAP,
+		                                               HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   							   !getMedicaidAliessaInd(),
+		                                               !isExceptionCovCodeAvl,
+		                                               isCoverageCodeEligibleForIncarceration,
+		                                               (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_8 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_8");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_8 : End");
+end
+
+rule "Medicaid_AP_Rules_1_9"
+salience 89880
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !isLSCThroughOnlineForAP,
+		                                               HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   							   !getMedicaidAliessaInd(),
+						   							   !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   							   !getMedicaidAliessaInd(),
+		                                               !isExceptionCovCodeAvl,
+		                                               !isCoverageCodeEligibleForIncarceration,
+		                                               isEnrolledInMA_26_Coverage,
+		                                               (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_9 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_9");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_9 : End");
+end
+
+rule "Medicaid_AP_Rules_1_10"
+salience 89870
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !isLSCThroughOnlineForAP,
+		                                               HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   							   !getMedicaidAliessaInd(),
+		                                               !isExceptionCovCodeAvl);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_10 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_10");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_10 : End");
+end
+
+rule "Medicaid_AP_Rules_1_11"
+salience 89860
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !HXUtility.isNull(willingToCooperateStr),
+		                                               !isAnyChildMAEligible);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_11 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_11");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_11 : End");
+end
+
+rule "Medicaid_AP_Rules_1_12"
+salience 89850
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               isAllChildHaveExpCovCodes);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_12 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_12");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_12 : End");
+end
+
+rule "Medicaid_AP_Rules_1_13"
+salience 89840
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_13 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_13");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_13 : End");
+end
+
+
+rule "Medicaid_AP_Rules_1_14"
+salience 89830
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               !(isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_14 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_14");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_14 : End");
+end
+
+rule "Medicaid_AP_Rules_1_15"
+salience 89820
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   								getMedicaidAliessaInd());
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_15 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_15");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_15 : End");
+end
+
+rule "Medicaid_AP_Rules_1_16"
+salience 89810
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   							   !getMedicaidAliessaInd(),
+		                                               isExceptionCovCodeAvl);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_16 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_16");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_16 : End");
+end
+
+rule "Medicaid_AP_Rules_1_17"
+salience 89800
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   							   !getMedicaidAliessaInd(),
+		                                               !isExceptionCovCodeAvl,
+		                                               isCoverageCodeEligibleForIncarceration,
+		                                               (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_17 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_17");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_17 : End");
+end
+
+rule "Medicaid_AP_Rules_1_18"
+salience 89790
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !HXUtility.isNull(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               !isExceptionCovCodeAvl,
+		                                               !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   							   !getMedicaidAliessaInd(),
+		                                               !isCoverageCodeEligibleForIncarceration,
+		                                               isEnrolledInMA_26_Coverage,
+		                                               (isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICUA.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.ICVSI.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.INC_CON_NOT_RES.Value())));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_18 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_18");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_18 : End");
+end
+
+rule "Medicaid_AP_Rules_1_19"
+salience 89780
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !HXUtility.isNull(willingToCooperateStr),
+		                                               HXUtility.isTrue(willingToCooperateStr),
+		                                               isAnyChildMAEligible,
+		                                               !isAllChildHaveExpCovCodes,
+		                                               (isProgramStatusEligibleInCurrentRun(ProgramCode.MEDICAID) || isDateAfterRunForDate(getContinuousSaveDate(ProgramCode.MEDICAID))),
+		                                               !(isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO.Value())
+						   								|| isReasonCodeAvailable(ProgramCode.MEDICAID, ProgramReasonCode.IVO_CURR.Value())),
+						   							   !getMedicaidAliessaInd(),
+		                                               !isExceptionCovCodeAvl);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_19 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_19");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_19 : End");
+end
+
+rule "Medicaid_AP_Rules_1_20"
+salience 89770
+activation-group "Medicaid_AP_Rules_1_AT"
+agenda-group "Medicaid_AP_Rules_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isAbsentParentStatus,
+		                                               !HXUtility.isNull(willingToCooperateStr),
+		                                               HXUtility.isFalse(willingToCooperateStr));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : Medicaid_AP_Rules_1_20 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.MEDICAID, "Medicaid_AP_Rules_1_20");
+		$eDeterminationfacts.getElgRulesIndicatorForProgram(ProgramCode.MEDICAID).setMedicaidNonCompInd(Boolean.TRUE);
+		$eDeterminationfacts.updateProgram(ProgramCode.MEDICAID, program_status.INELIGIBLE, ProgramReasonCode.NWTC);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.MEDICAID, HXConstants.RULE_EXEC_STEP_SEC1_NEW_04);
+		logger.debug("Rule : Medicaid_AP_Rules_1_20 : End");
+end
+

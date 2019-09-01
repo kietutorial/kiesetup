@@ -1,0 +1,409 @@
+//created on: Feb 25, 2013
+package com.hcentive.eligibility.determination;
+
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts;
+import com.hcentive.eligibility.domain.ext.program_status;
+import com.hcentive.rulesengine.domain.EEDeterminationRuleFacts.noSSNReasonCodeType;
+import com.hcentive.rulesengine.domain.ConfigGroupBean;
+import com.hcentive.rulesengine.domain.RuleKey;
+import com.hcentive.eligibility.ext.CitizenshipStatusEnum;
+import com.hcentive.eligibility.ext.UserMECResponseEnum;
+import com.hcentive.eligibility.ext.NoticeNameEnum;
+import com.hcentive.eligibility.EligibilityVerificationTypeEnum;
+import com.hcentive.eligibility.ext.ClockNameEnum;
+import com.hcentive.utils.ext.HXConstants;
+import com.hcentive.utils.ext.HXUtility;
+import com.hcentive.eligibility.domain.ext.ProgramReasonCode;
+import com.hcentive.eligibility.domain.ext.ProgramCode;
+
+global org.slf4j.Logger logger;
+global com.hcentive.rulesengine.domain.ConfigGroupBean configGroupBean;
+
+
+rule "MAIN_EPP_ESI"
+salience 100000
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts();
+	then
+		logger.debug("Rule : MAIN_EPP_ESI : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "MAIN_EPP_ESI");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_01_ACK);
+		drools.setFocus("EPP_ESI_STALE_1_AG");
+		logger.debug("Rule : MAIN_EPP_ESI : End");
+end
+
+
+//CR1606
+rule "EPP_ESI_VERIFY_STALE_ELG_SEC_01"
+salience 95060
+activation-group "EPP_ESI_STALE_1_AT"
+agenda-group "EPP_ESI_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : EPP_ESI_VERIFY_STALE_ELG_SEC_01 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_VERIFY_STALE_ELG_SEC_01");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_VERIFY_STALE_ELG_SEC_01 : End");
+end
+
+rule "EPP_ESI_VERIFY_STALE_ELG_SEC_03"
+salience 95050
+activation-group "EPP_ESI_STALE_1_AT"
+agenda-group "EPP_ESI_STALE_1_AG"
+	when
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility);
+		//eval(true);		
+	then
+		logger.debug("Rule : EPP_ESI_VERIFY_STALE_ELG_SEC_03 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_VERIFY_STALE_ELG_SEC_03");
+		drools.setFocus("EPP_Undeliverable_1_AG");
+		logger.debug("Rule : EPP_ESI_VERIFY_STALE_ELG_SEC_03 : End");
+end
+
+//CR1606 code changes end
+
+
+//////////////////////////////////////////////////////ESI////////////////////////////////////////////////
+//EPP Undeliverable (1)
+
+rule "EPP_Undeliverable_1_1"
+salience 90000
+activation-group "EPP_Undeliverable_1_AT"
+agenda-group "EPP_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isCSUndeliverableAddInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Undeliverable_1_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Undeliverable_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.PSIUA);
+		drools.setFocus("EPP_ESI_1_AG");
+		logger.debug("Rule : EPP_Undeliverable_1_1 : End");
+end
+
+rule "EPP_Undeliverable_1_2"
+salience 89990
+activation-group "EPP_Undeliverable_1_AT"
+agenda-group "EPP_Undeliverable_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isCSUndeliverableAddInd);
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_Undeliverable_1_2 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_Undeliverable_1_2");
+		drools.setFocus("EPP_ESI_1_AG");
+		logger.debug("Rule : EPP_Undeliverable_1_2 : End");
+end
+
+
+//EPP ESI(1)
+
+rule "EPP_ESI_1_1"
+salience 90000
+activation-group "EPP_ESI_1_AT"
+agenda-group "EPP_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isEnrolledInEPPEsiMEC));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_1_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_1_1");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.ENRLD_ESI_MEC_PLAN);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_1_1 : End");
+end
+
+//commented EPP_ESI_1_1A,
+// there is no requirement to check the eppesimec allowable limits explicitly because isEnrolledInEPPEsiMEC will be true only if not 
+// within allowable limits
+/*
+rule "EPP_ESI_1_1A"
+salience 89995
+activation-group "EPP_ESI_1_AT"
+agenda-group "EPP_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isEnrolledInEPPEsiMEC,
+														isEPPEsiOrOtherMECAllowableLimits));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_1_1A : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_1_1A");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_1_1A : End");
+end*/
+
+//CR1346:Child who has NYSHIP access is not eligible for CHIP,EP,APTC
+rule "EPP_ESI_1_1b"
+salience 89994
+activation-group "EPP_ESI_1_AT"
+agenda-group "EPP_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts((isEnrolledInEPPEsiMEC),
+														accessToNYSHIP);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_1_1b : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_1_1b");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.ACCESS_AFFORDABLE_ESI);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_1_1b : End");
+end
+
+rule "EPP_ESI_1_2"
+salience 89990
+activation-group "EPP_ESI_1_AT"
+agenda-group "EPP_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInEPPEsiMEC), 
+														!(isEligibleInESIMECPlan));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_1_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_1_2");		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_1_2 : End");
+end
+
+rule "EPP_ESI_1_3"
+salience 89980
+activation-group "EPP_ESI_1_AT"
+agenda-group "EPP_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInEPPEsiMEC),
+														(isEligibleInESIMECPlan),
+														!(doesPlanMeetsMinValue));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_1_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_1_3");
+		$eDeterminationfacts.setNotice(ProgramCode.EPP, NoticeNameEnum.ESI_IND_MIN_MEC_NOT_AVL);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_1_3 : End");
+end
+
+//Will be added as part of the next release when the customer override flags are implemented
+/*
+rule "EPP_ESI_1_4"
+salience 89975
+activation-group "EPP_ESI_1_AT"
+agenda-group "EPP_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInESIMECPlan), (isEligibleInESIMECPlan),
+														!(doesPlanMeetsMinValue));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_1_4 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_1_4");
+		drools.setFocus("EPP_ESI_2_AG");
+		logger.debug("Rule : EPP_ESI_1_4 : End");
+end
+*/
+
+/*ST*/
+rule "EPP_ESI_1_5"
+salience 89970
+activation-group "EPP_ESI_1_AT"
+agenda-group "EPP_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInEPPEsiMEC), 
+														(isEligibleInESIMECPlan),
+														(doesPlanMeetsMinValue));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_1_5 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_1_5");
+		drools.setFocus("EPP_ESI_2_AG");
+		logger.debug("Rule : EPP_ESI_1_5 : End");
+end
+
+rule "EPP_ESI_1_6"
+salience 89965
+activation-group "EPP_ESI_1_AT"
+agenda-group "EPP_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInEPPEsiMEC), 
+														(isEligibleInESIMECPlan),
+														HXUtility.isEmpty(doesPlanMeetsMinValue));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_1_6 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_1_6");
+		$eDeterminationfacts.setNotice(ProgramCode.EPP, NoticeNameEnum.ESI_IND_MIN_MEC_NOT_AVL);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_1_6 : End");
+end
+
+//Will be added as part of the next release when the customer override flags are implemented
+/*
+rule "EPP_ESI_1_7"
+salience 89960
+activation-group "EPP_ESI_1_AT"
+agenda-group "EPP_ESI_1_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!(isEnrolledInESIMECPlan), (isEligibleInESIMECPlan),
+														doesPlanMeetsMinValue == null);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_1_7 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_1_7");
+		drools.setFocus("EPP_ESI_2_AG");
+		logger.debug("Rule : EPP_ESI_1_7 : End");
+end
+*/
+
+//EPP ESI(2)
+
+rule "EPP_ESI_2_1"
+salience 80000
+activation-group "EPP_ESI_2_AT"
+agenda-group "EPP_ESI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(isNoIncomeDataSource);
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_2_1 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_2_1");		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_2_1 : End");
+end
+
+rule "EPP_ESI_2_2"
+salience 79990
+activation-group "EPP_ESI_2_AT"
+agenda-group "EPP_ESI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoIncomeDataSource,
+														HXUtility.isNull(annualLowCostPremium));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_2_2 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_2_2");		
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.FPLCPA);		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_2_2 : End");
+end
+
+rule "EPP_ESI_2_3"
+salience 79980
+activation-group "EPP_ESI_2_AT"
+agenda-group "EPP_ESI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoIncomeDataSource,
+														!HXUtility.isNull(annualLowCostPremium),
+														!(annualLowCostPremium < getEPPIncomeByEsiAffordablePercent()));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_2_3 : Begin");
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_2_3");		
+		$eDeterminationfacts.getProgram(ProgramCode.EPP).setIsIndvAffordabilityEmpSponsMEC(Boolean.TRUE);
+		//$eDeterminationfacts.setNotice(ProgramCode.EPP, NoticeNameEnum.ESI_IND_MEC_NOT_AFF);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_2_3 : End");
+end
+
+rule "EPP_ESI_2_4"
+salience 79970
+activation-group "EPP_ESI_2_AT"
+agenda-group "EPP_ESI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoIncomeDataSource,
+														!HXUtility.isNull(annualLowCostPremium),
+														(annualLowCostPremium < getEPPIncomeByEsiAffordablePercent()),
+														(doesWaitingPeriodDateExists));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_2_4 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_2_4");		
+		$eDeterminationfacts.getProgram(ProgramCode.EPP).setIsIndvAffordabilityEmpSponsMEC(Boolean.FALSE);
+		drools.setFocus("EPP_ESI_3_AG");
+		logger.debug("Rule : EPP_ESI_2_4 : End");
+end
+
+rule "EPP_ESI_2_5"
+salience 79960
+activation-group "EPP_ESI_2_AT"
+agenda-group "EPP_ESI_2_AG"
+	when
+		//<CONDITION>
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isNoIncomeDataSource,
+														!HXUtility.isNull(annualLowCostPremium),
+														(annualLowCostPremium < getEPPIncomeByEsiAffordablePercent()),
+														!(doesWaitingPeriodDateExists));
+		
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_2_5 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_2_5");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.AFDBL_ESI_PLAN_AVL);		
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_2_5 : End");
+end
+
+
+//EPP ESI(3)
+
+rule "EPP_ESI_3_1"
+salience 70000
+activation-group "EPP_ESI_3_AT"
+agenda-group "EPP_ESI_3_AG"
+	when
+		//<CONDITION>
+		// CR1606 changes - Introduced !isStaleEligibility check for this method to avoid NPE during rule runtime while accessing Date related Facts. 
+		// if isStaleEligibility is true we are not building these facts
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility && isWaitingPeriodDateAfterCurrentDate());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_3_1 : Begin");		
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_3_1");
+		$eDeterminationfacts.updateESIMECReRunForProgram(ProgramCode.EPP, Boolean.TRUE);
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_3_1 : End");
+end
+
+rule "EPP_ESI_3_2"
+salience 69990
+activation-group "EPP_ESI_3_AT"
+agenda-group "EPP_ESI_3_AG"
+	when
+		//<CONDITION>
+		// CR1606 changes - Introduced !isStaleEligibility check for this method to avoid NPE during rule runtime while accessing Date related Facts. 
+		// if isStaleEligibility is true we are not building these facts
+		$eDeterminationfacts : EEDeterminationRuleFacts(!isStaleEligibility && !isWaitingPeriodDateAfterCurrentDate());
+	then
+		//<ACTIONS>
+		logger.debug("Rule : EPP_ESI_3_2 : Begin");
+		$eDeterminationfacts.updateProgram(ProgramCode.EPP, program_status.INELIGIBLE, ProgramReasonCode.ESI_WAIT_PRD_OVER);
+		$eDeterminationfacts.updateRuleExec(ProgramCode.EPP, "EPP_ESI_3_2");
+		$eDeterminationfacts.setRuleExecCompletionStep(ProgramCode.EPP, HXConstants.RULE_EXEC_STEP_04);
+		logger.debug("Rule : EPP_ESI_3_2 : End");
+end

@@ -1,0 +1,142 @@
+Creating Branch In Eclipse
+----------------------------------------
+1. Create GIT repo in as our base GIT repo:
+C:\GIT_TEST_REPOS\hx-20170802
+
+2. Clone current git in  eclipse
+URI: C:\GIT_TEST_REPOS\hx-20170802
+Repostiory Path: C:\GIT_TEST_REPOS\hx-20170802
+Next
+Next
+- Note branch -> Check master
+Destination is: C:\GITDEVSANDBOX\subbranch
+
+- C:\GITDEVSANDBOX\subbranch is our cloned branch
+
+REPO
+-----
+ssh://kvenkat1@nyxsvlalb015/opt/was/git/NYSOHRulesRepository
+kvenkat1
+Sep@2017
+
+2a. Rename project (I went to main repo: C:\GIT_TEST_REPOS\hx-20170802)
+- Rename project:
+mv hx-entity-medicaidincome hx-eligibility-dto
+mv hx-process-medicaidincome hx-eligibility-workflows
+
+git commit -a -m "Renamed project"
+o Push changes
+- Local use either:
+git push /cygdrive/c/GITDEVSANDBOX/subbranch master:master
+git push /cygdrive/c/GITDEVSANDBOX/subbranch --tags
+- Remote
+git push
+
+3. Create branch in eclise
+In eclipse go to:
+Git Repositories->subranch->Branches
+- Open Local and Remote Tracking and see master as the current branch
+- subbranch is my repo name from cloning
+Right click Branches->Switch To->New Branch
+Branch name: executable_workflows_v1
+
+Expand Branches-Local
+- See executable_workflows_v1 branch
+Double Click this branch->"Do you really want to checkout this branch"->Ok
+- Note this branch is now the working branch (See check mark on branch)
+
+4. View Current branch on command line
+cd C:\GITDEVSANDBOX\subbranch
+
+git log --graph --decorate --all --pretty=oneline
+* b7490512696299cea04e4e40c423b92fa13ec7f0 (HEAD -> executable_workflows_v1, origin/master, master) Init
+
+- Note head points to: executable_workflows_v1
+
+5. Add New code to branch
+o Copy code from C:\A-DEV\workspace-csrra-sandbox
+hx-eligibility-dto
+hx-eligibility-workflows
+
+o Commit changes
+git commit -a -m "Checking in barebone executable working branch"
+
+o Push changes to original repo (C:\GIT_TEST_REPOS\hx-20170802 )
+**** DID NOT WORK LOCALLY - Used eclipse
+- Local use either:
+git push /cygdrive/c/GITDEVSANDBOX/subbranch master:master
+git push /cygdrive/c/GITDEVSANDBOX/subbranch --tags
+- Remote
+git push
+
+o Push changes to original repo (C:\GIT_TEST_REPOS\hx-20170802 )
+Git Repositories->subranch->Branches
+Expand Local
+Right click executable_workflows_v1
+Push Branch
+
+
+5a. View change original repo
+git log --graph --decorate --all --pretty=oneline
+* 8374eb22e23c1deb8ac5c7f2efc53979a471f7b7 (executable_workflows_v1) Checking in barebone executable working branch
+* 17a5675c89ef176ba3a442d27a3c62a9964cee12 (HEAD -> master) Init
+* fba7173f341c1afcc3fadc249f46745a5f814edd Renamed project
+* f5c35544d2fb6b775d99a430b8ee80a779e15eae Init
+
+8. Merge branch to master (eclipse)-- Maybe
+*** Did not work in eclipse
+Git Repositories->subranch->Branches->executable_workflows_v1
+Right click branch->executable_workflows_v1->Merge
+Next->Select Local->Select origin/master
+Next->Finish
+- Note message: Repository file:///C:\GIT_TEST_REPOS\hx-20170802
+
+9. Merge branch to master (command line)-- Maybe
+*** Did not work in eclipse
+git merge executable_workflows_v1
+
+git rebase executable_workflows_v1
+
+- Verify
+git log --graph --decorate --all --pretty=oneline
+* 8374eb22e23c1deb8ac5c7f2efc53979a471f7b7 (HEAD -> master, executable_workflows_v1) Checking in barebone executable working branch
+* 17a5675c89ef176ba3a442d27a3c62a9964cee12 Init
+* fba7173f341c1afcc3fadc249f46745a5f814edd Renamed project
+* f5c35544d2fb6b775d99a430b8ee80a779e15eae Init
+ 
+ 
+
+---- Version 2 Inside Eclipse ----------------
+* branch commit where not showing on local commit
+subranch->root selection
+->Select near properties->Git Staging
+- I noticed in eclipse 
+Unstaged changes
+->Add to Index
+- Changes moved to Stage changes
+->Add commit message:
+Checking in barebone executable working branch
+->Commit And Push
+
+
+---- Merge master with branch (command line)  ----------------
+o Go to original repo 
+git checkout master
+
+git merge executable_workflows_v1
+
+- Verify
+git log --graph --decorate --all --pretty=oneline
+* 261f9d6795385072ff2aa568ad76ad23a6ba63fe (HEAD -> master, executable_workflows_v1) Checking in barebone
+* 8374eb22e23c1deb8ac5c7f2efc53979a471f7b7 Checking in barebone executable working branch
+* 17a5675c89ef176ba3a442d27a3c62a9964cee12 Init
+* fba7173f341c1afcc3fadc249f46745a5f814edd Renamed project
+* f5c35544d2fb6b775d99a430b8ee80a779e15eae Init
+- Go to C:\GIT_TEST_REPOS\hx-20170802 in explorer
+Browse and review changes, see log4j.xml in:
+C:\GIT_TEST_REPOS\hx-20170802\hx-eligibility-workflows\src\test\resources
+
+
+
+
+Working version of KIE Workbench - with readmem

@@ -1,0 +1,26 @@
+My Local Repo
+---------------------
+c:/GITREPOS
+
+Create 1st Project
+-----------------------
+mkdir sandox
+cd sandox
+
+- My new git repository is now:
+C:/GITREPOS/sandox/
+
+- See no repo yet
+git status
+fatal: Not a git repository (or any of the parent directories): .git
+
+- Init repo
+git init
+Initialized empty Git repository in /cygdrive/c/GITREPOS/sandox/.git/
+
+
+- See new repo
+git status
+On branch master
+Initial commit
+

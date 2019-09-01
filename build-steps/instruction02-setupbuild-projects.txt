@@ -1,0 +1,110 @@
+
+agent
+agent-web-hix
+alfresco-doc-processor
+
+carrier
+common-web
+customerservice
+
+eligibility
+employer-web
+enrollment
+
+hx-common-services
+hx-entity-commons
+hx-notice-service
+hx-service-common
+
+individual-hix
+individual-web
+
+
+hx_services <check all>
+	ContactSearchWS
+	CSNotificationClient
+	CSNotifications
+	CustomerServiceDTO
+	IVRService
+
+	Interface/EDI834
+		edi834-build
+		EDI834OutBoundBatch
+		edi834response
+	
+	Interface/VLP/CertifiedLawfulPresence
+	Interface/VLP/CertifiedLawfulPresenceV33
+	Interface/VLP/
+
+	Interface/<allNYG>
+		NYHXCINGenerationClient
+		NYHXConfigManagementClient
+		NYHXConfigManagementService
+		NYHXDFSServiceClient
+		nyhxemed
+		NYHXIncomeCompositeServiceClient
+		NYHXOTDAcbicClient
+		NYHXSSADOCSCompositeClient
+		NYHXVLPCloseCaseClient
+		NYHXVLPCloseCaseClientV33
+		NYHXVLPDocMailtoDHS
+		NYHXVLPDocMailtoDHSV33
+		NYHXVLPDocMailtoDHSV33
+		NYHXVLPGetCaseDetails
+		NYHXVLPGetCaseDetailsV33
+		NYHXVLPRetriveCaseResolutionV33
+		NYHXVLPService
+		NYHXVLPServiceV33
+		NYHXVNEMClient
+		NYSHIPServiceClient
+	
+	SharedServices/BoRESTDTO
+	SharedServices/BoRESTWS
+	SharedServices/BoServiceAPI
+	SharedServices/DHSVerifiedCase
+	SharedServices/DHSVerifiedCaseV33
+
+	
+
+build-tools
+calculatep
+
+
+
+
+config
+cs-agent-hix-portal
+customerservice
+DataUploadService
+dawnsclient
+
+individual-hix
+individual-hix-jobs
+individual-hix-portal
+individual-web
+
+notifications
+nychipservice
+
+paper-application
+plan-management
+providers
+quotes-engine
+restfulemail
+RIDPClient
+rrv-services
+
+rules-engine
+service-deps
+
+shop
+shop-jobs
+transaction-reports
+
+user-management
+UserLoadBatchProcess
+
+utilities/immi-serv-resp-data-correction
+
+web-deps
+web-hix-template
