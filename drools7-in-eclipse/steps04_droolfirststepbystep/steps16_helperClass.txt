@@ -1,0 +1,147 @@
+Create A KIE Helper Class
+----------------------------------------
+
+See steps07_gitsteps.txt: 
+Create Branch For Adding Drool Rules
+Rename Project and pom.xml. Use project name basicproject16
+
+
+Clone The Git Repository In Eclipse
+----------------------------------------------
+Select the Git Perspective
+
+o Clone a Git Repository (icon)
+Icon with green arrow
+
+URI: 
+Browse [Local File] to /home/pchauvet/git/drools7repository/
+See URI: file:////home/pchauvet/git/drools7repository
+Next->Select basicprojec06 branch only
+Next
+Directory:
+	Browse to->/mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/
+	Append to this path: basicprojec06
+	Full path is now: /mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/basicprojec06
+Note:
+	Check->Clone submodules
+	Check->Import all existing Eclipse projects after clone finishes
+[Finish]
+
+
+Create A KIE Helper Class
+----------------------------------------
+Imaging if we had 100 test, do we add this to every class:
+try {
+	// load up the knowledge base
+	KieServices ks = KieServices.Factory.get();
+	KieContainer kContainer = ks.getKieClasspathContainer();
+	KieSession kSession = kContainer.newKieSession("ksession-rules");
+
+	FancyHello hello = new FancyHello();
+	kSession.insert(hello);
+	kSession.fireAllRules();
+} catch (Throwable t) {
+	t.printStackTrace();
+}
+
+Of course No! Let us create a helper class to reuse again in again in our test!
+
+
+Helper Class KnowledgeSessionHelper
+----------------------------------------
+public class KnowledgeSessionHelper {
+	public static KieContainer createRuleBase() {
+		KieServices ks = KieServices.Factory.get();
+		KieContainer kieContainer = ks.getKieClasspathContainer();
+		return kieContainer;
+	}
+
+	public static StatelessKieSession getStatelessKnowledgeSession(KieContainer kieContainer, String sessionName) {
+		StatelessKieSession kSession = kieContainer.newStatelessKieSession(sessionName);
+
+		return kSession;
+	}
+
+	public static KieSession getStatefulKnowledgeSession(KieContainer kieContainer, String sessionName) {
+		KieSession kSession = kieContainer.newKieSession(sessionName);
+
+		return kSession;
+	}
+}
+
+
+createRuleBase() - Creates the container
+getStatefulKnowledgeSession() - Creates a stateful session. By default we have stateful sessions.
+getStatelessKnowledgeSession() - Creates a stateless session.  
+
+Note we pass the container and session name to the session methods.
+
+
+Refactor the FancyHelloTest to Use This Helper class
+-------------------------------------------------------------
+public class FancyHelloTest {
+	static KieContainer kieContainer;
+	StatelessKieSession sessionStateless = null;
+	KieSession sessionStatefull = null;
+
+	@BeforeClass
+	public static void beforeClass() {
+		kieContainer = KnowledgeSessionHelper.createRuleBase();
+	}
+
+	@Test
+	public void sayHello() {
+		try {
+			sessionStatefull = KnowledgeSessionHelper.getStatefulKnowledgeSession(kieContainer, "ksession-rules");
+
+			FancyHello hello = new FancyHello();
+			sessionStatefull.insert(hello);
+			sessionStatefull.fireAllRules();
+		} catch (Throwable t) {
+			t.printStackTrace();
+		}
+	}
+
+}
+
+o Setup the container once:
+@BeforeClass
+public static void beforeClass() {
+	kieContainer = KnowledgeSessionHelper.createRuleBase();
+}
+
+o Get stateful session from helper class, insert fact and fire ruole
+@Test
+public void sayHello() {
+	try {
+		sessionStatefull = KnowledgeSessionHelper.getStatefulKnowledgeSession(kieContainer, "ksession-rules");
+
+		FancyHello hello = new FancyHello();
+		sessionStatefull.insert(hello);
+		sessionStatefull.fireAllRules();
+	} catch (Throwable t) {
+		t.printStackTrace();
+	}
+}
+
+
+Run The Test
+----------------------------------------
+o Right click the sayHello() method
+Run As->Junit
+
+We see the rule system out message:
+"We have a fancy hello"
+
+
+
+See steps07_gitsteps.txt: 
+o Commit Changes. Use message: Add helper class to handle knowledge session
+
+
+
+
+
+
+
+

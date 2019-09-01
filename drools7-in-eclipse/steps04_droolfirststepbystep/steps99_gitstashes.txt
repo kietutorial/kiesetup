@@ -1,0 +1,41 @@
+Stash Not Used Git Steps
+-------------------------------------
+
+
+Clone The Git Repository In Eclipse
+----------------------------------------------
+o Select the Git Perspective
+
+
+o Clone a Git Repository (icon) 
+Select Icon with green arrow
+
+URI: 
+Browse [Local File] to /home/pchauvet/git/drools7repository/
+See URI: file:////home/pchauvet/git/drools7repository
+Next->Select <branchname> branch only
+Next
+Directory:
+	Browse to->/mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/
+	Append to this path: <branchname>
+	Full path is now: /mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/<branchname>
+Note:
+	Check->Clone submodules
+	Check->Import all existing Eclipse projects after clone finishes
+[Finish]
+
+
+
+Pushing Changes From Local to Base Repository
+------------------------------------------------------------
+o Push the local repository changes
+Select the drools7repository->Right click->Push to Upstream
+
+o Commit changes to drools7repository/
+Go to drools7repository/ repository
+
+See steps07_gitsteps.txt: 
+o Commit Changes. <usewhatevermesssage>
+
+
+

@@ -1,0 +1,95 @@
+How to install the drools/jBpm runtime environment in eclipse
+-----------------------------------------------------------------------------
+
+o Configure Drools Runtime Install
+Window->Preferences->Drools->Installed Drools Runtimes
+Select button->Add
+
+Browse to the Extracted->../droolsjbpm-tools-distribution-7.20.0.Final/binaries
+Eclipse fills in:
+Name: Drools 7.20.0.201904020824
+Path: /home/pchauvet/Downloads/JBOSS/droolsjbpm-tools-distribution-7.20.0.Final/binaries
+Version: 7.20.0.201904020824
+[OK]
+[Apply and Close]
+
+
+* Do Same for jBPM:
+Window->Preferences->jBPM->Installed Drools Runtimes
+
+Note:
+	From same tool distribution, the Drools and jBPM jars are pulled.
+	See Drool and jBPM at the beginning or name.
+
+
+
+o Restart Eclipse
+File->Restart
+
+
+
+o Open Runtime Perspective
+Window->Perspective->Open Perspective->Other
+Drools->Open
+
+We see Drools dropdown and icon!
+
+
+
+o Create First Drools Example
+Select new Drools Icon Drop Down->New Drools Project
+- Create a project and populate it with some example file
+Next->Project name: droolsexample02
+[Finish]
+Build the project using: Maven
+- Eclipse will fill in-> Group ID:com.sample, Artifact Id:droolsexample02, Version:1.0.0-SNAPSHOT
+- Add all samples
+[Finish]
+
+
+
+o Run Example Program
+kmodule.xml
+	It has the configurations for the rules, decission tables and processes.
+	kbase are packates under ./resources as: rules, dtables, process
+
+
+Select sample->com.sample.DroolsTest.java
+- Show the rules in resource/Sample.drl content
+Right Click Code->Run As->Java Application
+- See output in console:
+Hello World
+Goodbye cruel world
+
+*Note:
+	The DRL rule version would not run?
+	I deleted the Installed Drools and jBPM Runtimes
+
+	Instead of delete: I unselected installation!
+	Restart eclipse!
+
+	Rerun and all is well!
+
+
+Select sample->com.sample.DecisionTableTest.java
+- Change the resource/Sample.xls content
+  Change message to "Goodbye cruel world sheet"
+Right Click Code->Run As->Java Application
+- See output in console:
+Hello World
+Goodbye cruel world sheet
+
+* Note:
+	I had to rebuild project using: 
+	Right Click project->Run As->Maven Install
+
+
+Select sample->com.sample.ProcessTest.java
+- Change the resource/sample.bpmn
+  Change Hello Script Task to->Hello World process
+Right Click Code->Run As->Java Application
+- See output in console:
+Hello World process
+
+
+

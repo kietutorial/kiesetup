@@ -1,0 +1,186 @@
+Install Git In Eclipse
+----------------------------------------------
+o Eclipse J2EE 201906R come with Egit installed
+Help->About Eclipse IDE->Install Details
+Page down to->Git intergration for Eclipse
+It's Id says egit
+
+o Egit can be installed using the marketplace
+Help->Eclipse MarketPlace
+Find->Git
+Select->Egit
+
+
+
+Config Git Eclipse
+----------------------------------------------
+Window->Perferences->Team->Git->Configuration
+email
+	Change it from: YOURMAILADDRESS
+	To: demo@demo.net
+name
+	Change it from: YOURUSERNAME
+	To: Philip Jahmani Chauvet
+[Apply and Close]
+
+
+For help on GIT with Eclipse see:
+	https://www.vogella.com/tutorials/EclipseGit/article.html#adding-a-new-project-to-a-git-repository
+
+
+
+Git Default Repository
+----------------------------------------------
+Window->Perferences->Team->Git
+See Default repository folder: /home/pchauvet/git
+
+
+
+Setup Git Perspective
+----------------------------------------------
+Window->Perspective->Open Perspective->Other->Git
+
+
+
+Create Repository For Drools 7 Projects With Working Tree
+--------------------------------------------------------------------
+o Repository directory: /home/pchauvet/git/repository 
+Change it to: /home/pchauvet/git/drools7repository
+[Create]
+
+o We see a new repository call drools7repository:
+- It's a [master] repository
+
+o We see a Working Tree
+Browse the working tree, we see a:
+.git directory
+
+o See the repository on the local drive
+Go to /home/pchauvet/git/drools7repository
+That's our Git repository!
+
+
+
+Put Eclipse Project Under Git Version Control
+----------------------------------------------
+We will import the existing project into the repository.
+
+Right click project->basicproject
+Team->Share Project
+[Create]
+[Browse] to /home/pchauvet/git/drools7repository
+[Finish]
+
+Repository: shows /home/pchauvet/git/drools7repository/.git
+[Finish]
+
+Note: 
+	Error in adding first time, we may get errors!
+	It's ok. We will fix using the next step.
+
+
+o Commit Changes to repository
+Right click project->basicproject
+Team->Add to Index
+Team->Commit->Commit Message: First commit
+[Commit]
+
+
+Review the Git Repository
+----------------------------------------------
+Select the Git Perspective
+
+We now see the Working Tree with:
+.git directory
+/basicproject directory
+
+Note:
+	The maven project basicproject has moved from
+		/mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/basicproject
+	to the repository:
+		/home/pchauvet/git/drools7repository/basicproject
+
+	The /basicproject is no longer in the workspace.
+
+
+Clone The Git Repository In Eclipse
+----------------------------------------------
+Select the Git Perspective
+
+o Clone a Git Repository (icon)
+Icon with green arrow
+
+URI: 
+Browse [Local File] to /home/pchauvet/git/drools7repository/
+See URI: file:////home/pchauvet/git/drools7repository
+Next->We only see the master branch->click master
+Next
+Directory:
+	Browse to->/mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/
+	Append to this path: basicproject
+	Full path is now: /mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/basicproject
+Note:
+	Check->Clone submodules
+	Check->Import all existing Eclipse projects after clone finishes
+[Finish]
+
+
+o New local Git reposity is created at: 
+	/mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/basicproject/.git
+	This is a local working repository.
+	
+	Within it we see the /basicproject we can load into eclipse.
+	
+	We also see a new basiproject/ repository.
+
+
+o Switch to Java EE Perspective
+In the [Project Explorer] we see a project basicproject
+
+
+
+
+Clone The Git Repository On the Local Drive
+----------------------------------------------
+o Change directory to a created workspace
+I created a path /mnt/FTEMP/workspacedrools7/
+
+
+git clone file:////home/pchauvet/git/drools7repository
+or
+git clone /home/pchauvet/git/drools7repository
+
+o Go to project
+cd /home/pchauvet/git/drools7repository/drools7repository
+ls 
+
+See the directory /basicproject and .git
+
+o We can import the project into eclipse from:
+/mnt/FTEMP/workspacedrools7/drools7repository/basicproject/
+
+
+
+Delete this local Git Repository
+----------------------------------------------
+Select the Git Perspective
+
+Select the basicproject repository
+Delete it by->Right click->Delete repository
+Check->Delete Git repository data and history
+
+The basicproject project is also removed from the workspace
+
+
+
+Import Or Make Sure basicproject is loaded
+---------------------------------------------
+o In eclipse load the /basicproject Drools 7 project if not loaded 
+Make sure in pom.xml 
+artifactId: basicproject
+name: Drools 7 Basic Project
+description: Drools 7 basic project initialization
+
+
+
+

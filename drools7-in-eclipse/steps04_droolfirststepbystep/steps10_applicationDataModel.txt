@@ -1,0 +1,178 @@
+DataModel and Domain Class
+-------------------------------------
+
+See steps07_gitsteps.txt:
+Create Branch For Adding Drool Rules
+
+
+Rename the Project Name
+-------------------------------------
+Right click the maven project name: basicproject00->Refactor->Rename
+New name: basicproject02
+
+
+DataModel and Domain Class
+-------------------------------------
+Everything starts with data that has to be modeled.
+Of course since we are using Java, we have to create a class.
+
+o Business Rule
+1. Create a simple application that will say a fancy hello.
+2. Say hello showing the person's name and age.
+3. Age is computed off of birthdate.
+
+We will have this class:
+class FancyHello  {
+	private String name;
+	private Date birthdate;
+	private int age;
+
+	.. 
+	getters
+}
+
+o Select Package View
+Window->Show View->Package Explorer
+
+
+o Create the FancyHello class:
+File->New->Class
+Package: com.droolsexample.basicproject
+Name: FancyHello
+[Finish]
+
+Add the fields:
+private String name;
+private Date date;
+private int age;
+
+We get an error for date! import java.util.Date.
+
+Create constructor:
+public FancyHello(String name, Date date) {
+	this.name = name;
+	this.birthDate = date;
+}
+
+Create the getter for these fields:
+Source->Getter->Select All->Last member
+Source->Generate->toString()
+[OK]
+
+
+o Calculate the age using the setAge() method:
+We are calculating the age from the date.
+
+private int setAge() {
+	if (birthDate != null) {
+		// Get the birthDate to LocalDate
+		Instant instant = Instant.ofEpochMilli(birthDate.getTime());
+		LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+		LocalDate localDate = localDateTime.toLocalDate();
+
+		// Get the passing years
+		LocalDate today = LocalDate.now();
+		Period p = Period.between(localDate, today);
+
+		return p.getDays();
+	}
+
+	return age;
+}
+
+
+Add this method to the constructor:
+public FancyHello(String name, Date date) {
+	this.name = name;
+	this.birthDate = date;
+
+	setAge();
+}
+
+
+Crtl-Shift-F->To reformat code.
+[Save]
+
+
+Here is the complete FancyHello:
+public class FancyHello {
+	private String name;
+	private Date birthDate;
+	private int age;
+
+	public FancyHello(String name, Date date) {
+		this.name = name;
+		this.birthDate = date;
+
+		setAge();
+	}
+
+	private void setAge() {
+		if (birthDate != null) {
+			try {
+				// Get the birthDate to LocalDate
+				Instant instant = Instant.ofEpochMilli(birthDate.getTime());
+				LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+				LocalDate localDate = localDateTime.toLocalDate();
+
+				// Get the passing years
+				LocalDate today = LocalDate.now();
+				Period p = Period.between(localDate, today);
+
+				age = p.getYears();
+			} catch (Exception e) {
+			}
+		}
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public Date getBirthDate() {
+		return birthDate;
+	}
+
+	public int getAge() {
+		return age;
+	}
+
+	@Override
+	public String toString() {
+		return "FancyHello [name=" + name + ", birthDate=" + birthDate + ", age=" + age + "]";
+	}
+
+}
+
+
+Add A Test To See If Model Calculates Age 
+------------------------------------------
+Switch to Java Perspective
+
+Select the FancyHello.java->Select the Class icon in the toolbar
+Select Junit Test Case
+Change the Source folder to: basicproject02/test/main/java
+
+o Add the test as getAge()
+@Test
+void getAge() {
+	LocalDate date = LocalDate.of(1960, Month.JANUARY, 1);
+	Date birthdate = Date.from(date.atStartOfDay(ZoneId.systemDefault()).toInstant());
+
+	FancyHello hello = new FancyHello("user1", birthdate);
+	
+	Assert.assertEquals(hello.getAge(),59);
+}
+
+As of June 2019, the age will be 59.
+
+
+
+
+See steps07_gitsteps.txt:
+Show the Git Stating
+
+
+
+
+

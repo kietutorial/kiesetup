@@ -1,0 +1,108 @@
+Create a New Branch
+-------------------------------------
+Select the Git Perspective
+
+See steps07_gitsteps.txt: 
+Create Branch For Adding Drool Rules
+Rename Project and pom.xml. Use project name basicproject08 
+
+
+Check out the branch - Make Acive
+-------------------------------------
+Double click Local branch->basicprojec00 if its not selected
+It is now the active branch and not master
+
+
+Set steps99_gitstashes.txt:
+Clone The Branch
+
+
+o A new local repository branch basicproject00 is created 
+Its destination directory: 
+/mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/basicproject00
+Check->Clone submodules
+
+
+The project for eclipse is located at:
+/mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/basicproject00/basicproject
+
+
+Rename Project and pom.xml
+----------------------------------------------
+We can update this project, like rename the project:
+Right click the maven project name: basicproject02->Refactor->Rename
+New name: basicproject00
+
+Change the pom.xml:
+artifactId: basicproject00
+name:Drools 7 Basic Branch Init 00
+description: Init Drools 7 project using branch 00
+
+
+See steps07_gitsteps.txt: 
+o Commit Changes. Use message: Init Drools 7 project using branch 00
+
+
+Review Repository Working Tree With Branch
+--------------------------------------------------------------------
+Select the Git Perspective
+Select root repository->drools7repository
+
+View the pom.xml - we see the latest changes:
+artifactId: basicproject00
+description: Init Drools 7 project using branch 00
+
+- The branch change made it to the repository from the local basicproject00
+
+
+
+Switch Back to the Master
+--------------------------------------------------------------------
+Select the Git Perspective
+
+Select the drools7repository repository->double click branch->master
+[Check Out]
+
+View the pom.xml. Its back to the original intitial commit:
+artifactId: basicproject
+description: Drools 7 Basic Project
+
+
+Select the drools7repository repository->double click branch->basicproject00
+[Check Out]
+
+View the pom.xml - we see the latest changes:
+artifactId: basicproject00
+description: Init Drools 7 project using branch 00
+
+
+
+Delete this local Git Repository
+----------------------------------------------
+Select the Git Perspective
+
+Select the basicproject00 repository
+Delete it by->Right click->Delete repository
+Check->Delete Git repository data and history
+
+The basicproject project is also removed from the workspace
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+

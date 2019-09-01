@@ -1,0 +1,61 @@
+How to install drools plugin in eclipse
+-----------------------------------------------------------------------------
+
+o Fedora Version
+I used Fedora 28 as of June 2019
+
+
+o JDK
+I use JDK 1.8
+
+
+o Eclipse
+Version: 2019-03 (4.11.0)
+
+
+o Download Drools Latest Plugin 
+http://www.drools.org/download/download.html
+- Select Drools and jBPM tools, in the middle of the page -> Distribution ZIP
+- Download the most recent
+https://download.jboss.org/drools/release/7.20.0.Final/droolsjbpm-tools-distribution-7.20.0.Final.zip
+
+
+o Download Older Drools Version 7.20.0
+https://download.jboss.org/drools/release/
+https://download.jboss.org/drools/release/7.20.0.Final/
+The downloads:
+business-central-7.20.0.Final-eap7.war
+business-central-7.20.0.Final-wildfly14.war
+drools-distribution-7.20.0.Final.zip
+droolsjbpm-integration-distribution-7.20.0.Final.zip
+droolsjbpm-tools-distribution-7.20.0.Final.zip
+kie-server-distribution-7.20.0.Final.zip
+
+- Download droolsjbpm-tools-distribution-7.20.0.Final.zip
+
+
+o Linux Plugin Directory
+- I unzipped to a directory:
+/home/pchauvet/easystore/droolsjbpm-tools-distribution-7.20.0.Final/binaries/org.drools.updatesite
+
+
+
+o Installing the plugins in Eclipse Download Eclipse
+- Open Eclipse.
+- Open the menu "Help", menu item "Install new software..."
+- Click on the button "Add..." to add a new software site.
+- Fill in the name "Drools7"
+- Click on the button "Local..." and select "file:///home/pchauvet/easystore/droolsjbpm-tools-distribution-7.20.0.Final/binaries"
+- Select all the plugins. Click the buttons "Next" and "Finish".
+- Restart eclipse
+
+
+
+o Check Eclipse Intallation
+Window->Preferences
+See Drools and JBPM as part of the preferences
+
+
+
+
+

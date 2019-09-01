@@ -1,0 +1,171 @@
+Create Rule Test
+----------------------------------------
+
+See steps07_gitsteps.txt: 
+Create Branch For Adding Drool Rules
+Rename Project and pom.xml. Use project name basicproject14 
+
+
+Create A Junit Test
+----------------------------------------
+In the test/main/java, package com.droolsexample.basicproject
+Create a class: FancyHelloRuleTest.java
+New->Class->Name: FancyHelloRuleTest.java
+
+Create a test method:
+@Test
+public void sayHello() {
+	
+}
+
+Fix import for @Test
+
+
+
+Let Us Keep It Simple
+----------------------------------------
+o In the FancyHello class, let add the default constructor
+public FancyHello() {
+}
+
+o Add a method to set the age:
+public void setAge(int age) {
+	this.age = age;
+}
+
+o Keep it simple in creating the FancyHello object.
+As you will see later to create a FancyHello rule we need to add
+the birth date. For now we don't care to compute the age. Later
+we will move the calculation to a helper class to set the age.
+
+
+Add KieService and Rule Configuration
+----------------------------------------
+try {
+	// load up the knowledge base
+	KieServices ks = KieServices.Factory.get();
+	KieContainer kContainer = ks.getKieClasspathContainer();
+	KieSession kSession = kContainer.newKieSession("ksession-rules");
+
+	FancyHello hello = new FancyHello();
+	kSession.insert(hello);
+	kSession.fireAllRules();
+} catch (Throwable t) {
+	t.printStackTrace();
+}
+
+
+o Load the KieServices, KieContainer and KieSession
+KieServices ks = KieServices.Factory.get();
+KieContainer kContainer = ks.getKieClasspathContainer();
+KieSession kSession = kContainer.newKieSession("ksession-rules");
+
+
+o Inject the FancyHello into the session and fire the rule
+FancyHello hello = new FancyHello();
+kSession.insert(hello);
+kSession.fireAllRules();
+
+
+Run The Test
+----------------------------------------
+o Right click the sayHello() method
+Run As->Junit
+
+We errors:
+	java.lang.RuntimeException: Error while creating KieBase[Message [id=1, level=ERROR, path=fancyhello.drl, line=12, column=0
+	   text=[ERR 102] Line 12:4 mismatched input 'then' in rule "Your First Rule"], Message [id=2, level=ERROR, path=fancyhello.drl, line=0, column=0
+	   text=Parser returned a null Package]]
+
+Umm?
+	It's pointing us to line 12. 
+	We see on Line 11 only a default constructor FancyHello
+	rule "Your First Rule"
+	    when
+			FancyHello
+	    then
+			System.out.println("We have a fancy hello");
+	end
+
+	Got it! We need to properly declare fact!
+	Add the () after the FancyHello
+
+	rule "Your First Rule"
+	    when
+			FancyHello()
+	    then
+			System.out.println("We have a fancy hello");
+	end
+
+	
+Run The Test
+----------------------------------------
+o Right click the sayHello() method
+Run As->Junit
+
+We see the rule system out message:
+"We have a fancy hello"
+
+
+How the kmodule.xml Knowledge Configuration is Used
+------------------------------------------------------
+In the kmodule.xml we define the kbase for rules:
+<kbase name="rules" packages="rules">
+	<ksession name="ksession-rules"/>
+</kbase>
+
+packages="rules" means we look for drools rule in the directory
+src/main/resources/rules. For now it only has one rule: fancyhello.drl.
+
+<ksession name="ksession-rules"/> define its name as: ksession-rules.
+Which we use as an handle to get to this rule in the knowledge session.
+
+We create the session using this configuration name: ksession-rules
+KieSession kSession = kContainer.newKieSession("ksession-rules");
+
+This is how the rules engine finds:
+location of rules: packages="rules"
+configured with session name hanlde: "ksession-rules"
+load it in ethe new KieSession: kContainer.newKieSession("ksession-rules");
+
+
+Insert Facts for rule to process
+----------------------------------------
+Create a fancy hello object:
+FancyHello hello = new FancyHello();
+
+Insert the fact in the session:
+kSession.insert(hello);
+
+Fire, trigger the rules engine:
+kSession.fireAllRules();
+
+Drools engine will do the rest in processing the fancyhello.drl if its valid.
+
+
+See steps07_gitsteps.txt: 
+o Commit Changes. Add First Drools rule with test class
+
+
+View Latest Changes in the Root repository: drools7repository
+----------------------------------------------------------------------
+Go to drools7repository/ repository
+
+o I had deleted the drools7repository
+In the local repository basicprojec04->Select the Working Tree
+Right click->Add to Index
+
+
+See steps07_gitsteps.txt: 
+o Commit Changes. Force Add First Drools rule with test class
+
+
+o Look for FancyHello.java changes
+We don't see it the default constructor FancyHello()
+
+The .project file does not contain the basicproject04
+
+The local basicproject04/ has the changes.
+
+
+

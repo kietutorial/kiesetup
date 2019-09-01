@@ -1,0 +1,431 @@
+Refactor Age Calculation
+--------------------------------------------------------
+
+See steps07_gitsteps.txt: 
+Create Branch For Adding Drool Rules
+Rename Project and pom.xml. Use project name basicproject228
+
+
+o Here is the current data model for FancyHello:
+
+public class FancyHello {
+	private String name;
+	private Date birthDate;
+	private int age;
+
+	public FancyHello(String name, Date date) {
+		this.name = name;
+		this.birthDate = date;
+
+		setAge();
+	}
+
+	private void setAge() {
+		if (birthDate != null) {
+			try {
+				// Get the birthDate to LocalDate
+				Instant instant = Instant.ofEpochMilli(birthDate.getTime());
+				LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+				LocalDate localDate = localDateTime.toLocalDate();
+
+				// Get the passing years
+				LocalDate today = LocalDate.now();
+				Period p = Period.between(localDate, today);
+
+				age = p.getYears();
+			} catch (Exception e) {
+			}
+		}
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public Date getBirthDate() {
+		return birthDate;
+	}
+
+	public int getAge() {
+		return age;
+	}
+
+	@Override
+	public String toString() {
+		return "FancyHello [name=" + name + ", birthDate=" + birthDate + ", age=" + age + "]";
+	}
+
+}
+
+
+o Not a good idea these days to have logic in a domain object.
+  Where does this logic belong? Ummmm Drools rule? Yup!
+
+  Let us do the age caculation only if a rule is fired. This save on
+  the CPU precious nano seconds, plus make our domain object really
+  light.
+
+
+
+Utility Class To Handle Age Calculation
+--------------------------------------------------------
+o Create the age calculation her:
+
+public class FancyHelloUtility {
+
+	public static int getAge(Date birthDate) {
+		int age = 0;
+
+		if (birthDate != null) {
+			try {
+				// Get the birthDate to LocalDate
+				Instant instant = Instant.ofEpochMilli(birthDate.getTime());
+				LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+				LocalDate localDate = localDateTime.toLocalDate();
+
+				// Get the passing years as the age
+				LocalDate today = LocalDate.now();
+				Period p = Period.between(localDate, today);
+
+				age = p.getYears();
+			} catch (Exception e) {
+			}
+		}
+
+		return age;
+	}
+
+}
+
+
+Create Junit Test For This Utility
+-------------------------------------------
+o In the src/main/java, package com.droolsexample.util
+Right click the FancyHelloUtility.java file->New->Other->Junit->Junit Test Case
+Nerxt->Change Source folder to: basicproject10/test/main/java
+Name: FancyHelloUtilityTest
+[Finish]
+
+
+A new class is created in the basicproject10/test/main/java directory.
+
+o Add new test to FancyHelloUtilityTest
+Open file and add test to test age calculation:
+
+@Test
+void getAge() {
+	LocalDate tDate = LocalDate.of(1960, 01, 01);
+	Date birthdate = Date.from(tDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+
+	int age = FancyHelloUtility.calculateAge(birthdate);
+	Assert.assertTrue(age > 0);
+}
+
+Fix all import, by clicking red icon and import classes.
+
+o Run test getAge()
+It show go green
+
+
+Change the FancyHello to Not Set Age In the Domain Object
+--------------------------------------------------------
+public class FancyHello {
+	private String name;
+	private Date birthDate;
+	private int age;
+
+	public FancyHello() {
+	}
+
+	public FancyHello(String name, Date date) {
+		this.name = name;
+		this.birthDate = date;
+	}
+
+	public String getName() {
+		return name;
+	}
+
+	public void setBirthDate(Date bdate) {
+		this.birthDate = bdate;
+	}
+
+	public Date getBirthDate() {
+		return birthDate;
+	}
+
+	public void setAge(int age) {
+		this.age = age;
+	}
+
+	public int getAge() {
+		return age;
+	}
+
+	@Override
+	public String toString() {
+		return "FancyHello [name=" + name + ", birthDate=" + birthDate + ", age=" + age + "]";
+	}
+
+}
+
+Wow, its now so clean!
+
+
+Use the FancyHelloUtility as a Global Variable
+--------------------------------------------------------
+o Add it to the a new test to get the age. Add a new test to FancyHelloRuleTest.java.
+
+@Test
+public void getAge() {
+	try {
+		sessionStatefull = KnowledgeSessionHelper.getStatefulKnowledgeSession(kieContainer, "ksession-rules");
+		OutputDisplay outputDisplay = new OutputDisplay();
+		sessionStatefull.setGlobal("showResults", outputDisplay);
+
+		FancyHelloUtility fancyHelloUtil = new FancyHelloUtility();
+		sessionStatefull.setGlobal("fancyHelloUtil", fancyHelloUtil);
+
+		LocalDate tDate = LocalDate.of(1960, 01, 01);
+		Date birthDate = Date.from(tDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+
+		FancyHello hello = new FancyHello();
+		hello.setBirthDate(birthDate);
+
+		sessionStatefull.insert(hello);
+		sessionStatefull.fireAllRules();
+	} catch (Throwable t) {
+		t.printStackTrace();
+	}
+}
+
+We added a new global: "fancyHelloUtil"
+FancyHelloUtility fancyHelloUtil = new FancyHelloUtility();
+sessionStatefull.setGlobal("fancyHelloUtil", fancyHelloUtil);
+
+o We continue and create a date the Java 8 way
+LocalDate tDate = LocalDate.of(1960, 01, 01);
+Date birthDate = Date.from(tDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+
+o We create a new fact for fancy hello and add the birthDate:
+FancyHello hello = new FancyHello();
+hello.setBirthDate(birthDate);
+
+o We fire our Drool rule the normal way:
+sessionStatefull.insert(hello);
+sessionStatefull.fireAllRules();
+
+
+Create A New Drols File To Handle Age Calculation
+--------------------------------------------------------
+o In src/main/resources, create a file a new drools rule file
+fancyhelloagecalculation.drl
+
+o Add the new FancyHelloUtility as a Global Variable
+
+//declare any global variables here
+global FancyHelloUtility fancyHelloUtil;
+
+
+o Add a new rule
+rule "Get Age"
+	//Run this rule once, because of update
+	no-loop
+    when
+		$fancyhello: FancyHello( $td: birthDate != null )
+		
+			//Run this rule once, because of update
+    then
+    	int $age = fancyHelloUtil.getAge($td);
+    	$fancyhello.setAge($age);
+    		//Update model change - good practive to let engine know of this change
+    	update($fancyhello)
+    	
+		showResults.showText("We calculated age, age is: " + $age);
+end
+
+
+o Run new getAge() test
+We see this output:
+time=1562195574232: We calculated age, age is: 59
+time=1562195574234: We have a fancy hello
+
+How come two rules are fired?
+rule "Get Age" of course get's fired from file: fancyhelloagecalculation.drl
+
+But we have the original rule in file: fancyhello.drl
+rule "Your First Rule"
+    when
+		FancyHello()
+    then
+		showResults.showText("We have a fancy hello");
+end
+
+It says if we have a FancyHello object, fire and display and formated message with time:
+time=1562195574234: We have a fancy hello
+
+o What did we see?
+Even though rules are in two different files: fancyhello.drl, fancyhelloagecalculation.drl 
+The rules engine does not discriminate and it will fire all rules that match!
+
+That is why we see two messages!
+
+
+Add Another Rule To Use The Constructor With name and brith date
+------------------------------------------------------------------------
+o We will add this rule in the file: fancyhelloagecalculation.drl 
+
+rule "Get Philip Birthdate"
+	//We don't use no-loop here since we don't want engine to know of age change
+    when
+		$fancyhello: FancyHello( $name: name == "Philip" && $bd: birthDate != null )
+    then
+    	int $age = fancyHelloUtil.calculateAge($bd);
+    	$fancyhello.setAge($age);
+    	
+	showResults.showText($fancyhello.getName() + 
+			 " birthdate is " + 
+			 $fancyhello.getBirthDate() +
+			 ". He is "  + $fancyhello.getAge()  + " years old.");
+end
+
+
+The rule name is: Get Philip Birthdate. We are calculating the age for a person name "Philip".
+The condition is at when:
+	$fancyhello: FancyHello( $name: name == "Philip" && $bd: birthDate != null )
+	
+	If the name == "Philip" and we have a define birthdate, do the the age calculation.
+
+	The $fancyhello, $name and $bd are Drools way of assigning variables to the class 
+	fields respectively.
+
+After then we have the action to take:	
+	If this rule matches, based on the fact we provide in the session, we take an
+	actions: 
+	    	int $age = fancyHelloUtil.calculateAge($bd);
+	    	$fancyhello.setAge($age);
+	    	
+		showResults.showText($fancyhello.getName() + 
+				 " birthdate is " + 
+				 $fancyhello.getBirthDate() +
+				 ". He is "  + $fancyhello.getAge()  + " years old.");
+
+	We calculate the age using our globl utility.
+	Set the age to the FancyHello object.
+	Show the information capture in the FancyHello object: name, birthdate and age.
+
+
+o We need to insert the fact to run this rule. We create a new test getPhilipBirthDate() in FancyHelloRuleTest.java
+
+@Test
+public void getPhilipBirthDate() {
+	try {
+		sessionStatefull = KnowledgeSessionHelper.getStatefulKnowledgeSession(kieContainer, "ksession-rules");
+		OutputDisplay outputDisplay = new OutputDisplay();
+		sessionStatefull.setGlobal("showResults", outputDisplay);
+
+		FancyHelloUtility fancyHelloUtil = new FancyHelloUtility();
+		sessionStatefull.setGlobal("fancyHelloUtil", fancyHelloUtil);
+
+		LocalDate tDate = LocalDate.of(1960, 01, 01);
+		Date birthDate = Date.from(tDate.atStartOfDay(ZoneId.systemDefault()).toInstant());
+
+		FancyHello hello = new FancyHello("Philip", birthDate);
+
+		sessionStatefull.insert(hello);
+		sessionStatefull.fireAllRules();
+	} catch (Throwable t) {
+		t.printStackTrace();
+	}
+}
+
+We set the global utility to calculate the age:
+sessionStatefull.setGlobal("fancyHelloUtil", fancyHelloUtil);
+
+We insert the fact using the constructor: FancyHello(String name, Date date)
+FancyHello hello = new FancyHello("Philip", birthDate);
+sessionStatefull.insert(hello);
+sessionStatefull.fireAllRules();
+
+We fire the rule as usual!
+
+
+Run Rule To Use The Constructor With name and brith date
+------------------------------------------------------------------------
+o Let us run getPhilipBirthDate() test.
+
+o We see the output:
+time=1562195991832: We calculated age, age is: 59
+time=1562195991838: Philip birthdate is Fri Jan 01 00:00:00 EST 1960. He is 59 years old.
+time=1562195991840: We have a fancy hello
+
+
+"time=1562195991832: We calculated age, age is: 59" comes for rule: 
+fancyhelloagecalculation.drl: "Calculate Birthdate"
+
+"time=1562195991838: Philip birthdate is Fri Jan 01 00:00:00 EST 1960. He is 59 years old." comes from rule:
+fancyhelloagecalculation.drl: "Get Philip Birthdate"
+
+time=1562195991840: We have a fancy hello comes from rule:
+fancyhello.drl: "Your First Rule"
+
+Nice rule engine! You have to show appreciation to the engine when it runs great!
+
+
+
+Good Code Practice
+------------------------------------------------------------------------
+o What we are doing when we "getAge" is really "calculateAge".
+Let us refactor, the code to change getAge() method to calculateAge().
+
+In our FancyHelloUtility.java:
+right click the method getAge()->Refactor->Rename
+Type in and change name to: calculateAge
+
+Eclipse will do the rest and rename all refences in the test: FancyHelloUtilityTest.java
+See in method getAge() getAge() is change to calculateAge()
+
+
+o In the drl file we have to do this manually. I did not figure out how to get eclipse to do it!
+Of course we can do a search and replace on drls. Let us do that:
+
+Search->File Search->Containing test: getAge
+File name pattern: *.drl
+
+Let use do search first before replacin, Click [Search] button
+I prefer to one by one change the files, why, the FancyHello.java has a getAge method also.
+We don't want to replace that.
+
+The rule "Calculate Birthdate" and "Get Philip Birthdate" has this method.
+Change them manually for now.
+
+
+
+See steps07_gitsteps.txt: 
+o Commit Changes. Use message: Refactoring age calculation
+
+
+
+
+What have we done!
+------------------------------------------------------------------------
+o Remove the age calculation from the model class to a utility helper class.
+  See FancyHello.java	
+o Use utility classes to help out drools to getAge(), nope, calculate age.
+  See FancyHelloUtility.java	
+o Use several drools rule DRL file to capture rules. Each file has one intention:
+  fancyhello.drl - basic setup
+  fancyhelloagecalculation.drl - rules that does age calculation
+o Add more test to FancyHelloRuleTest.java
+  sayHello() - Uses FancyHelloUtility to calculate age
+  calculateBirthDate() - Calculate age by setting birth date.
+  getPhilipBirthDate() - Calculate age using FancyHello(String name, Date date) constructor
+o Refactored to rename getAge() to calculateAge() 	
+
+
+
+
+
+
+
+

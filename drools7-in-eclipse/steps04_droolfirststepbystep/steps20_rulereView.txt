@@ -1,0 +1,59 @@
+Review Rule and DRL File
+----------------------------------------
+We created a rule: fancyhello.drl. What does it all mean.
+
+//packages
+package com.droolsexample.basicproject
+
+//list any import classes here.
+import com.droolsexample.basicproject.FancyHello;
+
+//declare any global variables here
+
+rule "Your First Rule"
+    when
+		FancyHello()
+    then
+		System.out.println("We have a fancy hello");
+end
+
+
+1. Package definition
+All rules should be defined withing a package, similar to a java package
+Ex: package com.droolsexample.basicproject
+
+2. Package and oject imports
+Like a java class, we can import data, data model, services or object needed to run the rule.
+Ex: import com.droolsexample.basicproject.FancyHello;
+
+3. Create object, variables here in the rule, instead of importing them
+//declare any global variables here
+
+4. All rules must have name: "Your First Rule"
+rule "Your First Rule"
+
+5. The Left Hand Side (LHS), the rule conditions. Condition for RETE algorithm.
+   The rules engine, matches the LHS definition. 
+when
+	FancyHello()
+
+Ex: 
+	After the when, we define the FancyHello() object with no constraints.
+	Which simply states the FancyHello fact exist as an inserted fact.
+   	Remember, we inserted this fact before firing the session:
+		FancyHello hello = new FancyHello();
+		sessionStatefull.insert(hello);
+
+6. The Right Hand Side (RHS), the rule actions. Triggered when rule condition is matched.
+then
+	System.out.println("We have a fancy hello");
+
+Ex:
+	This rule action simply outputs a message.
+
+7. We have to end the rule definition
+end
+
+For now these are the basics of a rule definition.
+
+

@@ -1,0 +1,57 @@
+Git Step To Use While Developing
+----------------------------------------------------------------
+
+
+Create Branch For Adding Drool Rules
+----------------------------------------------
+Select root repository (drools7repository)->Branches->Local
+Right click Local->Switch to new branch->
+Branch name: <branchname>
+Check->Configure upstream for push and pull
+When pulling->Merge
+[Finish]
+
+
+
+Import Current Branch Into Eclipse
+----------------------------------------------
+o Select the Git Perspective
+
+o Select Desired branch
+Right click Local->Switch to new branch->
+Double Click: <branchname>
+[Checkout]
+
+o Select project in Working Tree
+For example select the <basicproject>
+Right click->Import Projects
+
+o This project is imported in the Java/J2ee Perspective
+Note: 
+	We are working on the /home/pchauvet/git/drools7repository as the workspace. Not our true workspace: /mnt/FDEV/DROOLSWORKSPACE/workspacedroolsonboarding62/. 
+	The code being changed is the branch code.
+
+
+
+Commit Changes 
+---------------------------------------
+Select the Git Perspective
+
+Window->Show View->Other->Git->Git Staging
+Show the Git Stating
+
+o Add all the unstage changes to State Changes
+This is the git add all via gui.
+Click the double ++ to add all unstaged files
+Commit message: <provid message>
+[Commit]
+
+
+
+Rename Project and pom.xml
+----------------------------------------------
+We can update this project, like rename the project:
+Right click the maven project name: 
+New name: <newprojectname>
+
+

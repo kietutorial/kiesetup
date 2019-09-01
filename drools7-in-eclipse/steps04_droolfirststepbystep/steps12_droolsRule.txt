@@ -1,0 +1,63 @@
+Manually Create Drools Rule
+-------------------------------------
+
+See steps07_gitsteps.txt: 
+o Create Branch For Adding Drool Rules
+o Rename Project and pom.xml. Use project name basicproject04 
+
+
+Manually Create Drools Rule
+-------------------------------------
+o Create the rules directory in the resources
+Select Drools icon->New Rule->Select project: basicproject04
+Right click->src/main/resources->New->Folder name: rules
+
+Drill down to: src/main/resources/rules directory
+Select Drools icon->New Rule->Select project: basicproject04
+File name: fancyhello
+Rule package name: com.droolsexample.basicproject
+[Finish]
+
+Under the src/main/resources/rules directory we see fancyhello.drl
+
+
+
+Clean Up And Add Drools Rule
+-------------------------------------
+Remove and extra space.
+
+Change:
+	rule "Your First Rule"
+	    when
+		//conditions
+	    then
+		//actions
+	end
+To:
+rule "Your First Rule"
+    when
+	FancyHello
+    then
+	System.out.println("We have a fancy hello");
+end
+
+Add the import to the top of the rule after the package:
+import com.droolsexample.basicproject.FancyHello;
+
+
+Using the kmodule.xml Knowledge configuration
+----------------------------------------
+In the kmodule.xml we define the kbase for rules:
+<kbase name="rules" packages="rules">
+	<ksession name="ksession-rules"/>
+</kbase>
+
+Delete the process and dtables knowledge base.
+
+
+We only need only this rule for now.
+
+
+See steps07_gitsteps.txt: 
+o Commit Changes. Use message: Drools 7 project data model
+

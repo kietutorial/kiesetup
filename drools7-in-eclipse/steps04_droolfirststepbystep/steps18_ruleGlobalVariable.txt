@@ -1,0 +1,109 @@
+Adding a Global Variable To the Rule
+------------------------------------------------------------------------------
+
+See steps07_gitsteps.txt: 
+Create Branch For Adding Drool Rules
+Rename Project and pom.xml. Use project name basicproject18
+
+
+o Suppose we want to display the time as part of the system out message
+the rule generates. Ex:
+	rule "Your First Rule"
+	    when
+			FancyHello()
+	    then
+			System.out.println("We have a fancy hello");
+	end
+
+Not only for this rule but prefix the time for all rule messages.
+
+
+Create Another Utility To Display Message As part of the Global Variable
+------------------------------------------------------------------------------
+package com.droolsexample.util;
+
+package com.droolsexample.util;
+
+public class OutputDisplay {
+
+    public void showText(String someText) {
+        long time = System.currentTimeMillis();
+        System.out.println("time=" + time + ": " + someText);
+    }
+
+}
+
+
+Use this Helper Class In the Global Variable
+------------------------------------------------------------------------------
+//list any import classes here.
+import com.droolsexample.basicproject.FancyHello;
+import com.droolsexample.util.OutputDisplay;
+
+//declare any global variables here
+global OutputDisplay showResults;
+
+rule "Your First Rule"
+    when
+		FancyHello()
+    then
+		showResults.showText("We have a fancy hello");
+end
+
+
+Run The Test
+----------------------------------------
+o Right click the sayHello() method
+Run As->Junit
+
+Error:
+	Exception executing consequence for rule "Your First Rule" in com.droolsexample.basicproject: java.lang.NullPointerException
+	..
+	Caused by: java.lang.NullPointerException
+		at com.droolsexample.basicproject.Rule_Your_First_Rule1011126541.defaultConsequence(Rule_Your_First_Rule1011126541.java:7)
+	..
+What happened:
+	Around line 7 in the rule, we have an issue? 
+	Thats the: global OutputDisplay showResults;
+	
+	The rule does not know about "showResults"
+	
+	Just like facts, global has to be inserted also:
+
+
+Insert the Global as Part Of Rule Setup
+----------------------------------------
+try {
+	sessionStatefull = KnowledgeSessionHelper.getStatefulKnowledgeSession(kieContainer, "ksession-rules");
+	OutputDisplay outputDisplay = new OutputDisplay();
+	sessionStatefull.setGlobal("showResults", outputDisplay);
+	
+	FancyHello hello = new FancyHello();
+	sessionStatefull.insert(hello);
+	sessionStatefull.fireAllRules();
+} catch (Throwable t) {
+	t.printStackTrace();
+}
+}
+
+Insert the glogal:
+sessionStatefull.setGlobal("showResults", outputDisplay);
+
+
+Run The Test
+----------------------------------------
+o Right click the sayHello() method
+Run As->Junit
+
+We see the messsage prefixed with time:
+time=1562036453277: We have a fancy hello
+
+All test can use this global.
+
+
+See steps07_gitsteps.txt: 
+o Commit Changes. Use message: Adding Global variable to test
+
+
+
+

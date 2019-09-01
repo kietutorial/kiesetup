@@ -1,0 +1,156 @@
+Manually Configure Drools Project
+-------------------------------------
+o Change perspective to Drools
+Window->Perspective->Open Perspective->Other->Select Drools icon
+
+We should see Drools Drop down in toolbar.
+
+
+o Create an empty drools project
+Select Drolls Drop down->New Drools Project
+Select "Create an empty project"->Next
+Project name: basicproject
+Build the Project using: maven
+Group Id: com.droolsexample
+[Finish]
+
+
+
+Review Created Project
+-------------------------------------
+o Under /src/main/java, we see com.sample package.
+This is wrong, we should see the the package: com.droolsexample.basicproject. 
+We will fix later.
+
+src/main/resources:
+This has the directories for:
+dtables - decision rules (excels sheets rules)
+process - jBPM rules (process rules)
+rules   - Drool rules
+
+META-INF/kmodule.xml
+It has predefined knowledge base modules names:
+ksession-rules, ksession-dtables and ksession-process
+
+logback-test.xml - The default logback logging configuration
+
+META-INF/maven/pom.propeties - POM maven information
+
+
+o Drools plugin does not create the correct package name
+Let us rename com.sample:
+Rigth click package: com.sample->Refactor
+Rename to: com.droolsexample.basicproject
+
+
+
+Create the test source library
+-------------------------------------
+o Select basicproject->Right click mouse
+New->Source Folder->test/main/java
+[Finish]
+
+o Create the test package:
+Right click->test/main/java->New->Package
+Name: com.droolsexample.basicproject
+[Finish]
+
+
+Select basicproject->Right click mouse->Maven->Update project
+
+
+
+Let us focus only on Drools rule
+-------------------------------------
+o In src/main/resources remove these directories:
+dtables
+process
+
+Change META-INF/kmodule.xml
+Remove the ksession-dtables and ksession-process kbase
+
+
+Review pom.xml
+-------------------------------------
+o Select raw pom.xml tab
+
+We see the drools runtime version:
+<properties>
+	<runtime.version>6.4.0.Final</runtime.version>
+</properties>
+
+We see the jboss maven repository location:
+<repositories>
+	<repository>
+		<id>jboss-public-repository-group</id>
+		<name>JBoss Public Repository Group</name>
+		<url>http://repository.jboss.org/nexus/content/groups/public/</url>
+		<releases>
+			<enabled>true</enabled>
+			<updatePolicy>never</updatePolicy>
+		</releases>
+		<snapshots>
+			<enabled>true</enabled>
+			<updatePolicy>daily</updatePolicy>
+		</snapshots>
+	</repository>
+</repositories>
+
+We see dependencies:
+Within the major dependencies:
+<dependencies>
+<dependencies>
+
+We see container dependencies:
+<dependency>
+	<groupId>org.kie</groupId>
+	<artifactId>kie-api</artifactId>
+	<version>${runtime.version}</version>
+</dependency>
+
+We see Drools dependencies:
+<dependency>
+	<groupId>org.drools</groupId>
+	<artifactId>drools-core</artifactId>
+	<version>${runtime.version}</version>
+</dependency>
+<dependency>
+	<groupId>org.drools</groupId>
+	<artifactId>drools-decisiontables</artifactId>
+	<version>${runtime.version}</version>
+</dependency>
+
+Add jBPM dependencies:
+<dependency>
+	<groupId>org.jbpm</groupId>
+	<artifactId>jbpm-test</artifactId>
+	<version>${runtime.version}</version>
+</dependency>
+
+
+
+Add JUnit To Allow Testing
+-------------------------------------
+o At the bottom of the pom.xml <dependencies> add the Junit dependency:
+<dependency>
+    <groupId>junit</groupId>
+    <artifactId>junit</artifactId>
+    <version>4.8.1</version>
+    <scope>test</scope>
+</dependency>
+
+Crtl-Shift-F->To reformat code.
+
+Select basicproject->Right click mouse->Maven->Update project
+Select basicproject->Right click mouse->Refresh
+
+[Save]
+
+
+o Add Junit to the project
+Select basicproject->Right click mouse->Java Build Path->Libraries
+Add Library->Junit->Junit 5
+[Apply and Close]
+
+
+

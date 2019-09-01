@@ -1,0 +1,16 @@
+//created on: Jul 1, 2019
+package com.droolsexample.basicproject
+
+//list any import classes here.
+import com.droolsexample.basicproject.FancyHello;
+import com.droolsexample.util.OutputDisplay;
+
+//declare any global variables here
+global OutputDisplay showResults;
+
+rule "Your First Rule"
+    when
+		FancyHello()
+    then
+		showResults.showText("We have a fancy hello");
+end

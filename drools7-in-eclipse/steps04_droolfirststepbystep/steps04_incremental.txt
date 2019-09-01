@@ -1,0 +1,40 @@
+Incremental Project Copy and Rename
+---------------------------------------------
+o Copy project from basicproject to basicproject02
+Select basicproject->Right click mouse->Copy
+Place cursor in package explorer, below projects
+Right click mouse->Paste->Enter in dialog->Name: basicproject02
+
+o Rename pom.xml information:
+Click pom.xml->Select Overview tab
+Change Artifact Id to: basicproject02
+Change Description to: Basic drools project setup
+
+
+
+** Big Warning - Don't Do this!
+---------------------------------------------
+Suppose we had 20 modification and steps in this project?
+We would create 20 different eclipse projects? Of course not! We will use GIT! 
+
+What does GIT mean, what is its acronym? It's a currious story I understand so well!
+
+Linus Torvalds developed Linux and he called it "GIT". What's in a name?
+I don't know in what period of time it was, but at some point in the 70s, 
+it was and english slang for "a stupid person”. "Stupid Person!"
+
+Well here is some definition I have in common with "Linus Torvalds". He said:
+"I'm an egotistical bastard, and I name all my projects after myself." Git!
+
+There you have, we will from now on use the - STUPID GIT! Which is not so stupid!
+Remember me!
+
+
+
+
+
+
+ 
+ 
+
+
