@@ -11,7 +11,7 @@
 	<description>Drools 7 project - add global varialbe</description>
 
 	<properties>
-		<runtime.version>6.4.0.Final</runtime.version>
+		<runtime.version>7.60.0.Final</runtime.version>
 	</properties>
 
 	<repositories>
